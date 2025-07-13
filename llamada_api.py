@@ -28,8 +28,9 @@ def fetch_checkins(start_date: str, end_date: str, device_filter: str):
         ]
     )
 
+    # Se añade 'employee_name' a los campos solicitados a la API
     params = {
-        "fields": json.dumps(["employee", "time"]),
+        "fields": json.dumps(["employee", "employee_name", "time"]),
         "filters": filters,
     }
 
@@ -59,8 +60,8 @@ def fetch_checkins(start_date: str, end_date: str, device_filter: str):
 
 def process_checkins_to_dataframe(checkin_data, start_date, end_date):
     """
-    Procesa los datos de checadas para crear un DataFrame que incluye todos los
-    días del periodo para cada empleado, y añade el día de la semana.
+    Procesa los datos de checadas para crear un DataFrame que incluye el nombre del
+    empleado y todos los días del periodo, además del día de la semana.
     """
     if not checkin_data:
         print("No se encontraron registros de checadas para el periodo especificado.")
@@ -71,7 +72,15 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
     df["dia"] = df["time"].dt.date
     df["checado_time"] = df["time"].dt.strftime("%H:%M:%S")
 
-    # Pivota los datos de checadas como antes
+    # --- Nueva lógica para mapear employee_id con employee_name ---
+    # 1. Crear un DataFrame para mapear ID con Nombre
+    employee_map = (
+        df[["employee", "employee_name"]]
+        .drop_duplicates()
+        .rename(columns={"employee_name": "Nombre"})
+    )
+
+    # Pivota los datos de checadas
     df["checado_rank"] = df.groupby(["employee", "dia"]).cumcount() + 1
     df_pivot = df.pivot_table(
         index=["employee", "dia"],
@@ -79,26 +88,23 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
         values="checado_time",
         aggfunc="first",
     )
-
-    # Renombra las columnas de checadas para que sean más genéricas antes del merge
     df_pivot.columns = [f"checado_{i}" for i in range(1, len(df_pivot.columns) + 1)]
     df_pivot.reset_index(inplace=True)
 
-    # --- Nueva lógica para incluir todos los días del periodo ---
-
-    # 1. Obtener todos los empleados únicos y crear el rango de fechas
+    # 2. Obtener todos los empleados únicos y crear el rango de fechas
     all_employees = df["employee"].unique()
     all_dates = pd.to_datetime(pd.date_range(start=start_date, end=end_date)).date
 
-    # 2. Crear un DataFrame base con todas las combinaciones de empleado y fecha
     base_df_data = list(product(all_employees, all_dates))
     base_df = pd.DataFrame(base_df_data, columns=["employee", "dia"])
 
-    # 3. Convertir 'dia' a objeto de fecha en df_pivot para que el merge funcione
     df_pivot["dia"] = pd.to_datetime(df_pivot["dia"]).dt.date
 
-    # 4. Unir el DataFrame base con los datos de checadas
-    final_df = pd.merge(base_df, df_pivot, on=["employee", "dia"], how="left")
+    # 3. Unir el DataFrame base con los datos de checadas
+    daily_df = pd.merge(base_df, df_pivot, on=["employee", "dia"], how="left")
+
+    # 4. Unir el resultado con el mapa de nombres de empleado
+    final_df = pd.merge(daily_df, employee_map, on="employee", how="left")
 
     # 5. Añadir la columna del día de la semana en español
     dias_espanol = {
@@ -114,9 +120,9 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
         pd.to_datetime(final_df["dia"]).dt.day_name().map(dias_espanol)
     )
 
-    # 6. Reordenar las columnas
+    # 6. Reordenar las columnas para el formato final
     checado_cols = sorted([c for c in final_df.columns if "checado_" in c])
-    new_col_order = ["employee", "dia", "dia_semana"] + checado_cols
+    new_col_order = ["employee", "Nombre", "dia", "dia_semana"] + checado_cols
     final_df = final_df[new_col_order]
 
     return final_df
@@ -129,18 +135,14 @@ if __name__ == "__main__":
 
     print(f"Obteniendo registros desde {start_date} hasta {end_date}...")
 
-    # Obtiene los registros de la API
     results = fetch_checkins(start_date, end_date, "%31%")
 
-    # Procesa los datos para crear el DataFrame final
     df_final = process_checkins_to_dataframe(results, start_date, end_date)
 
     if not df_final.empty:
-        # Imprime las primeras filas del DataFrame resultante
         print("\nDataFrame procesado (primeras 5 filas):")
         print(df_final.head())
 
-        # Guarda el DataFrame en un archivo CSV
-        output_filename = "cheques_completos_por_dia.csv"
+        output_filename = "reporte_asistencia_final.csv"
         df_final.to_csv(output_filename, index=False)
         print(f"\nEl DataFrame ha sido guardado en '{output_filename}'")
