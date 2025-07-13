@@ -19,3 +19,5 @@ env/
 .vscode/
 .idea/
 
+# Ignorar archivos de configuración de Python
+!requirements.txt
