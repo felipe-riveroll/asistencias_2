@@ -244,7 +244,6 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
     print(
         "   - Consultando horarios programados en la base de datos (esto puede tardar)..."
     )
-    # Aplica la función de consulta a cada fila del DataFrame
     horarios_data = df.apply(
         lambda row: query_horario_programado(
             row["employee"], pd.to_datetime(row["dia"]).to_pydatetime(), db_conn
@@ -256,7 +255,6 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
         db_conn.close()
         print("   - Conexión a la base de datos cerrada.")
 
-    # Combina los resultados de la BD con el DataFrame principal
     df_horarios = pd.json_normalize(horarios_data).rename(
         columns={
             "hora_entrada": "hora_entrada_programada",
@@ -265,7 +263,6 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
     )
     df = pd.concat([df.reset_index(drop=True), df_horarios], axis=1)
 
-    # --- Calcular Horas Esperadas ---
     def calcular_horas_esperadas(row):
         if pd.isna(row.get("hora_entrada_programada")) or pd.isna(
             row.get("hora_salida_programada")
@@ -282,7 +279,6 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
 
     df["horas_esperadas"] = df.apply(calcular_horas_esperadas, axis=1)
 
-    # --- Analizar Retardos (LÓGICA CORREGIDA) ---
     print("   - Calculando retardos y puntualidad con tolerancia de 15 minutos...")
 
     def analizar_retardo(row):
@@ -293,12 +289,9 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
         checado = pd.to_timedelta(row["checado_1"])
         minutos_tarde = (checado - entrada_prog).total_seconds() / 60
 
-        # Nueva lógica con 15 minutos de tolerancia
         if minutos_tarde <= 15:
-            # Si llega antes, a tiempo, o dentro de los 15 min de tolerancia
             tipo = "A Tiempo"
         else:
-            # Cualquier llegada después de los 15 minutos es un retardo
             tipo = "Retardo"
 
         return pd.Series([tipo, int(minutos_tarde)])
@@ -307,10 +300,8 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
         analizar_retardo, axis=1, result_type="expand"
     )
 
-    # --- Acumular Retardos para Descuento (LÓGICA CORREGIDA) ---
     print("   - Verificando acumulación de retardos para descuentos...")
     df = df.sort_values(by=["employee", "dia"]).reset_index(drop=True)
-    # Ahora solo se cuenta si el tipo es "Retardo"
     df["es_retardo_acumulable"] = df["tipo_retardo"].isin(["Retardo"]).astype(int)
     df["retardos_acumulados"] = df.groupby("employee")["es_retardo_acumulable"].cumsum()
 
@@ -330,7 +321,115 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
 
 
 # ==============================================================================
-# SECCIÓN 4: EJECUCIÓN PRINCIPAL DEL SCRIPT
+# SECCIÓN 4: NUEVA FUNCIÓN PARA GENERAR RESUMEN DEL PERIODO
+# ==============================================================================
+def generar_resumen_periodo(df: pd.DataFrame):
+    """
+    Crea un DataFrame de resumen con totales por empleado, incluyendo el cálculo
+    de horas extra dobles y triples según la ley.
+    """
+    print("\n📊 Generando resumen del periodo...")
+    if df.empty:
+        print("   - No hay datos para generar el resumen.")
+        return
+
+    # --- Preparación de Datos ---
+    # Convertir columnas de tiempo a timedelta para poder sumarlas
+    df["horas_trabajadas_td"] = pd.to_timedelta(
+        df["horas_trabajadas"].fillna("00:00:00")
+    )
+    df["horas_esperadas_td"] = pd.to_timedelta(df["horas_esperadas"].fillna("00:00:00"))
+
+    # Calcular horas extra diarias
+    df["horas_extra_diarias"] = df["horas_trabajadas_td"] - df["horas_esperadas_td"]
+    # Asegurarse de que no haya horas extra negativas
+    df["horas_extra_diarias"] = df["horas_extra_diarias"].apply(
+        lambda x: x if x > timedelta(0) else timedelta(0)
+    )
+
+    # Añadir número de semana para agrupar
+    df["semana_del_año"] = pd.to_datetime(df["dia"]).dt.isocalendar().week
+
+    # --- Agregación Semanal para Horas Extra ---
+    extras_semanales = (
+        df.groupby(["employee", "Nombre", "semana_del_año"])["horas_extra_diarias"]
+        .sum()
+        .reset_index()
+    )
+
+    nueve_horas = timedelta(hours=9)
+    extras_semanales["horas_dobles"] = extras_semanales["horas_extra_diarias"].apply(
+        lambda x: min(x, nueve_horas)
+    )
+    extras_semanales["horas_triples"] = extras_semanales["horas_extra_diarias"].apply(
+        lambda x: x - nueve_horas if x > nueve_horas else timedelta(0)
+    )
+
+    # --- Agregación Total por Empleado ---
+    resumen_empleado = (
+        extras_semanales.groupby(["employee", "Nombre"])
+        .agg(
+            total_horas_dobles=("horas_dobles", "sum"),
+            total_horas_triples=("horas_triples", "sum"),
+        )
+        .reset_index()
+    )
+
+    # Sumar totales de horas y retardos del DataFrame original
+    totales_generales = (
+        df.groupby(["employee"])
+        .agg(
+            total_horas_trabajadas=("horas_trabajadas_td", "sum"),
+            total_horas_esperadas=("horas_esperadas_td", "sum"),
+            total_retardos=("es_retardo_acumulable", "sum"),
+        )
+        .reset_index()
+    )
+
+    # Unir todos los datos en el DataFrame de resumen final
+    resumen_final = pd.merge(resumen_empleado, totales_generales, on="employee")
+
+    # --- Formateo Final ---
+    # Función para convertir timedelta a formato HH:MM:SS
+    def format_timedelta(td):
+        total_seconds = int(td.total_seconds())
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+    # Aplicar formato a todas las columnas de tiempo
+    for col in [
+        "total_horas_trabajadas",
+        "total_horas_esperadas",
+        "total_horas_dobles",
+        "total_horas_triples",
+    ]:
+        resumen_final[col] = resumen_final[col].apply(format_timedelta)
+
+    # Reordenar columnas
+    resumen_final = resumen_final[
+        [
+            "employee",
+            "Nombre",
+            "total_horas_trabajadas",
+            "total_horas_esperadas",
+            "total_retardos",
+            "total_horas_dobles",
+            "total_horas_triples",
+        ]
+    ]
+
+    # Guardar el resumen en un nuevo archivo CSV
+    output_filename = "resumen_periodo.csv"
+    resumen_final.to_csv(output_filename, index=False, encoding="utf-8-sig")
+
+    print(f"✅ Resumen del periodo guardado en '{output_filename}'")
+    print("\n**Visualización del Resumen del Periodo:**\n")
+    print(resumen_final.to_string())
+
+
+# ==============================================================================
+# SECCIÓN 5: EJECUCIÓN PRINCIPAL DEL SCRIPT
 # ==============================================================================
 if __name__ == "__main__":
     # Define aquí el rango de fechas y el dispositivo que quieres analizar
@@ -345,10 +444,10 @@ if __name__ == "__main__":
         # 2. Crear el DataFrame base
         df_base = process_checkins_to_dataframe(checkin_records, start_date, end_date)
 
-        # 3. Aplicar todo el análisis
+        # 3. Aplicar todo el análisis diario
         df_analizado = analizar_asistencia_y_horarios(df_base)
 
-        # 4. Organizar las columnas para el reporte final
+        # 4. Organizar y guardar el reporte detallado
         checado_cols = sorted(
             [c for c in df_analizado.columns if "checado_" in c and c != "checado_1"]
         )
@@ -370,12 +469,14 @@ if __name__ == "__main__":
         final_columns = [col for col in column_order if col in df_analizado.columns]
         df_final = df_analizado[final_columns].fillna("---")
 
-        # 5. Guardar el reporte en un archivo CSV
-        output_filename = "reporte_asistencia_analizado.csv"
-        df_final.to_csv(output_filename, index=False, encoding="utf-8-sig")
+        output_filename_detallado = "reporte_asistencia_analizado.csv"
+        df_final.to_csv(output_filename_detallado, index=False, encoding="utf-8-sig")
 
         print(
-            f"\n\n🎉 ¡Reporte finalizado! Los datos se han guardado en '{output_filename}'"
+            f"\n\n🎉 ¡Reporte detallado finalizado! Los datos se han guardado en '{output_filename_detallado}'"
         )
-        print("\n**Visualización de las primeras 15 filas del reporte:**\n")
+        print("\n**Visualización de las primeras 15 filas del reporte detallado:**\n")
         print(df_final.head(15).to_string())
+
+        # 5. Generar y guardar el nuevo reporte de resumen
+        generar_resumen_periodo(df_analizado)
