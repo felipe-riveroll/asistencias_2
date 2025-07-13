@@ -1,20 +1,25 @@
-# Ignore environment variable definitions
+# Archivos y directorios específicos del proyecto
 .env
-
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-
-# Virtual environment
-.venv/
-venv/
-env/
-
-# Data files
 *.csv
-*.log
+*.pyc
+__pycache__/
 
-# IDE directories
-.vscode/
+# Entornos virtuales
+venv/
+.venv/
+env/
+ENV/
+
+# Archivos generados por IDE
 .idea/
+.vscode/
+*.swp
+*.swo
 
+# Archivos de distribución
+dist/
+build/
+*.egg-info/
+
+# Archivos de logs
+*.log
