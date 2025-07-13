@@ -28,7 +28,6 @@ def fetch_checkins(start_date: str, end_date: str, device_filter: str):
         ]
     )
 
-    # Se añade 'employee_name' a los campos solicitados a la API
     params = {
         "fields": json.dumps(["employee", "employee_name", "time"]),
         "filters": filters,
@@ -60,8 +59,8 @@ def fetch_checkins(start_date: str, end_date: str, device_filter: str):
 
 def process_checkins_to_dataframe(checkin_data, start_date, end_date):
     """
-    Procesa los datos de checadas para crear un DataFrame que incluye el nombre del
-    empleado y todos los días del periodo, además del día de la semana.
+    Procesa los datos de checadas para crear un DataFrame que incluye el nombre,
+    días del periodo, día de la semana y horas trabajadas.
     """
     if not checkin_data:
         print("No se encontraron registros de checadas para el periodo especificado.")
@@ -72,12 +71,29 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
     df["dia"] = df["time"].dt.date
     df["checado_time"] = df["time"].dt.strftime("%H:%M:%S")
 
-    # --- Nueva lógica para mapear employee_id con employee_name ---
-    # 1. Crear un DataFrame para mapear ID con Nombre
     employee_map = (
         df[["employee", "employee_name"]]
         .drop_duplicates()
         .rename(columns={"employee_name": "Nombre"})
+    )
+
+    # --- Nueva lógica para calcular horas trabajadas ---
+    # 1. Calcular la primera y última checada por día
+    df_hours = df.groupby(["employee", "dia"])["time"].agg(["min", "max"]).reset_index()
+    # 2. Calcular la duración y formatearla como HH:MM:SS
+    # Se calcula solo si hay más de un registro, de lo contrario la duración es 0.
+    duration = df_hours["max"] - df_hours["min"]
+    total_seconds = duration.dt.total_seconds()
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    df_hours["horas trabajadas"] = df_hours.apply(
+        lambda row: (
+            f"{int(hours[row.name]):02}:{int(minutes[row.name]):02}:{int(seconds[row.name]):02}"
+            if (row["max"] != row["min"])
+            else "00:00:00"
+        ),
+        axis=1,
     )
 
     # Pivota los datos de checadas
@@ -91,7 +107,6 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
     df_pivot.columns = [f"checado_{i}" for i in range(1, len(df_pivot.columns) + 1)]
     df_pivot.reset_index(inplace=True)
 
-    # 2. Obtener todos los empleados únicos y crear el rango de fechas
     all_employees = df["employee"].unique()
     all_dates = pd.to_datetime(pd.date_range(start=start_date, end=end_date)).date
 
@@ -100,13 +115,18 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
 
     df_pivot["dia"] = pd.to_datetime(df_pivot["dia"]).dt.date
 
-    # 3. Unir el DataFrame base con los datos de checadas
     daily_df = pd.merge(base_df, df_pivot, on=["employee", "dia"], how="left")
 
-    # 4. Unir el resultado con el mapa de nombres de empleado
+    # Unir con el mapa de nombres y las horas trabajadas
     final_df = pd.merge(daily_df, employee_map, on="employee", how="left")
+    df_hours["dia"] = pd.to_datetime(df_hours["dia"]).dt.date
+    final_df = pd.merge(
+        final_df,
+        df_hours[["employee", "dia", "horas trabajadas"]],
+        on=["employee", "dia"],
+        how="left",
+    )
 
-    # 5. Añadir la columna del día de la semana en español
     dias_espanol = {
         "Monday": "Lunes",
         "Tuesday": "Martes",
@@ -120,16 +140,21 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
         pd.to_datetime(final_df["dia"]).dt.day_name().map(dias_espanol)
     )
 
-    # 6. Reordenar las columnas para el formato final
+    # Reordenar las columnas para el formato final
     checado_cols = sorted([c for c in final_df.columns if "checado_" in c])
-    new_col_order = ["employee", "Nombre", "dia", "dia_semana"] + checado_cols
+    new_col_order = [
+        "employee",
+        "Nombre",
+        "dia",
+        "dia_semana",
+        "horas trabajadas",
+    ] + checado_cols
     final_df = final_df[new_col_order]
 
     return final_df
 
 
 if __name__ == "__main__":
-    # Define aquí el periodo que quieres consultar
     start_date = "2025-06-01"
     end_date = "2025-06-30"
 
