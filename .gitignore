@@ -13,6 +13,7 @@ env/
 # Data files
 *.csv
 *.log
+*.txt
 
 # IDE directories
 .vscode/
