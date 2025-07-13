@@ -1,55 +1,153 @@
 import os
+from datetime import datetime
 import mysql.connector
 from dotenv import load_dotenv
 
+# Carga las variables de entorno
+load_dotenv()
 
-def test_db_connection():
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT", "3306")  # Puerto por defecto si no está en .env
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+
+def connect_db():
     """
-    Carga las credenciales de la base de datos desde el archivo .env
-    e intenta conectarse a la base de datos MariaDB.
+    Establece y retorna una conexión a la base de datos MariaDB.
     """
-    load_dotenv()
-
-    # Cargar credenciales desde el archivo .env
-    db_host = os.getenv("DB_HOST")
-    db_port = os.getenv("DB_PORT")
-    db_name = os.getenv("DB_NAME")
-    db_user = os.getenv("DB_USER")
-    db_password = os.getenv("DB_PASSWORD")
-
-    # Verificar que todas las variables se cargaron correctamente
-    if not all([db_host, db_port, db_name, db_user, db_password]):
-        print("Error: Asegúrate de que todas las variables (DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD) estén en tu archivo .env")
-        return
-
-    connection = None
-    try:
-        # Establecer la conexión
-        connection = mysql.connector.connect(
-            host=db_host,
-            port=db_port,
-            database=db_name,
-            user=db_user,
-            password=db_password
+    if not all([DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD]):
+        print(
+            "❌ Error: Faltan variables en el archivo .env (DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD)"
         )
+        return None
 
-        if connection.is_connected():
-            # La forma correcta, para evitar la advertencia, es usar la propiedad 'server_info'.
-            db_info = connection.server_info  # <-- Asegúrate de que esta línea esté así, sin .get_server_info()
-            print("¡Conexión a la base de datos MariaDB exitosa!")
-            print(f"Versión del servidor: {db_info}")
-            print(f"Conectado a la base de datos: '{db_name}'")
+    try:
+        conn = mysql.connector.connect(
+            host=DB_HOST,
+            port=int(DB_PORT),
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+        )
+        return conn
+    except mysql.connector.Error as err:
+        print(f"❌ Error al conectar a la base de datos: {err}")
+        return None
 
-    except mysql.connector.Error as e:
-        print(f"Error al conectar a MariaDB: {e}")
 
+def query_horario_programado(codigo_frappe: int, fecha: datetime):
+    """
+    Consulta el horario programado para un empleado (por codigo_frappe)
+    en una fecha específica, aplicando la lógica de prioridad correcta.
+    Retorna: dict con el horario y detalles del empleado o None si no hay asignación.
+    """
+    conn = connect_db()
+    if conn is None:
+        return None
+
+    try:
+        # Determina si es primera quincena (TRUE/1) o segunda quincena (FALSE/0)
+        es_primera_quincena = 1 if fecha.day <= 15 else 0
+
+        # Día de la semana (1 = Lunes, ..., 7 = Domingo), estándar ISO
+        dia_semana_id = fecha.isoweekday()
+
+        # Consulta SQL corregida, adaptada de tu versión funcional
+        sql = """
+        SELECT
+            E.empleado_id,
+            E.codigo_frappe,
+            CONCAT(E.nombre, ' ', E.apellido_paterno) AS nombre_completo,
+            DS.nombre_dia AS dia_semana_checado,
+            -- Usamos COALESCE para priorizar horarios específicos sobre los de catálogo
+            COALESCE(H.hora_entrada, AH.hora_entrada_especifica) AS hora_entrada,
+            COALESCE(H.hora_salida, AH.hora_salida_especifica) AS hora_salida,
+            COALESCE(H.cruza_medianoche, AH.hora_salida_especifica_cruza_medianoche, FALSE) AS cruza_medianoche,
+            AH.comentarios
+        FROM
+            Empleados AS E
+        LEFT JOIN AsignacionHorario AS AH ON E.empleado_id = AH.empleado_id
+        LEFT JOIN Horario AS H ON AH.horario_id = H.horario_id
+        LEFT JOIN DiaSemana AS DS ON %s = DS.dia_id
+        WHERE
+            E.codigo_frappe = %s
+            AND (
+                -- Filtros para encontrar la regla aplicable
+                (AH.dia_especifico_id = %s)
+                OR (AH.tipo_turno_id IS NOT NULL)
+                OR (E.tiene_horario_asignado = FALSE)
+            )
+        ORDER BY
+            -- La clave es este CASE para replicar la lógica de prioridad.
+            -- Un número menor tiene mayor prioridad.
+            CASE
+                WHEN AH.dia_especifico_id = %s AND AH.es_primera_quincena = %s THEN 1
+                WHEN AH.dia_especifico_id = %s AND AH.es_primera_quincena IS NULL THEN 2
+                WHEN AH.tipo_turno_id IS NOT NULL AND AH.es_primera_quincena = %s THEN 3
+                WHEN AH.tipo_turno_id IS NOT NULL AND AH.es_primera_quincena IS NULL THEN 4
+                WHEN E.tiene_horario_asignado = FALSE THEN 5
+                ELSE 99
+            END ASC
+        LIMIT 1;
+        """
+
+        cursor = conn.cursor(dictionary=True)
+        # Los parámetros deben repetirse para cada placeholder '?' o '%s'
+        params = (
+            dia_semana_id,
+            codigo_frappe,
+            dia_semana_id,
+            dia_semana_id,
+            es_primera_quincena,
+            dia_semana_id,
+            es_primera_quincena,
+        )
+        cursor.execute(sql, params)
+
+        result = cursor.fetchone()
+        if result:
+            print(
+                f"✅ Horario encontrado para el código Frappe {codigo_frappe} el {fecha.date()}:"
+            )
+            # Convertir timedelta a string si es necesario para la impresión
+            if result.get("hora_entrada"):
+                result["hora_entrada"] = str(result["hora_entrada"])
+            if result.get("hora_salida"):
+                result["hora_salida"] = str(result["hora_salida"])
+            print(result)
+            return result
+        else:
+            print(
+                f"⚠️  No se encontró un horario asignado para el código Frappe {codigo_frappe} el {fecha.date()}"
+            )
+            return None
+
+    except mysql.connector.Error as err:
+        print(f"❌ Error al ejecutar la consulta: {err}")
+        return None
     finally:
-        # Cerrar la conexión si se estableció
-        if connection and connection.is_connected():
-            connection.close()
-            print("Conexión a la base de datos cerrada.")
+        # Cierra el cursor y la conexión
+        if "cursor" in locals():
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+            print("✅ Conexión a la base de datos cerrada.")
 
 
+# Ejemplo de uso
 if __name__ == "__main__":
-    print("Realizando prueba de conexión a la base de datos...")
-    test_db_connection()
+    # Define la fecha que quieres consultar (Lunes 7 de Julio de 2025)
+    fecha_ejemplo = datetime(2025, 7, 7)
+    # Usa el código Frappe del empleado
+    codigo_frappe_ejemplo = 52
+
+    horario = query_horario_programado(codigo_frappe_ejemplo, fecha_ejemplo)
+
+    if horario:
+        print("\n--- Resultado Final ---")
+        print(f"Horario programado: {horario}")
+    else:
+        print("\n--- Resultado Final ---")
+        print("No se encontró horario programado.")
