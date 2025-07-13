@@ -1,391 +1,391 @@
 ﻿employee,Nombre,dia,dia_semana,hora_entrada_programada,checado_1,minutos_tarde,tipo_retardo,horas_esperadas,horas_trabajadas,retardos_acumulados,descuento_por_3_retardos,checado_2,checado_3,checado_4,checado_5,checado_6
-1,Beatriz Pérez Reyes,2025-06-01,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
+1,Beatriz Pérez Reyes,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 1,Beatriz Pérez Reyes,2025-06-02,Lunes,8:00:00,07:08:51,-51,A Tiempo,09:00:00,09:53:59,0,No,14:32:09,15:25:29,17:02:50,---,---
 1,Beatriz Pérez Reyes,2025-06-03,Martes,8:00:00,06:55:39,-64,A Tiempo,09:00:00,10:07:35,0,No,14:07:23,15:07:06,17:03:14,---,---
 1,Beatriz Pérez Reyes,2025-06-04,Miércoles,8:00:00,06:53:09,-66,A Tiempo,09:00:00,10:09:51,0,No,13:31:58,14:30:33,17:03:00,---,---
 1,Beatriz Pérez Reyes,2025-06-05,Jueves,8:00:00,06:54:28,-65,A Tiempo,09:00:00,10:08:26,0,No,14:12:40,15:09:37,17:02:54,---,---
 1,Beatriz Pérez Reyes,2025-06-06,Viernes,8:00:00,06:59:40,-60,A Tiempo,09:00:00,10:02:05,0,No,14:20:44,15:13:26,17:01:45,---,---
-1,Beatriz Pérez Reyes,2025-06-07,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-1,Beatriz Pérez Reyes,2025-06-08,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
+1,Beatriz Pérez Reyes,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+1,Beatriz Pérez Reyes,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 1,Beatriz Pérez Reyes,2025-06-09,Lunes,8:00:00,07:05:28,-54,A Tiempo,09:00:00,09:59:43,0,No,14:21:01,15:19:12,17:05:11,---,---
 1,Beatriz Pérez Reyes,2025-06-10,Martes,8:00:00,06:58:51,-61,A Tiempo,09:00:00,10:06:11,0,No,14:18:46,15:18:53,17:05:02,---,---
 1,Beatriz Pérez Reyes,2025-06-11,Miércoles,8:00:00,06:53:08,-66,A Tiempo,09:00:00,10:10:05,0,No,13:09:54,14:10:05,17:03:13,---,---
 1,Beatriz Pérez Reyes,2025-06-12,Jueves,8:00:00,06:49:09,-70,A Tiempo,09:00:00,10:12:18,0,No,14:15:25,15:04:21,17:01:27,---,---
 1,Beatriz Pérez Reyes,2025-06-13,Viernes,8:00:00,07:01:20,-58,A Tiempo,09:00:00,09:56:11,0,No,15:10:34,16:57:31,---,---,---
-1,Beatriz Pérez Reyes,2025-06-14,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-1,Beatriz Pérez Reyes,2025-06-15,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-10,Jose Juan Guillermo Avila Chavez,2025-06-01,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-10,Jose Juan Guillermo Avila Chavez,2025-06-02,Lunes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-10,Jose Juan Guillermo Avila Chavez,2025-06-03,Martes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
+1,Beatriz Pérez Reyes,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+1,Beatriz Pérez Reyes,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+10,Jose Juan Guillermo Avila Chavez,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+10,Jose Juan Guillermo Avila Chavez,2025-06-02,Lunes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+10,Jose Juan Guillermo Avila Chavez,2025-06-03,Martes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 10,Jose Juan Guillermo Avila Chavez,2025-06-04,Miércoles,8:00:00,07:57:18,-2,A Tiempo,09:00:00,09:05:59,0,No,14:38:33,15:23:49,17:03:17,---,---
 10,Jose Juan Guillermo Avila Chavez,2025-06-05,Jueves,8:00:00,07:56:06,-3,A Tiempo,09:00:00,09:14:03,0,No,17:10:09,---,---,---,---
 10,Jose Juan Guillermo Avila Chavez,2025-06-06,Viernes,8:00:00,07:58:08,-1,A Tiempo,09:00:00,09:08:06,0,No,14:28:18,14:28:23,15:26:01,17:06:14,---
-10,Jose Juan Guillermo Avila Chavez,2025-06-07,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-10,Jose Juan Guillermo Avila Chavez,2025-06-08,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-10,Jose Juan Guillermo Avila Chavez,2025-06-09,Lunes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-10,Jose Juan Guillermo Avila Chavez,2025-06-10,Martes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
+10,Jose Juan Guillermo Avila Chavez,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+10,Jose Juan Guillermo Avila Chavez,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+10,Jose Juan Guillermo Avila Chavez,2025-06-09,Lunes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+10,Jose Juan Guillermo Avila Chavez,2025-06-10,Martes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 10,Jose Juan Guillermo Avila Chavez,2025-06-11,Miércoles,8:00:00,07:58:10,-1,A Tiempo,09:00:00,09:05:13,0,No,14:33:17,15:36:42,17:03:23,---,---
 10,Jose Juan Guillermo Avila Chavez,2025-06-12,Jueves,8:00:00,08:04:48,4,A Tiempo,09:00:00,09:06:04,0,No,14:24:04,15:30:32,17:10:52,---,---
 10,Jose Juan Guillermo Avila Chavez,2025-06-13,Viernes,8:00:00,07:57:37,-2,A Tiempo,09:00:00,09:16:34,0,No,17:14:11,---,---,---,---
-10,Jose Juan Guillermo Avila Chavez,2025-06-14,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-10,Jose Juan Guillermo Avila Chavez,2025-06-15,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-12,Esmeralda Hernández Lara,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+10,Jose Juan Guillermo Avila Chavez,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+10,Jose Juan Guillermo Avila Chavez,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+12,Esmeralda Hernández Lara,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 12,Esmeralda Hernández Lara,2025-06-02,Lunes,9:00:00,09:01:46,1,A Tiempo,08:00:00,07:59:21,0,No,14:28:51,15:27:24,17:01:07,---,---
 12,Esmeralda Hernández Lara,2025-06-03,Martes,9:00:00,08:59:28,0,A Tiempo,08:00:00,08:04:30,0,No,14:21:17,15:21:01,17:03:58,---,---
 12,Esmeralda Hernández Lara,2025-06-04,Miércoles,9:00:00,08:58:26,-1,A Tiempo,08:00:00,08:03:57,0,No,14:09:57,15:13:50,17:02:23,---,---
 12,Esmeralda Hernández Lara,2025-06-05,Jueves,9:00:00,09:01:52,1,A Tiempo,08:00:00,08:03:21,0,No,14:06:52,15:06:07,17:05:13,---,---
 12,Esmeralda Hernández Lara,2025-06-06,Viernes,9:00:00,09:01:38,1,A Tiempo,08:00:00,04:58:45,0,No,14:00:23,---,---,---,---
-12,Esmeralda Hernández Lara,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-12,Esmeralda Hernández Lara,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+12,Esmeralda Hernández Lara,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+12,Esmeralda Hernández Lara,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 12,Esmeralda Hernández Lara,2025-06-09,Lunes,9:00:00,08:58:52,-1,A Tiempo,08:00:00,08:02:51,0,No,14:31:46,15:31:07,17:01:43,---,---
 12,Esmeralda Hernández Lara,2025-06-10,Martes,9:00:00,09:01:48,1,A Tiempo,08:00:00,08:00:03,0,No,14:27:11,15:25:24,17:01:51,---,---
 12,Esmeralda Hernández Lara,2025-06-11,Miércoles,9:00:00,09:02:26,2,A Tiempo,08:00:00,07:59:32,0,No,14:32:30,15:26:38,17:01:58,---,---
 12,Esmeralda Hernández Lara,2025-06-12,Jueves,9:00:00,09:00:40,0,A Tiempo,08:00:00,08:00:10,0,No,14:29:51,17:00:50,---,---,---
 12,Esmeralda Hernández Lara,2025-06-13,Viernes,9:00:00,09:06:24,6,A Tiempo,08:00:00,08:01:33,0,No,14:36:59,15:40:57,17:07:57,---,---
-12,Esmeralda Hernández Lara,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-12,Esmeralda Hernández Lara,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-13,José Omar Villalva Pastrana,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+12,Esmeralda Hernández Lara,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+12,Esmeralda Hernández Lara,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+13,José Omar Villalva Pastrana,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 13,José Omar Villalva Pastrana,2025-06-02,Lunes,9:00:00,08:45:55,-14,A Tiempo,08:00:00,08:15:52,0,No,14:29:06,15:27:35,17:01:47,---,---
 13,José Omar Villalva Pastrana,2025-06-03,Martes,9:00:00,09:10:41,10,A Tiempo,08:00:00,07:53:24,0,No,14:21:29,15:21:11,17:04:05,---,---
 13,José Omar Villalva Pastrana,2025-06-04,Miércoles,9:00:00,09:09:08,9,A Tiempo,08:00:00,07:53:28,0,No,14:09:53,15:14:05,17:02:36,---,---
 13,José Omar Villalva Pastrana,2025-06-05,Jueves,9:00:00,09:04:14,4,A Tiempo,08:00:00,08:01:41,0,No,14:06:17,15:06:36,17:05:55,---,---
 13,José Omar Villalva Pastrana,2025-06-06,Viernes,9:00:00,09:11:01,11,A Tiempo,08:00:00,07:53:10,0,No,14:35:28,15:35:15,17:04:11,---,---
-13,José Omar Villalva Pastrana,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-13,José Omar Villalva Pastrana,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+13,José Omar Villalva Pastrana,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+13,José Omar Villalva Pastrana,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 13,José Omar Villalva Pastrana,2025-06-09,Lunes,9:00:00,08:32:58,-27,A Tiempo,08:00:00,08:28:52,0,No,14:31:54,15:31:12,17:01:50,---,---
 13,José Omar Villalva Pastrana,2025-06-10,Martes,9:00:00,08:40:30,-19,A Tiempo,08:00:00,08:23:00,0,No,14:27:15,15:25:28,17:03:30,---,---
 13,José Omar Villalva Pastrana,2025-06-11,Miércoles,9:00:00,08:37:36,-22,A Tiempo,08:00:00,08:24:28,0,No,14:32:43,15:26:52,17:02:04,---,---
 13,José Omar Villalva Pastrana,2025-06-12,Jueves,9:00:00,08:39:10,-20,A Tiempo,08:00:00,08:22:49,0,No,14:29:55,15:29:17,17:01:59,---,---
 13,José Omar Villalva Pastrana,2025-06-13,Viernes,9:00:00,08:58:10,-1,A Tiempo,08:00:00,08:10:33,0,No,14:37:10,15:41:10,17:08:43,---,---
-13,José Omar Villalva Pastrana,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-13,José Omar Villalva Pastrana,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-14,Ivanna Reyes Santamaria,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+13,José Omar Villalva Pastrana,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+13,José Omar Villalva Pastrana,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+14,Ivanna Reyes Santamaria,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 14,Ivanna Reyes Santamaria,2025-06-02,Lunes,9:00:00,08:41:02,-18,A Tiempo,08:00:00,08:20:10,0,No,14:29:58,15:27:38,17:01:12,---,---
 14,Ivanna Reyes Santamaria,2025-06-03,Martes,9:00:00,08:41:26,-18,A Tiempo,08:00:00,08:21:51,0,No,14:21:27,15:20:28,17:03:17,---,---
 14,Ivanna Reyes Santamaria,2025-06-04,Miércoles,9:00:00,08:33:41,-26,A Tiempo,08:00:00,08:28:46,0,No,14:06:11,15:05:50,17:02:27,---,---
 14,Ivanna Reyes Santamaria,2025-06-05,Jueves,9:00:00,08:36:47,-23,A Tiempo,08:00:00,08:28:29,0,No,14:06:29,15:06:16,17:05:16,---,---
 14,Ivanna Reyes Santamaria,2025-06-06,Viernes,9:00:00,08:37:00,-23,A Tiempo,08:00:00,08:29:42,0,No,14:35:26,15:35:33,17:06:42,---,---
-14,Ivanna Reyes Santamaria,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-14,Ivanna Reyes Santamaria,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-14,Ivanna Reyes Santamaria,2025-06-09,Lunes,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+14,Ivanna Reyes Santamaria,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+14,Ivanna Reyes Santamaria,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+14,Ivanna Reyes Santamaria,2025-06-09,Lunes,9:00:00,---,0,Falta,08:00:00,---,0,No,---,---,---,---,---
 14,Ivanna Reyes Santamaria,2025-06-10,Martes,9:00:00,08:49:21,-10,A Tiempo,08:00:00,08:26:47,0,No,14:28:48,15:24:50,17:16:08,---,---
 14,Ivanna Reyes Santamaria,2025-06-11,Miércoles,9:00:00,14:32:26,332,Retardo,08:00:00,02:29:12,1,No,15:26:34,17:01:38,---,---,---
 14,Ivanna Reyes Santamaria,2025-06-12,Jueves,9:00:00,08:45:01,-14,A Tiempo,08:00:00,08:15:42,1,No,14:29:45,15:29:00,17:00:43,---,---
-14,Ivanna Reyes Santamaria,2025-06-13,Viernes,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
-14,Ivanna Reyes Santamaria,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
-14,Ivanna Reyes Santamaria,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
-16,Odalys Castillo Santamaría,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+14,Ivanna Reyes Santamaria,2025-06-13,Viernes,9:00:00,---,0,Falta,08:00:00,---,1,No,---,---,---,---,---
+14,Ivanna Reyes Santamaria,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
+14,Ivanna Reyes Santamaria,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
+16,Odalys Castillo Santamaría,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 16,Odalys Castillo Santamaría,2025-06-02,Lunes,9:00:00,09:08:53,8,A Tiempo,08:00:00,07:54:54,0,No,14:31:05,15:29:34,17:03:47,---,---
 16,Odalys Castillo Santamaría,2025-06-03,Martes,9:00:00,08:53:23,-6,A Tiempo,08:00:00,08:08:15,0,No,14:16:05,15:16:59,17:01:38,---,---
 16,Odalys Castillo Santamaría,2025-06-04,Miércoles,9:00:00,08:52:45,-7,A Tiempo,08:00:00,08:09:08,0,No,14:16:43,15:16:12,17:01:53,---,---
 16,Odalys Castillo Santamaría,2025-06-05,Jueves,9:00:00,08:44:03,-15,A Tiempo,08:00:00,08:17:30,0,No,14:27:07,15:11:02,17:01:33,---,---
 16,Odalys Castillo Santamaría,2025-06-06,Viernes,9:00:00,08:56:13,-3,A Tiempo,08:00:00,08:08:36,0,No,14:22:25,15:24:08,17:04:49,---,---
-16,Odalys Castillo Santamaría,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-16,Odalys Castillo Santamaría,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+16,Odalys Castillo Santamaría,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+16,Odalys Castillo Santamaría,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 16,Odalys Castillo Santamaría,2025-06-09,Lunes,9:00:00,09:09:58,9,A Tiempo,08:00:00,07:52:21,0,No,14:23:05,15:19:58,17:02:19,---,---
 16,Odalys Castillo Santamaría,2025-06-10,Martes,9:00:00,08:52:50,-7,A Tiempo,08:00:00,08:09:54,0,No,14:19:09,15:21:03,17:02:44,---,---
 16,Odalys Castillo Santamaría,2025-06-11,Miércoles,9:00:00,09:05:21,5,A Tiempo,08:00:00,07:56:00,0,No,14:45:44,15:43:13,17:01:21,---,---
 16,Odalys Castillo Santamaría,2025-06-12,Jueves,9:00:00,09:01:15,1,A Tiempo,08:00:00,07:59:45,0,No,14:45:50,15:45:00,17:01:00,---,---
 16,Odalys Castillo Santamaría,2025-06-13,Viernes,9:00:00,08:47:40,-12,A Tiempo,08:00:00,08:13:39,0,No,14:16:25,15:19:12,17:01:19,---,---
-16,Odalys Castillo Santamaría,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-16,Odalys Castillo Santamaría,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-17,Rodrigo Cabrera Márquez,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+16,Odalys Castillo Santamaría,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+16,Odalys Castillo Santamaría,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+17,Rodrigo Cabrera Márquez,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 17,Rodrigo Cabrera Márquez,2025-06-02,Lunes,9:00:00,08:54:42,-5,A Tiempo,08:00:00,08:06:39,0,No,14:28:56,15:27:33,17:01:21,---,---
 17,Rodrigo Cabrera Márquez,2025-06-03,Martes,9:00:00,09:01:43,1,A Tiempo,08:00:00,08:02:20,0,No,14:21:36,15:21:07,17:04:03,---,---
 17,Rodrigo Cabrera Márquez,2025-06-04,Miércoles,9:00:00,09:00:31,0,A Tiempo,08:00:00,08:02:41,0,No,14:10:00,15:14:02,17:03:12,---,---
 17,Rodrigo Cabrera Márquez,2025-06-05,Jueves,9:00:00,08:48:32,-11,A Tiempo,08:00:00,08:17:29,0,No,14:06:25,15:06:19,17:06:01,---,---
 17,Rodrigo Cabrera Márquez,2025-06-06,Viernes,9:00:00,08:59:58,0,A Tiempo,08:00:00,08:04:58,0,No,14:35:40,15:35:12,17:04:56,---,---
-17,Rodrigo Cabrera Márquez,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-17,Rodrigo Cabrera Márquez,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+17,Rodrigo Cabrera Márquez,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+17,Rodrigo Cabrera Márquez,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 17,Rodrigo Cabrera Márquez,2025-06-09,Lunes,9:00:00,09:00:12,0,A Tiempo,08:00:00,08:01:48,0,No,14:32:02,15:31:09,17:02:00,---,---
 17,Rodrigo Cabrera Márquez,2025-06-10,Martes,9:00:00,09:00:01,0,A Tiempo,08:00:00,08:02:03,0,No,14:27:19,15:24:47,17:02:04,---,---
 17,Rodrigo Cabrera Márquez,2025-06-11,Miércoles,9:00:00,08:58:56,-1,A Tiempo,08:00:00,08:03:06,0,No,14:32:40,15:26:44,17:02:02,---,---
 17,Rodrigo Cabrera Márquez,2025-06-12,Jueves,9:00:00,08:54:47,-5,A Tiempo,08:00:00,08:06:22,0,No,14:29:53,15:29:09,17:01:09,---,---
 17,Rodrigo Cabrera Márquez,2025-06-13,Viernes,9:00:00,09:00:15,0,A Tiempo,08:00:00,08:07:56,0,No,15:41:00,17:08:11,---,---,---
-17,Rodrigo Cabrera Márquez,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-17,Rodrigo Cabrera Márquez,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-01,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-02,Lunes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-03,Martes,---,08:16:15,0,Sin Checada,---,07:59:51,0,No,16:16:06,---,---,---,---
+17,Rodrigo Cabrera Márquez,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+17,Rodrigo Cabrera Márquez,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-02,Lunes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-03,Martes,---,08:16:15,0,Día no Laborable,---,07:59:51,0,No,16:16:06,---,---,---,---
 2,Rocío Eufracia García Zamudio,2025-06-04,Miércoles,8:10:00,08:09:23,0,A Tiempo,08:00:00,04:59:53,0,No,13:09:16,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-05,Jueves,8:10:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-06,Viernes,8:10:00,---,0,Sin Checada,05:00:00,---,0,No,---,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-07,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-08,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-09,Lunes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-10,Martes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-05,Jueves,8:10:00,---,0,Falta,08:00:00,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-06,Viernes,8:10:00,---,0,Falta,05:00:00,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-09,Lunes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-10,Martes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 2,Rocío Eufracia García Zamudio,2025-06-11,Miércoles,8:10:00,08:23:21,13,A Tiempo,08:00:00,07:51:00,0,No,16:14:21,---,---,---,---
 2,Rocío Eufracia García Zamudio,2025-06-12,Jueves,8:10:00,08:14:34,4,A Tiempo,08:00:00,07:56:12,0,No,16:10:46,---,---,---,---
 2,Rocío Eufracia García Zamudio,2025-06-13,Viernes,8:10:00,08:14:06,4,A Tiempo,05:00:00,05:01:14,0,No,13:15:20,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-14,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-2,Rocío Eufracia García Zamudio,2025-06-15,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-25,Karla Ivette Chimal Moreno,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+2,Rocío Eufracia García Zamudio,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+25,Karla Ivette Chimal Moreno,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 25,Karla Ivette Chimal Moreno,2025-06-02,Lunes,9:00:00,08:53:32,-6,A Tiempo,08:00:00,08:07:32,0,No,14:29:01,15:27:29,17:01:04,---,---
 25,Karla Ivette Chimal Moreno,2025-06-03,Martes,9:00:00,08:41:32,-18,A Tiempo,08:00:00,08:21:49,0,No,14:21:25,15:20:33,17:03:21,---,---
 25,Karla Ivette Chimal Moreno,2025-06-04,Miércoles,9:00:00,08:43:29,-16,A Tiempo,08:00:00,08:19:03,0,No,14:10:42,15:13:56,17:02:32,---,---
 25,Karla Ivette Chimal Moreno,2025-06-05,Jueves,9:00:00,08:55:03,-4,A Tiempo,08:00:00,08:10:25,0,No,14:06:33,15:06:12,17:05:28,---,---
 25,Karla Ivette Chimal Moreno,2025-06-06,Viernes,9:00:00,08:45:23,-14,A Tiempo,08:00:00,08:21:23,0,No,14:35:30,15:35:08,17:06:46,---,---
-25,Karla Ivette Chimal Moreno,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-25,Karla Ivette Chimal Moreno,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+25,Karla Ivette Chimal Moreno,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+25,Karla Ivette Chimal Moreno,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 25,Karla Ivette Chimal Moreno,2025-06-09,Lunes,9:00:00,08:43:22,-16,A Tiempo,08:00:00,08:18:17,0,No,14:31:50,15:30:43,17:01:39,---,---
 25,Karla Ivette Chimal Moreno,2025-06-10,Martes,9:00:00,08:45:32,-14,A Tiempo,08:00:00,08:16:22,0,No,14:28:30,15:25:11,17:01:54,---,---
 25,Karla Ivette Chimal Moreno,2025-06-11,Miércoles,9:00:00,08:43:15,-16,A Tiempo,08:00:00,08:18:27,0,No,14:32:36,15:26:41,17:01:42,---,---
 25,Karla Ivette Chimal Moreno,2025-06-12,Jueves,9:00:00,08:43:32,-16,A Tiempo,08:00:00,08:17:13,0,No,14:29:48,15:29:02,17:00:45,---,---
 25,Karla Ivette Chimal Moreno,2025-06-13,Viernes,9:00:00,08:51:40,-8,A Tiempo,08:00:00,08:16:11,0,No,14:37:04,15:40:50,17:07:51,---,---
-25,Karla Ivette Chimal Moreno,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-25,Karla Ivette Chimal Moreno,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-26,Tanya Maribel Morales Hernandez,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+25,Karla Ivette Chimal Moreno,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+25,Karla Ivette Chimal Moreno,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+26,Tanya Maribel Morales Hernandez,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 26,Tanya Maribel Morales Hernandez,2025-06-02,Lunes,9:00:00,08:59:32,0,A Tiempo,08:00:00,08:04:39,0,No,14:31:29,15:29:40,17:04:11,---,---
 26,Tanya Maribel Morales Hernandez,2025-06-03,Martes,9:00:00,09:15:34,15,Retardo,08:00:00,07:45:54,1,No,14:16:11,15:16:53,17:01:28,---,---
 26,Tanya Maribel Morales Hernandez,2025-06-04,Miércoles,9:00:00,08:54:37,-5,A Tiempo,08:00:00,08:07:37,1,No,14:12:49,15:09:37,17:02:14,---,---
 26,Tanya Maribel Morales Hernandez,2025-06-05,Jueves,9:00:00,09:07:18,7,A Tiempo,08:00:00,07:54:58,1,No,14:20:25,15:10:15,17:02:16,---,---
 26,Tanya Maribel Morales Hernandez,2025-06-06,Viernes,9:00:00,09:01:28,1,A Tiempo,08:00:00,08:11:27,1,No,14:22:28,15:24:13,17:12:55,---,---
-26,Tanya Maribel Morales Hernandez,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
-26,Tanya Maribel Morales Hernandez,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
+26,Tanya Maribel Morales Hernandez,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
+26,Tanya Maribel Morales Hernandez,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
 26,Tanya Maribel Morales Hernandez,2025-06-09,Lunes,9:00:00,09:07:32,7,A Tiempo,08:00:00,07:52:16,1,No,09:07:34,15:27:59,16:29:22,16:59:48,---
 26,Tanya Maribel Morales Hernandez,2025-06-10,Martes,9:00:00,08:53:23,-6,A Tiempo,08:00:00,08:07:46,1,No,14:19:14,15:21:29,17:01:09,---,---
 26,Tanya Maribel Morales Hernandez,2025-06-11,Miércoles,9:00:00,09:05:25,5,A Tiempo,08:00:00,07:59:32,1,No,14:19:42,15:25:03,17:04:57,---,---
 26,Tanya Maribel Morales Hernandez,2025-06-12,Jueves,9:00:00,08:54:36,-5,A Tiempo,08:00:00,08:06:00,1,No,14:23:34,15:25:26,17:00:36,---,---
 26,Tanya Maribel Morales Hernandez,2025-06-13,Viernes,9:00:00,09:09:31,9,A Tiempo,08:00:00,07:54:24,1,No,14:18:39,15:19:23,17:03:55,---,---
-26,Tanya Maribel Morales Hernandez,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
-26,Tanya Maribel Morales Hernandez,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
-27,Erick Tadeo Ortega Melendez,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+26,Tanya Maribel Morales Hernandez,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
+26,Tanya Maribel Morales Hernandez,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
+27,Erick Tadeo Ortega Melendez,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 27,Erick Tadeo Ortega Melendez,2025-06-02,Lunes,9:00:00,09:57:00,57,Retardo,08:00:00,07:07:07,1,No,14:31:03,15:29:38,17:04:07,---,---
 27,Erick Tadeo Ortega Melendez,2025-06-03,Martes,9:00:00,08:48:43,-11,A Tiempo,08:00:00,06:28:07,1,No,14:16:14,15:16:50,---,---,---
 27,Erick Tadeo Ortega Melendez,2025-06-04,Miércoles,9:00:00,09:00:21,0,A Tiempo,08:00:00,08:03:35,1,No,14:10:23,15:03:44,17:03:56,---,---
 27,Erick Tadeo Ortega Melendez,2025-06-05,Jueves,9:00:00,09:01:55,1,A Tiempo,08:00:00,08:00:41,1,No,14:12:05,15:10:01,17:02:36,---,---
 27,Erick Tadeo Ortega Melendez,2025-06-06,Viernes,9:00:00,09:01:31,1,A Tiempo,08:00:00,08:11:29,1,No,14:22:33,15:24:10,17:13:00,---,---
-27,Erick Tadeo Ortega Melendez,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
-27,Erick Tadeo Ortega Melendez,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
+27,Erick Tadeo Ortega Melendez,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
+27,Erick Tadeo Ortega Melendez,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
 27,Erick Tadeo Ortega Melendez,2025-06-09,Lunes,9:00:00,08:49:47,-10,A Tiempo,08:00:00,07:42:54,1,No,15:29:33,16:32:41,---,---,---
 27,Erick Tadeo Ortega Melendez,2025-06-10,Martes,9:00:00,08:56:24,-3,A Tiempo,08:00:00,08:07:51,1,No,14:19:23,15:21:47,17:02:58,17:04:13,17:04:15
 27,Erick Tadeo Ortega Melendez,2025-06-11,Miércoles,9:00:00,09:05:30,5,A Tiempo,08:00:00,07:58:54,1,No,14:19:22,15:25:07,17:04:24,---,---
 27,Erick Tadeo Ortega Melendez,2025-06-12,Jueves,9:00:00,08:59:53,0,A Tiempo,08:00:00,08:03:07,1,No,14:22:38,15:25:33,17:03:00,---,---
 27,Erick Tadeo Ortega Melendez,2025-06-13,Viernes,9:00:00,09:09:29,9,A Tiempo,08:00:00,08:38:51,1,No,14:07:54,15:19:27,17:48:20,---,---
-27,Erick Tadeo Ortega Melendez,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
-27,Erick Tadeo Ortega Melendez,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,1,No,---,---,---,---,---
-28,Daniela Zarate Castillo,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-28,Daniela Zarate Castillo,2025-06-02,Lunes,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+27,Erick Tadeo Ortega Melendez,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
+27,Erick Tadeo Ortega Melendez,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
+28,Daniela Zarate Castillo,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+28,Daniela Zarate Castillo,2025-06-02,Lunes,9:00:00,---,0,Falta,08:00:00,---,0,No,---,---,---,---,---
 28,Daniela Zarate Castillo,2025-06-03,Martes,9:00:00,08:48:40,-11,A Tiempo,08:00:00,08:12:19,0,No,14:16:08,15:17:03,17:00:59,---,---
 28,Daniela Zarate Castillo,2025-06-04,Miércoles,9:00:00,09:00:15,0,A Tiempo,08:00:00,07:59:53,0,No,14:16:40,15:16:10,17:00:08,---,---
 28,Daniela Zarate Castillo,2025-06-05,Jueves,9:00:00,09:01:44,1,A Tiempo,08:00:00,07:59:56,0,No,14:15:17,15:10:42,17:01:40,---,---
 28,Daniela Zarate Castillo,2025-06-06,Viernes,9:00:00,09:01:26,1,A Tiempo,08:00:00,08:03:26,0,No,14:22:30,15:24:05,17:04:52,---,---
-28,Daniela Zarate Castillo,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-28,Daniela Zarate Castillo,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-28,Daniela Zarate Castillo,2025-06-09,Lunes,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+28,Daniela Zarate Castillo,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+28,Daniela Zarate Castillo,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+28,Daniela Zarate Castillo,2025-06-09,Lunes,9:00:00,---,0,Falta,08:00:00,---,0,No,---,---,---,---,---
 28,Daniela Zarate Castillo,2025-06-10,Martes,9:00:00,08:56:21,-3,A Tiempo,08:00:00,08:06:26,0,No,14:19:20,15:21:01,17:02:47,---,---
 28,Daniela Zarate Castillo,2025-06-11,Miércoles,9:00:00,09:05:19,5,A Tiempo,08:00:00,07:55:56,0,No,14:45:46,15:43:11,17:01:15,---,---
 28,Daniela Zarate Castillo,2025-06-12,Jueves,9:00:00,08:59:48,0,A Tiempo,08:00:00,08:01:18,0,No,14:45:47,15:44:58,17:01:06,---,---
 28,Daniela Zarate Castillo,2025-06-13,Viernes,9:00:00,09:13:09,13,A Tiempo,08:00:00,07:48:19,0,No,14:07:51,15:19:15,17:01:28,---,---
-28,Daniela Zarate Castillo,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-28,Daniela Zarate Castillo,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-01,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-02,Lunes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-03,Martes,---,08:58:26,0,Sin Checada,---,02:06:30,0,No,08:58:28,11:04:53,11:04:56,---,---
-4,Antonio Rojas,2025-06-04,Miércoles,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-05,Jueves,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-06,Viernes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-07,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-08,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-09,Lunes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-10,Martes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-11,Miércoles,---,08:54:52,0,Sin Checada,---,01:27:35,0,No,08:54:53,10:22:27,---,---,---
-4,Antonio Rojas,2025-06-12,Jueves,---,08:48:49,0,Sin Checada,---,07:43:08,0,No,08:48:51,16:31:57,---,---,---
-4,Antonio Rojas,2025-06-13,Viernes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-14,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-4,Antonio Rojas,2025-06-15,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-46,Mónica Graciela Jiménez López,2025-06-01,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
+28,Daniela Zarate Castillo,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+28,Daniela Zarate Castillo,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-02,Lunes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-03,Martes,---,08:58:26,0,Día no Laborable,---,02:06:30,0,No,08:58:28,11:04:53,11:04:56,---,---
+4,Antonio Rojas,2025-06-04,Miércoles,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-05,Jueves,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-06,Viernes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-09,Lunes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-10,Martes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-11,Miércoles,---,08:54:52,0,Día no Laborable,---,01:27:35,0,No,08:54:53,10:22:27,---,---,---
+4,Antonio Rojas,2025-06-12,Jueves,---,08:48:49,0,Día no Laborable,---,07:43:08,0,No,08:48:51,16:31:57,---,---,---
+4,Antonio Rojas,2025-06-13,Viernes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+4,Antonio Rojas,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+46,Mónica Graciela Jiménez López,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 46,Mónica Graciela Jiménez López,2025-06-02,Lunes,9:00:00,11:59:14,179,Retardo,08:00:00,05:34:49,1,No,12:00:14,15:07:49,15:51:21,17:34:03,---
 46,Mónica Graciela Jiménez López,2025-06-03,Martes,9:00:00,09:01:37,1,A Tiempo,07:00:00,08:04:04,1,No,14:24:32,15:26:07,17:05:41,---,---
 46,Mónica Graciela Jiménez López,2025-06-04,Miércoles,9:00:00,09:04:19,4,A Tiempo,08:00:00,05:58:21,1,No,15:02:40,---,---,---,---
 46,Mónica Graciela Jiménez López,2025-06-05,Jueves,9:00:00,12:21:51,201,Retardo,08:00:00,04:49:25,2,No,17:11:16,---,---,---,---
 46,Mónica Graciela Jiménez López,2025-06-06,Viernes,8:00:00,09:07:54,67,Retardo,07:00:00,08:47:30,3,Sí (3er retardo),14:42:53,15:38:22,17:55:24,---,---
-46,Mónica Graciela Jiménez López,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,3,No,---,---,---,---,---
-46,Mónica Graciela Jiménez López,2025-06-08,Domingo,---,---,0,Sin Checada,---,---,3,No,---,---,---,---,---
+46,Mónica Graciela Jiménez López,2025-06-07,Sábado,9:00:00,---,0,Falta,08:00:00,---,3,No,---,---,---,---,---
+46,Mónica Graciela Jiménez López,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,3,No,---,---,---,---,---
 46,Mónica Graciela Jiménez López,2025-06-09,Lunes,9:00:00,09:04:30,4,A Tiempo,08:00:00,08:00:14,3,No,14:29:35,15:28:39,17:04:44,---,---
 46,Mónica Graciela Jiménez López,2025-06-10,Martes,9:00:00,09:14:49,14,A Tiempo,07:00:00,07:02:37,3,No,16:17:26,---,---,---,---
-46,Mónica Graciela Jiménez López,2025-06-11,Miércoles,9:00:00,---,0,Sin Checada,08:00:00,---,3,No,---,---,---,---,---
+46,Mónica Graciela Jiménez López,2025-06-11,Miércoles,9:00:00,---,0,Falta,08:00:00,---,3,No,---,---,---,---,---
 46,Mónica Graciela Jiménez López,2025-06-12,Jueves,9:00:00,09:01:35,1,A Tiempo,08:00:00,08:03:21,3,No,14:21:41,15:30:25,17:04:56,---,---
 46,Mónica Graciela Jiménez López,2025-06-13,Viernes,8:00:00,08:02:11,2,A Tiempo,07:00:00,07:07:36,3,No,15:09:47,---,---,---,---
-46,Mónica Graciela Jiménez López,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,3,No,---,---,---,---,---
-46,Mónica Graciela Jiménez López,2025-06-15,Domingo,---,---,0,Sin Checada,---,---,3,No,---,---,---,---,---
-47,Maria Brenda Bautista Zavala,2025-06-01,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
+46,Mónica Graciela Jiménez López,2025-06-14,Sábado,9:00:00,---,0,Falta,08:00:00,---,3,No,---,---,---,---,---
+46,Mónica Graciela Jiménez López,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,3,No,---,---,---,---,---
+47,Maria Brenda Bautista Zavala,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 47,Maria Brenda Bautista Zavala,2025-06-02,Lunes,8:00:00,08:01:52,1,A Tiempo,09:00:00,07:49:25,0,No,14:37:21,15:51:17,---,---,---
 47,Maria Brenda Bautista Zavala,2025-06-03,Martes,13:00:00,13:04:39,4,A Tiempo,03:45:00,03:55:47,0,No,14:36:49,14:51:23,17:00:26,---,---
 47,Maria Brenda Bautista Zavala,2025-06-04,Miércoles,10:00:00,08:18:56,-101,A Tiempo,07:30:00,08:44:08,0,No,17:03:04,---,---,---,---
-47,Maria Brenda Bautista Zavala,2025-06-05,Jueves,13:00:00,---,0,Sin Checada,03:45:00,---,0,No,---,---,---,---,---
-47,Maria Brenda Bautista Zavala,2025-06-06,Viernes,10:00:00,---,0,Sin Checada,07:00:00,---,0,No,---,---,---,---,---
-47,Maria Brenda Bautista Zavala,2025-06-07,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-47,Maria Brenda Bautista Zavala,2025-06-08,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
+47,Maria Brenda Bautista Zavala,2025-06-05,Jueves,13:00:00,---,0,Falta,03:45:00,---,0,No,---,---,---,---,---
+47,Maria Brenda Bautista Zavala,2025-06-06,Viernes,10:00:00,---,0,Falta,07:00:00,---,0,No,---,---,---,---,---
+47,Maria Brenda Bautista Zavala,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+47,Maria Brenda Bautista Zavala,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 47,Maria Brenda Bautista Zavala,2025-06-09,Lunes,8:00:00,07:45:23,-14,A Tiempo,09:00:00,09:16:24,0,No,14:23:20,15:17:30,17:01:47,---,---
 47,Maria Brenda Bautista Zavala,2025-06-10,Martes,13:00:00,13:19:37,19,Retardo,03:45:00,03:33:05,1,No,16:52:42,---,---,---,---
 47,Maria Brenda Bautista Zavala,2025-06-11,Miércoles,10:00:00,09:05:14,-54,A Tiempo,07:30:00,08:05:38,1,No,14:45:10,15:15:56,17:04:35,17:10:52,---
 47,Maria Brenda Bautista Zavala,2025-06-12,Jueves,13:00:00,13:11:02,11,A Tiempo,03:45:00,03:44:00,1,No,14:28:18,16:55:02,---,---,---
 47,Maria Brenda Bautista Zavala,2025-06-13,Viernes,10:00:00,07:24:20,-155,A Tiempo,07:00:00,00:00:00,1,No,---,---,---,---,---
-47,Maria Brenda Bautista Zavala,2025-06-14,Sábado,---,---,0,Sin Checada,---,---,1,No,---,---,---,---,---
-47,Maria Brenda Bautista Zavala,2025-06-15,Domingo,---,---,0,Sin Checada,---,---,1,No,---,---,---,---,---
-5,Marlene Durán Zamudio,2025-06-01,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
+47,Maria Brenda Bautista Zavala,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
+47,Maria Brenda Bautista Zavala,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,1,No,---,---,---,---,---
+5,Marlene Durán Zamudio,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 5,Marlene Durán Zamudio,2025-06-02,Lunes,8:00:00,08:01:20,1,A Tiempo,09:00:00,09:01:55,0,No,14:29:25,15:28:46,17:03:15,---,---
 5,Marlene Durán Zamudio,2025-06-03,Martes,8:00:00,08:02:39,2,A Tiempo,09:00:00,08:59:37,0,No,14:12:38,15:16:42,17:02:16,---,---
 5,Marlene Durán Zamudio,2025-06-04,Miércoles,8:00:00,08:01:43,1,A Tiempo,09:00:00,09:02:01,0,No,14:10:17,15:03:42,17:03:44,---,---
 5,Marlene Durán Zamudio,2025-06-05,Jueves,8:00:00,08:04:43,4,A Tiempo,09:00:00,08:57:40,0,No,14:15:20,15:09:58,17:02:23,---,---
 5,Marlene Durán Zamudio,2025-06-06,Viernes,8:00:00,08:07:27,7,A Tiempo,09:00:00,09:05:30,0,No,14:35:43,15:36:40,17:12:57,---,---
-5,Marlene Durán Zamudio,2025-06-07,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-5,Marlene Durán Zamudio,2025-06-08,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
+5,Marlene Durán Zamudio,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+5,Marlene Durán Zamudio,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 5,Marlene Durán Zamudio,2025-06-09,Lunes,8:00:00,08:05:40,5,A Tiempo,09:00:00,08:55:06,0,No,14:23:08,15:20:13,17:00:46,---,---
 5,Marlene Durán Zamudio,2025-06-10,Martes,8:00:00,08:05:04,5,A Tiempo,09:00:00,08:57:52,0,No,14:19:06,15:21:34,17:02:56,---,---
 5,Marlene Durán Zamudio,2025-06-11,Miércoles,8:00:00,08:03:57,3,A Tiempo,09:00:00,09:00:26,0,No,14:19:31,15:24:10,17:04:23,---,---
 5,Marlene Durán Zamudio,2025-06-12,Jueves,8:00:00,08:08:45,8,A Tiempo,09:00:00,08:55:16,0,No,14:20:08,15:25:31,17:04:01,---,---
-5,Marlene Durán Zamudio,2025-06-13,Viernes,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-5,Marlene Durán Zamudio,2025-06-14,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-5,Marlene Durán Zamudio,2025-06-15,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-6,Rebeca Miranda Vergara,2025-06-01,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
+5,Marlene Durán Zamudio,2025-06-13,Viernes,8:00:00,---,0,Falta,09:00:00,---,0,No,---,---,---,---,---
+5,Marlene Durán Zamudio,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+5,Marlene Durán Zamudio,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+6,Rebeca Miranda Vergara,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 6,Rebeca Miranda Vergara,2025-06-02,Lunes,8:00:00,08:33:57,33,Retardo,09:00:00,09:08:15,1,No,14:36:23,15:29:28,17:42:12,---,---
 6,Rebeca Miranda Vergara,2025-06-03,Martes,8:00:00,08:24:28,24,Retardo,09:00:00,10:21:42,2,No,14:20:04,15:16:38,18:46:10,---,---
 6,Rebeca Miranda Vergara,2025-06-04,Miércoles,8:00:00,08:37:43,37,Retardo,09:00:00,09:05:46,3,Sí (3er retardo),14:18:02,15:12:11,17:43:29,---,---
 6,Rebeca Miranda Vergara,2025-06-05,Jueves,8:00:00,08:12:40,12,A Tiempo,09:00:00,08:52:17,3,No,14:12:02,15:10:47,17:04:57,---,---
 6,Rebeca Miranda Vergara,2025-06-06,Viernes,8:00:00,08:23:39,23,Retardo,09:00:00,09:02:53,4,No,14:22:42,15:24:28,17:26:32,---,---
-6,Rebeca Miranda Vergara,2025-06-07,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,4,No,---,---,---,---,---
-6,Rebeca Miranda Vergara,2025-06-08,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,4,No,---,---,---,---,---
+6,Rebeca Miranda Vergara,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,4,No,---,---,---,---,---
+6,Rebeca Miranda Vergara,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,4,No,---,---,---,---,---
 6,Rebeca Miranda Vergara,2025-06-09,Lunes,8:00:00,08:05:36,5,A Tiempo,09:00:00,08:56:48,4,No,15:29:36,16:31:57,17:02:24,---,---
 6,Rebeca Miranda Vergara,2025-06-10,Martes,8:00:00,08:15:32,15,Retardo,09:00:00,08:48:01,5,No,14:19:27,15:22:17,17:03:33,---,---
 6,Rebeca Miranda Vergara,2025-06-11,Miércoles,8:00:00,08:01:41,1,A Tiempo,09:00:00,09:06:49,5,No,14:19:37,15:24:57,17:08:30,---,---
 6,Rebeca Miranda Vergara,2025-06-12,Jueves,8:00:00,08:32:49,32,Retardo,09:00:00,09:09:51,6,Sí (3er retardo),14:22:35,15:25:46,17:42:40,---,---
 6,Rebeca Miranda Vergara,2025-06-13,Viernes,8:00:00,08:47:30,47,Retardo,09:00:00,09:00:44,7,No,14:07:56,15:19:33,17:48:14,---,---
-6,Rebeca Miranda Vergara,2025-06-14,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,7,No,---,---,---,---,---
-6,Rebeca Miranda Vergara,2025-06-15,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,7,No,---,---,---,---,---
-7,Ana Paola Machorro Buenrostro,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+6,Rebeca Miranda Vergara,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,7,No,---,---,---,---,---
+6,Rebeca Miranda Vergara,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,7,No,---,---,---,---,---
+7,Ana Paola Machorro Buenrostro,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 7,Ana Paola Machorro Buenrostro,2025-06-02,Lunes,9:00:00,09:03:12,3,A Tiempo,08:00:00,06:47:54,0,No,14:37:16,15:51:06,---,---,---
 7,Ana Paola Machorro Buenrostro,2025-06-03,Martes,9:00:00,09:07:51,7,A Tiempo,08:00:00,07:52:39,0,No,14:36:46,15:39:16,17:00:30,---,---
 7,Ana Paola Machorro Buenrostro,2025-06-04,Miércoles,9:00:00,09:03:54,3,A Tiempo,08:00:00,07:59:01,0,No,14:06:42,15:23:40,17:02:55,---,---
-7,Ana Paola Machorro Buenrostro,2025-06-05,Jueves,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-7,Ana Paola Machorro Buenrostro,2025-06-06,Viernes,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-7,Ana Paola Machorro Buenrostro,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-7,Ana Paola Machorro Buenrostro,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+7,Ana Paola Machorro Buenrostro,2025-06-05,Jueves,9:00:00,---,0,Falta,08:00:00,---,0,No,---,---,---,---,---
+7,Ana Paola Machorro Buenrostro,2025-06-06,Viernes,9:00:00,---,0,Falta,08:00:00,---,0,No,---,---,---,---,---
+7,Ana Paola Machorro Buenrostro,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+7,Ana Paola Machorro Buenrostro,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 7,Ana Paola Machorro Buenrostro,2025-06-09,Lunes,9:00:00,09:07:53,7,A Tiempo,08:00:00,07:52:03,0,No,14:23:14,15:17:27,16:59:56,---,---
 7,Ana Paola Machorro Buenrostro,2025-06-10,Martes,9:00:00,09:05:31,5,A Tiempo,08:00:00,08:00:21,0,No,17:05:52,---,---,---,---
 7,Ana Paola Machorro Buenrostro,2025-06-11,Miércoles,9:00:00,09:07:46,7,A Tiempo,08:00:00,07:56:47,0,No,14:45:14,15:38:28,17:04:33,---,---
-7,Ana Paola Machorro Buenrostro,2025-06-12,Jueves,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+7,Ana Paola Machorro Buenrostro,2025-06-12,Jueves,9:00:00,---,0,Falta,08:00:00,---,0,No,---,---,---,---,---
 7,Ana Paola Machorro Buenrostro,2025-06-13,Viernes,9:00:00,09:08:49,8,A Tiempo,08:00:00,07:51:42,0,No,17:00:31,---,---,---,---
-7,Ana Paola Machorro Buenrostro,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-7,Ana Paola Machorro Buenrostro,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-76,Maximiliano Cuapa Ruiz,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+7,Ana Paola Machorro Buenrostro,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+7,Ana Paola Machorro Buenrostro,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+76,Maximiliano Cuapa Ruiz,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 76,Maximiliano Cuapa Ruiz,2025-06-02,Lunes,9:00:00,08:42:27,-17,A Tiempo,08:00:00,08:21:29,0,No,14:30:02,15:30:34,17:03:56,---,---
 76,Maximiliano Cuapa Ruiz,2025-06-03,Martes,9:00:00,08:51:37,-8,A Tiempo,08:00:00,08:10:08,0,No,14:12:34,15:16:56,17:01:45,---,---
 76,Maximiliano Cuapa Ruiz,2025-06-04,Miércoles,9:00:00,08:37:46,-22,A Tiempo,08:00:00,08:26:04,0,No,14:10:26,15:07:03,17:03:50,---,---
 76,Maximiliano Cuapa Ruiz,2025-06-05,Jueves,9:00:00,08:42:34,-17,A Tiempo,08:00:00,08:21:29,0,No,14:15:23,15:10:50,17:04:03,---,---
 76,Maximiliano Cuapa Ruiz,2025-06-06,Viernes,9:00:00,08:47:46,-12,A Tiempo,08:00:00,08:27:34,0,No,14:35:46,15:36:54,17:15:20,---,---
-76,Maximiliano Cuapa Ruiz,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-76,Maximiliano Cuapa Ruiz,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+76,Maximiliano Cuapa Ruiz,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+76,Maximiliano Cuapa Ruiz,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 76,Maximiliano Cuapa Ruiz,2025-06-09,Lunes,9:00:00,08:44:46,-15,A Tiempo,08:00:00,08:16:16,0,No,14:20:41,15:20:02,17:01:02,---,---
 76,Maximiliano Cuapa Ruiz,2025-06-10,Martes,9:00:00,08:56:27,-3,A Tiempo,08:00:00,08:06:38,0,No,14:17:00,15:21:37,17:03:05,---,---
 76,Maximiliano Cuapa Ruiz,2025-06-11,Miércoles,9:00:00,08:45:41,-14,A Tiempo,08:00:00,08:23:13,0,No,14:19:28,15:25:09,17:08:54,---,---
 76,Maximiliano Cuapa Ruiz,2025-06-12,Jueves,9:00:00,08:50:53,-9,A Tiempo,08:00:00,08:10:19,0,No,14:20:12,15:25:36,17:01:12,---,---
 76,Maximiliano Cuapa Ruiz,2025-06-13,Viernes,9:00:00,08:53:03,-6,A Tiempo,08:00:00,08:20:01,0,No,14:22:34,15:19:30,17:13:04,---,---
-76,Maximiliano Cuapa Ruiz,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-76,Maximiliano Cuapa Ruiz,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-77,Amelia Contreras Serrano,2025-06-01,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
+76,Maximiliano Cuapa Ruiz,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+76,Maximiliano Cuapa Ruiz,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+77,Amelia Contreras Serrano,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 77,Amelia Contreras Serrano,2025-06-02,Lunes,8:00:00,07:24:01,-35,A Tiempo,09:00:00,06:50:01,0,No,14:14:02,---,---,---,---
 77,Amelia Contreras Serrano,2025-06-03,Martes,8:00:00,07:21:39,-38,A Tiempo,09:00:00,09:40:46,0,No,14:18:38,14:55:14,17:02:25,---,---
 77,Amelia Contreras Serrano,2025-06-04,Miércoles,8:00:00,07:13:31,-46,A Tiempo,09:00:00,09:48:16,0,No,15:22:48,15:23:00,17:01:47,---,---
 77,Amelia Contreras Serrano,2025-06-05,Jueves,8:00:00,07:15:52,-44,A Tiempo,09:00:00,09:45:53,0,No,14:22:45,15:04:15,17:01:45,---,---
 77,Amelia Contreras Serrano,2025-06-06,Viernes,8:00:00,07:23:53,-36,A Tiempo,09:00:00,09:45:26,0,No,14:27:15,15:22:43,17:09:19,---,---
-77,Amelia Contreras Serrano,2025-06-07,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-77,Amelia Contreras Serrano,2025-06-08,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-77,Amelia Contreras Serrano,2025-06-09,Lunes,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-77,Amelia Contreras Serrano,2025-06-10,Martes,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-77,Amelia Contreras Serrano,2025-06-11,Miércoles,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-77,Amelia Contreras Serrano,2025-06-12,Jueves,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-77,Amelia Contreras Serrano,2025-06-13,Viernes,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-77,Amelia Contreras Serrano,2025-06-14,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-77,Amelia Contreras Serrano,2025-06-15,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-78,Lizbeth Torres Vazquez,2025-06-01,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
+77,Amelia Contreras Serrano,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+77,Amelia Contreras Serrano,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+77,Amelia Contreras Serrano,2025-06-09,Lunes,8:00:00,---,0,Falta,09:00:00,---,0,No,---,---,---,---,---
+77,Amelia Contreras Serrano,2025-06-10,Martes,8:00:00,---,0,Falta,09:00:00,---,0,No,---,---,---,---,---
+77,Amelia Contreras Serrano,2025-06-11,Miércoles,8:00:00,---,0,Falta,09:00:00,---,0,No,---,---,---,---,---
+77,Amelia Contreras Serrano,2025-06-12,Jueves,8:00:00,---,0,Falta,09:00:00,---,0,No,---,---,---,---,---
+77,Amelia Contreras Serrano,2025-06-13,Viernes,8:00:00,---,0,Falta,09:00:00,---,0,No,---,---,---,---,---
+77,Amelia Contreras Serrano,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+77,Amelia Contreras Serrano,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+78,Lizbeth Torres Vazquez,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 78,Lizbeth Torres Vazquez,2025-06-02,Lunes,8:00:00,07:50:32,-9,A Tiempo,09:00:00,09:16:14,0,No,14:28:05,15:19:44,17:06:46,---,---
 78,Lizbeth Torres Vazquez,2025-06-03,Martes,8:00:00,07:57:13,-2,A Tiempo,09:00:00,09:12:14,0,No,14:12:56,15:07:54,17:09:27,---,---
 78,Lizbeth Torres Vazquez,2025-06-04,Miércoles,8:00:00,07:57:09,-2,A Tiempo,09:00:00,09:05:33,0,No,14:16:22,15:13:16,17:02:42,---,---
 78,Lizbeth Torres Vazquez,2025-06-05,Jueves,8:00:00,07:51:44,-8,A Tiempo,09:00:00,09:11:26,0,No,14:11:02,15:03:39,17:03:10,---,---
 78,Lizbeth Torres Vazquez,2025-06-06,Viernes,8:00:00,07:48:53,-11,A Tiempo,09:00:00,09:17:07,0,No,14:22:11,15:24:23,17:06:00,---,---
-78,Lizbeth Torres Vazquez,2025-06-07,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-78,Lizbeth Torres Vazquez,2025-06-08,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
+78,Lizbeth Torres Vazquez,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+78,Lizbeth Torres Vazquez,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 78,Lizbeth Torres Vazquez,2025-06-09,Lunes,8:00:00,07:56:37,-3,A Tiempo,09:00:00,09:05:52,0,No,14:18:10,15:12:38,17:02:29,---,---
 78,Lizbeth Torres Vazquez,2025-06-10,Martes,8:00:00,07:54:31,-5,A Tiempo,09:00:00,09:07:37,0,No,14:13:04,15:10:04,17:02:08,---,---
 78,Lizbeth Torres Vazquez,2025-06-11,Miércoles,8:00:00,08:03:53,3,A Tiempo,09:00:00,09:03:16,0,No,14:14:39,15:11:09,17:07:09,---,---
 78,Lizbeth Torres Vazquez,2025-06-12,Jueves,8:00:00,07:58:10,-1,A Tiempo,09:00:00,09:12:20,0,No,14:20:22,15:15:50,17:10:30,---,---
 78,Lizbeth Torres Vazquez,2025-06-13,Viernes,8:00:00,07:50:30,-9,A Tiempo,09:00:00,09:13:15,0,No,14:13:36,15:06:00,17:03:45,---,---
-78,Lizbeth Torres Vazquez,2025-06-14,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-78,Lizbeth Torres Vazquez,2025-06-15,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-79,Juan Jesús Mendoza Muñoz,2025-06-01,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
+78,Lizbeth Torres Vazquez,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+78,Lizbeth Torres Vazquez,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+79,Juan Jesús Mendoza Muñoz,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 79,Juan Jesús Mendoza Muñoz,2025-06-02,Lunes,8:00:00,07:34:18,-25,A Tiempo,09:00:00,09:31:13,0,No,14:29:36,15:27:56,17:05:31,---,---
 79,Juan Jesús Mendoza Muñoz,2025-06-03,Martes,8:00:00,07:32:55,-27,A Tiempo,09:00:00,09:36:36,0,No,14:22:21,15:17:12,17:09:31,---,---
 79,Juan Jesús Mendoza Muñoz,2025-06-04,Miércoles,8:00:00,07:25:49,-34,A Tiempo,09:00:00,09:38:21,0,No,14:15:20,15:15:33,17:04:10,---,---
 79,Juan Jesús Mendoza Muñoz,2025-06-05,Jueves,8:00:00,07:36:16,-23,A Tiempo,09:00:00,09:26:05,0,No,14:15:02,15:10:07,17:02:21,---,---
 79,Juan Jesús Mendoza Muñoz,2025-06-06,Viernes,8:00:00,07:39:57,-20,A Tiempo,09:00:00,09:27:02,0,No,14:22:38,15:21:41,17:06:59,---,---
-79,Juan Jesús Mendoza Muñoz,2025-06-07,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-79,Juan Jesús Mendoza Muñoz,2025-06-08,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
+79,Juan Jesús Mendoza Muñoz,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+79,Juan Jesús Mendoza Muñoz,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 79,Juan Jesús Mendoza Muñoz,2025-06-09,Lunes,8:00:00,07:39:28,-20,A Tiempo,09:00:00,09:23:06,0,No,15:15:06,17:02:34,---,---,---
 79,Juan Jesús Mendoza Muñoz,2025-06-10,Martes,8:00:00,07:34:22,-25,A Tiempo,09:00:00,09:29:46,0,No,14:12:38,15:11:59,17:04:08,---,---
 79,Juan Jesús Mendoza Muñoz,2025-06-11,Miércoles,8:00:00,07:31:19,-28,A Tiempo,09:00:00,09:35:43,0,No,14:24:32,15:21:51,17:07:02,---,---
 79,Juan Jesús Mendoza Muñoz,2025-06-12,Jueves,8:00:00,07:38:00,-22,A Tiempo,09:00:00,09:47:30,0,No,14:19:51,15:17:34,17:25:30,---,---
 79,Juan Jesús Mendoza Muñoz,2025-06-13,Viernes,8:00:00,07:47:14,-12,A Tiempo,09:00:00,09:39:29,0,No,14:13:21,15:18:58,17:26:43,---,---
-79,Juan Jesús Mendoza Muñoz,2025-06-14,Sábado,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-79,Juan Jesús Mendoza Muñoz,2025-06-15,Domingo,8:00:00,---,0,Sin Checada,09:00:00,---,0,No,---,---,---,---,---
-8,Quetzalli López Becerra,2025-06-01,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+79,Juan Jesús Mendoza Muñoz,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+79,Juan Jesús Mendoza Muñoz,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+8,Quetzalli López Becerra,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 8,Quetzalli López Becerra,2025-06-02,Lunes,9:00:00,09:09:41,9,A Tiempo,08:00:00,07:55:46,0,No,14:37:19,15:51:01,17:05:27,---,---
 8,Quetzalli López Becerra,2025-06-03,Martes,9:00:00,09:09:34,9,A Tiempo,08:00:00,07:54:21,0,No,14:43:42,15:39:18,17:03:55,---,---
 8,Quetzalli López Becerra,2025-06-04,Miércoles,9:00:00,09:03:57,3,A Tiempo,08:00:00,07:59:12,0,No,14:06:38,15:02:37,17:03:09,---,---
-8,Quetzalli López Becerra,2025-06-05,Jueves,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+8,Quetzalli López Becerra,2025-06-05,Jueves,9:00:00,---,0,Falta,08:00:00,---,0,No,---,---,---,---,---
 8,Quetzalli López Becerra,2025-06-06,Viernes,9:00:00,09:03:58,3,A Tiempo,08:00:00,08:07:58,0,No,17:11:56,---,---,---,---
-8,Quetzalli López Becerra,2025-06-07,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-8,Quetzalli López Becerra,2025-06-08,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
+8,Quetzalli López Becerra,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+8,Quetzalli López Becerra,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
 8,Quetzalli López Becerra,2025-06-09,Lunes,9:00:00,09:02:20,2,A Tiempo,08:00:00,07:58:31,0,No,17:00:51,---,---,---,---
 8,Quetzalli López Becerra,2025-06-10,Martes,9:00:00,09:08:14,8,A Tiempo,08:00:00,08:08:11,0,No,17:16:25,---,---,---,---
 8,Quetzalli López Becerra,2025-06-11,Miércoles,9:00:00,09:11:50,11,A Tiempo,08:00:00,07:59:05,0,No,14:45:16,15:38:21,17:10:55,---,---
 8,Quetzalli López Becerra,2025-06-12,Jueves,9:00:00,09:00:32,0,A Tiempo,08:00:00,08:00:45,0,No,14:28:16,15:30:22,17:01:17,---,---
 8,Quetzalli López Becerra,2025-06-13,Viernes,9:00:00,09:00:35,0,A Tiempo,08:00:00,08:07:32,0,No,17:08:07,---,---,---,---
-8,Quetzalli López Becerra,2025-06-14,Sábado,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-8,Quetzalli López Becerra,2025-06-15,Domingo,9:00:00,---,0,Sin Checada,08:00:00,---,0,No,---,---,---,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-01,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-02,Lunes,---,09:01:49,0,Sin Checada,---,07:59:53,0,No,14:29:16,15:27:21,17:01:42,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-03,Martes,---,09:13:33,0,Sin Checada,---,07:52:35,0,No,14:30:45,15:21:20,17:06:08,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-04,Miércoles,---,09:14:02,0,Sin Checada,---,07:50:03,0,No,14:23:33,15:15:22,17:04:05,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-05,Jueves,---,09:03:22,0,Sin Checada,---,07:58:07,0,No,09:03:23,14:06:36,15:08:32,17:01:29,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-06,Viernes,---,09:10:56,0,Sin Checada,---,07:51:49,0,No,14:35:33,15:34:59,17:02:45,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-07,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-08,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-09,Lunes,---,09:11:04,0,Sin Checada,---,07:51:11,0,No,14:35:34,15:30:49,17:02:15,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-10,Martes,---,09:13:54,0,Sin Checada,---,07:49:31,0,No,14:21:31,15:24:43,17:03:25,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-11,Miércoles,---,09:13:03,0,Sin Checada,---,07:48:32,0,No,14:33:28,15:26:49,17:01:35,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-12,Jueves,---,09:11:44,0,Sin Checada,---,07:49:11,0,No,14:24:40,15:29:45,17:00:55,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-13,Viernes,---,09:12:27,0,Sin Checada,---,07:47:58,0,No,14:30:24,15:41:05,17:00:25,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-14,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-82,Antonio Alejandro Barbosa Carrillo,2025-06-15,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-01,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-02,Lunes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-03,Martes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-04,Miércoles,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-05,Jueves,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-06,Viernes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-07,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-08,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-09,Lunes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-10,Martes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-11,Miércoles,---,14:19:04,0,Sin Checada,---,02:47:41,0,No,15:20:13,17:06:45,---,---,---
-84,Stephany Morales Hernández,2025-06-12,Jueves,---,08:52:15,0,Sin Checada,---,08:19:04,0,No,14:17:52,15:16:58,17:11:19,---,---
-84,Stephany Morales Hernández,2025-06-13,Viernes,---,08:46:30,0,Sin Checada,---,08:17:08,0,No,14:13:52,15:17:51,17:03:38,---,---
-84,Stephany Morales Hernández,2025-06-14,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-84,Stephany Morales Hernández,2025-06-15,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-01,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-02,Lunes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-03,Martes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-04,Miércoles,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-05,Jueves,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-06,Viernes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-07,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-08,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-09,Lunes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-10,Martes,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-11,Miércoles,---,14:18:59,0,Sin Checada,---,02:39:29,0,No,15:20:18,16:58:28,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-12,Jueves,---,08:46:08,0,Sin Checada,---,08:09:33,0,No,14:17:58,15:17:04,16:55:41,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-13,Viernes,---,08:50:15,0,Sin Checada,---,08:05:33,0,No,14:13:47,15:17:57,16:55:48,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-14,Sábado,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
-85,Brenda Coyotl Tlaxcalteca,2025-06-15,Domingo,---,---,0,Sin Checada,---,---,0,No,---,---,---,---,---
+8,Quetzalli López Becerra,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+8,Quetzalli López Becerra,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-02,Lunes,---,09:01:49,0,Día no Laborable,---,07:59:53,0,No,14:29:16,15:27:21,17:01:42,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-03,Martes,---,09:13:33,0,Día no Laborable,---,07:52:35,0,No,14:30:45,15:21:20,17:06:08,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-04,Miércoles,---,09:14:02,0,Día no Laborable,---,07:50:03,0,No,14:23:33,15:15:22,17:04:05,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-05,Jueves,---,09:03:22,0,Día no Laborable,---,07:58:07,0,No,09:03:23,14:06:36,15:08:32,17:01:29,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-06,Viernes,---,09:10:56,0,Día no Laborable,---,07:51:49,0,No,14:35:33,15:34:59,17:02:45,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-09,Lunes,---,09:11:04,0,Día no Laborable,---,07:51:11,0,No,14:35:34,15:30:49,17:02:15,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-10,Martes,---,09:13:54,0,Día no Laborable,---,07:49:31,0,No,14:21:31,15:24:43,17:03:25,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-11,Miércoles,---,09:13:03,0,Día no Laborable,---,07:48:32,0,No,14:33:28,15:26:49,17:01:35,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-12,Jueves,---,09:11:44,0,Día no Laborable,---,07:49:11,0,No,14:24:40,15:29:45,17:00:55,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-13,Viernes,---,09:12:27,0,Día no Laborable,---,07:47:58,0,No,14:30:24,15:41:05,17:00:25,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+82,Antonio Alejandro Barbosa Carrillo,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-02,Lunes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-03,Martes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-04,Miércoles,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-05,Jueves,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-06,Viernes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-09,Lunes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-10,Martes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-11,Miércoles,---,14:19:04,0,Día no Laborable,---,02:47:41,0,No,15:20:13,17:06:45,---,---,---
+84,Stephany Morales Hernández,2025-06-12,Jueves,---,08:52:15,0,Día no Laborable,---,08:19:04,0,No,14:17:52,15:16:58,17:11:19,---,---
+84,Stephany Morales Hernández,2025-06-13,Viernes,---,08:46:30,0,Día no Laborable,---,08:17:08,0,No,14:13:52,15:17:51,17:03:38,---,---
+84,Stephany Morales Hernández,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+84,Stephany Morales Hernández,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-01,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-02,Lunes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-03,Martes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-04,Miércoles,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-05,Jueves,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-06,Viernes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-07,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-08,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-09,Lunes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-10,Martes,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-11,Miércoles,---,14:18:59,0,Día no Laborable,---,02:39:29,0,No,15:20:18,16:58:28,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-12,Jueves,---,08:46:08,0,Día no Laborable,---,08:09:33,0,No,14:17:58,15:17:04,16:55:41,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-13,Viernes,---,08:50:15,0,Día no Laborable,---,08:05:33,0,No,14:13:47,15:17:57,16:55:48,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-14,Sábado,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---
+85,Brenda Coyotl Tlaxcalteca,2025-06-15,Domingo,---,---,0,Día no Laborable,---,---,0,No,---,---,---,---,---

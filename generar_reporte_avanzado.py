@@ -26,7 +26,6 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 def connect_db():
     """
     Establece y retorna una conexión a la base de datos MariaDB.
-    Maneja errores si faltan credenciales o si la conexión falla.
     """
     if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD]):
         print("❌ Error de Configuración de BD: Faltan variables en el archivo .env")
@@ -49,7 +48,7 @@ def connect_db():
 
 def query_horario_programado(codigo_frappe: int, fecha: datetime, conn):
     """
-    Consulta el horario programado para un empleado en una fecha específica usando la lógica de prioridad.
+    Consulta el horario programado para un empleado, obteniendo también la regla que se aplicó.
     """
     if conn is None or not conn.is_connected():
         return None
@@ -58,15 +57,18 @@ def query_horario_programado(codigo_frappe: int, fecha: datetime, conn):
         es_primera_quincena = 1 if fecha.day <= 15 else 0
         dia_semana_id = fecha.isoweekday()  # Lunes=1, Domingo=7
 
-        # La consulta SQL completa que considera todas las reglas de prioridad
+        # SQL MODIFICADA: Ahora trae también el tipo de regla para validación posterior
         sql = """
         SELECT 
             COALESCE(H.hora_entrada, AH.hora_entrada_especifica) as hora_entrada, 
             COALESCE(H.hora_salida, AH.hora_salida_especifica) as hora_salida,
-            COALESCE(H.cruza_medianoche, AH.hora_salida_especifica_cruza_medianoche, FALSE) AS cruza_medianoche
+            COALESCE(H.cruza_medianoche, AH.hora_salida_especifica_cruza_medianoche, FALSE) AS cruza_medianoche,
+            AH.dia_especifico_id,
+            T.descripcion AS tipo_turno_descripcion
         FROM Empleados AS E
         LEFT JOIN AsignacionHorario AS AH ON E.empleado_id = AH.empleado_id
         LEFT JOIN Horario AS H ON AH.horario_id = H.horario_id
+        LEFT JOIN TipoTurno AS T ON AH.tipo_turno_id = T.tipo_turno_id
         WHERE E.codigo_frappe = %s AND (
             (AH.dia_especifico_id = %s) OR 
             (AH.tipo_turno_id IS NOT NULL) OR 
@@ -85,7 +87,6 @@ def query_horario_programado(codigo_frappe: int, fecha: datetime, conn):
         """
 
         cursor = conn.cursor(dictionary=True)
-        # Los parámetros deben coincidir con cada %s en la consulta
         params = (
             codigo_frappe,
             dia_semana_id,
@@ -97,7 +98,6 @@ def query_horario_programado(codigo_frappe: int, fecha: datetime, conn):
         cursor.execute(sql, params)
         result = cursor.fetchone()
         cursor.close()
-        # Convierte timedelta a string para que pandas lo maneje bien
         if result:
             if isinstance(result.get("hora_entrada"), timedelta):
                 result["hora_entrada"] = str(result["hora_entrada"])
@@ -233,6 +233,35 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
     return final_df
 
 
+def dia_en_turno(dia_semana_iso, descripcion_turno):
+    """
+    Función auxiliar para verificar si un día pertenece a un turno descrito por texto (ej. 'L-V').
+    """
+    if not isinstance(descripcion_turno, str):
+        return False
+
+    descripcion_turno = descripcion_turno.upper().replace(" ", "")
+    dias_map = {"L": 1, "M": 2, "X": 3, "J": 4, "V": 5, "S": 6, "D": 7}
+
+    # Revisa rangos como L-V
+    match = re.search(r"([LMXJVSD])-([LMXJVSD])", descripcion_turno)
+    if match:
+        start_day_char, end_day_char = match.groups()
+        start_day_iso = dias_map.get(start_day_char)
+        end_day_iso = dias_map.get(end_day_char)
+        if start_day_iso is not None and end_day_iso is not None:
+            if start_day_iso <= dia_semana_iso <= end_day_iso:
+                return True
+
+    # Revisa letras individuales o separadas por coma
+    turno_dias_iso = set()
+    for char, iso_val in dias_map.items():
+        if char in descripcion_turno:
+            turno_dias_iso.add(iso_val)
+
+    return dia_semana_iso in turno_dias_iso
+
+
 def analizar_asistencia_y_horarios(df: pd.DataFrame):
     """Función principal que enriquece el DataFrame con análisis de horarios y retardos."""
     if df.empty:
@@ -244,7 +273,7 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
     print(
         "   - Consultando horarios programados en la base de datos (esto puede tardar)..."
     )
-    horarios_data = df.apply(
+    horarios_data_raw = df.apply(
         lambda row: query_horario_programado(
             row["employee"], pd.to_datetime(row["dia"]).to_pydatetime(), db_conn
         ),
@@ -255,7 +284,28 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
         db_conn.close()
         print("   - Conexión a la base de datos cerrada.")
 
-    df_horarios = pd.json_normalize(horarios_data).rename(
+    print("   - Validando reglas de turno para días de descanso...")
+    df["dia_iso"] = pd.to_datetime(df["dia"]).dt.weekday + 1
+
+    def validar_horario_aplicable(horario_info, dia_iso):
+        if not isinstance(horario_info, dict):
+            return None
+
+        if pd.notna(horario_info.get("dia_especifico_id")):
+            return horario_info
+
+        descripcion = horario_info.get("tipo_turno_descripcion")
+        if dia_en_turno(dia_iso, descripcion):
+            return horario_info
+        else:
+            return None
+
+    horarios_data_validado = [
+        validar_horario_aplicable(info, dia)
+        for info, dia in zip(horarios_data_raw, df["dia_iso"])
+    ]
+
+    df_horarios = pd.json_normalize(horarios_data_validado).rename(
         columns={
             "hora_entrada": "hora_entrada_programada",
             "hora_salida": "hora_salida_programada",
@@ -282,8 +332,11 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
     print("   - Calculando retardos y puntualidad con tolerancia de 15 minutos...")
 
     def analizar_retardo(row):
-        if pd.isna(row.get("hora_entrada_programada")) or pd.isna(row.get("checado_1")):
-            return pd.Series(["Sin Checada", 0])
+        if pd.isna(row.get("hora_entrada_programada")):
+            return pd.Series(["Día no Laborable", 0])
+
+        if pd.isna(row.get("checado_1")):
+            return pd.Series(["Falta", 0])
 
         entrada_prog = pd.to_timedelta(str(row["hora_entrada_programada"]))
         checado = pd.to_timedelta(row["checado_1"])
@@ -300,9 +353,10 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
         analizar_retardo, axis=1, result_type="expand"
     )
 
-    print("   - Verificando acumulación de retardos para descuentos...")
+    print("   - Verificando acumulación de retardos y faltas para descuentos...")
     df = df.sort_values(by=["employee", "dia"]).reset_index(drop=True)
-    df["es_retardo_acumulable"] = df["tipo_retardo"].isin(["Retardo"]).astype(int)
+    df["es_retardo_acumulable"] = (df["tipo_retardo"] == "Retardo").astype(int)
+    df["es_falta"] = (df["tipo_retardo"] == "Falta").astype(int)  # NUEVA LÍNEA
     df["retardos_acumulados"] = df.groupby("employee")["es_retardo_acumulable"].cumsum()
 
     df["descuento_por_3_retardos"] = df.apply(
@@ -321,92 +375,64 @@ def analizar_asistencia_y_horarios(df: pd.DataFrame):
 
 
 # ==============================================================================
-# SECCIÓN 4: NUEVA FUNCIÓN PARA GENERAR RESUMEN DEL PERIODO
+# SECCIÓN 4: FUNCIÓN PARA GENERAR RESUMEN
 # ==============================================================================
 def generar_resumen_periodo(df: pd.DataFrame):
     """
-    Crea un DataFrame de resumen con totales por empleado, incluyendo el cálculo
-    de horas extra dobles y triples según la ley.
+    Crea un DataFrame de resumen con totales por empleado, incluyendo faltas, y
+    calcula la diferencia entre horas trabajadas y esperadas.
     """
-    print("\n📊 Generando resumen del periodo...")
+    print("\n📊 Generando resumen del periodo con cálculo de diferencia de horas...")
     if df.empty:
         print("   - No hay datos para generar el resumen.")
         return
 
-    # --- Preparación de Datos ---
-    # Convertir columnas de tiempo a timedelta para poder sumarlas
     df["horas_trabajadas_td"] = pd.to_timedelta(
         df["horas_trabajadas"].fillna("00:00:00")
     )
     df["horas_esperadas_td"] = pd.to_timedelta(df["horas_esperadas"].fillna("00:00:00"))
 
-    # Calcular horas extra diarias
-    df["horas_extra_diarias"] = df["horas_trabajadas_td"] - df["horas_esperadas_td"]
-    # Asegurarse de que no haya horas extra negativas
-    df["horas_extra_diarias"] = df["horas_extra_diarias"].apply(
-        lambda x: x if x > timedelta(0) else timedelta(0)
-    )
-
-    # Añadir número de semana para agrupar
-    df["semana_del_año"] = pd.to_datetime(df["dia"]).dt.isocalendar().week
-
-    # --- Agregación Semanal para Horas Extra ---
-    extras_semanales = (
-        df.groupby(["employee", "Nombre", "semana_del_año"])["horas_extra_diarias"]
-        .sum()
-        .reset_index()
-    )
-
-    nueve_horas = timedelta(hours=9)
-    extras_semanales["horas_dobles"] = extras_semanales["horas_extra_diarias"].apply(
-        lambda x: min(x, nueve_horas)
-    )
-    extras_semanales["horas_triples"] = extras_semanales["horas_extra_diarias"].apply(
-        lambda x: x - nueve_horas if x > nueve_horas else timedelta(0)
-    )
-
-    # --- Agregación Total por Empleado ---
-    resumen_empleado = (
-        extras_semanales.groupby(["employee", "Nombre"])
-        .agg(
-            total_horas_dobles=("horas_dobles", "sum"),
-            total_horas_triples=("horas_triples", "sum"),
-        )
-        .reset_index()
-    )
-
-    # Sumar totales de horas y retardos del DataFrame original
-    totales_generales = (
-        df.groupby(["employee"])
+    # AGREGACIÓN ACTUALIZADA: Se añade la suma de 'es_falta'
+    resumen_final = (
+        df.groupby(["employee", "Nombre"])
         .agg(
             total_horas_trabajadas=("horas_trabajadas_td", "sum"),
             total_horas_esperadas=("horas_esperadas_td", "sum"),
             total_retardos=("es_retardo_acumulable", "sum"),
+            total_faltas=("es_falta", "sum"),  # NUEVA LÍNEA
         )
         .reset_index()
     )
 
-    # Unir todos los datos en el DataFrame de resumen final
-    resumen_final = pd.merge(resumen_empleado, totales_generales, on="employee")
+    diferencia_td = (
+        resumen_final["total_horas_trabajadas"] - resumen_final["total_horas_esperadas"]
+    )
 
-    # --- Formateo Final ---
-    # Función para convertir timedelta a formato HH:MM:SS
-    def format_timedelta(td):
+    resumen_final["diferencia_segundos"] = diferencia_td.dt.total_seconds().astype(int)
+
+    def format_timedelta_with_sign(td):
+        sign = "-" if td.total_seconds() < 0 else ""
+        td_abs = abs(td)
+        total_seconds = int(td_abs.total_seconds())
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{sign}{hours:02}:{minutes:02}:{seconds:02}"
+
+    def format_positive_timedelta(td):
         total_seconds = int(td.total_seconds())
         hours, remainder = divmod(total_seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
         return f"{hours:02}:{minutes:02}:{seconds:02}"
 
-    # Aplicar formato a todas las columnas de tiempo
-    for col in [
-        "total_horas_trabajadas",
-        "total_horas_esperadas",
-        "total_horas_dobles",
-        "total_horas_triples",
-    ]:
-        resumen_final[col] = resumen_final[col].apply(format_timedelta)
+    resumen_final["diferencia_HHMMSS"] = diferencia_td.apply(format_timedelta_with_sign)
+    resumen_final["total_horas_trabajadas"] = resumen_final[
+        "total_horas_trabajadas"
+    ].apply(format_positive_timedelta)
+    resumen_final["total_horas_esperadas"] = resumen_final[
+        "total_horas_esperadas"
+    ].apply(format_positive_timedelta)
 
-    # Reordenar columnas
+    # ORDEN DE COLUMNAS ACTUALIZADO
     resumen_final = resumen_final[
         [
             "employee",
@@ -414,17 +440,17 @@ def generar_resumen_periodo(df: pd.DataFrame):
             "total_horas_trabajadas",
             "total_horas_esperadas",
             "total_retardos",
-            "total_horas_dobles",
-            "total_horas_triples",
+            "total_faltas",
+            "diferencia_segundos",
+            "diferencia_HHMMSS",
         ]
     ]
 
-    # Guardar el resumen en un nuevo archivo CSV
     output_filename = "resumen_periodo.csv"
     resumen_final.to_csv(output_filename, index=False, encoding="utf-8-sig")
 
     print(f"✅ Resumen del periodo guardado en '{output_filename}'")
-    print("\n**Visualización del Resumen del Periodo:**\n")
+    print("\n**Visualización del Resumen del Periodo (Corregido):**\n")
     print(resumen_final.to_string())
 
 
