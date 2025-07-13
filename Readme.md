@@ -7,7 +7,7 @@ Este proyecto es un sistema de gestión de asistencias que integra datos de marc
 - Python 3.8+
 - Base de datos MariaDB/MySQL
 - Acceso a la API de registros de asistencia
-- Archivo `.env` con las siguientes variables configuradas:
+- Copia el archivo `.env.example` a `.env` y completa las siguientes variables:
   - `DB_HOST`: Host de la base de datos
   - `DB_PORT`: Puerto de la base de datos (por defecto: 3306)
   - `DB_NAME`: Nombre de la base de datos
@@ -23,7 +23,7 @@ Este proyecto es un sistema de gestión de asistencias que integra datos de marc
 Este archivo proporciona funcionalidades para conectarse a la base de datos MariaDB y realizar consultas relacionadas con los horarios de los empleados.
 
 **Funciones principales:**
-- `connect_db()`: Establece y retorna una conexión a la base de datos utilizando las credenciales del archivo `.env`.
+- `connect_db()`: Establece y retorna una conexión a la base de datos utilizando las credenciales definidas en tu archivo `.env`.
 - `query_horario_programado(codigo_frappe, fecha)`: Consulta el horario programado para un empleado en una fecha específica, aplicando lógica de prioridad para determinar el horario aplicable. Retorna un diccionario con información del horario o `None` si no hay asignación.
 
 ### `db_connection.py`
@@ -67,7 +67,7 @@ El sistema genera varios archivos CSV como resultado de su ejecución:
 
 ## Uso
 
-1. Asegúrate de tener el archivo `.env` configurado con todas las credenciales necesarias.
+1. Copia `.env.example` a `.env` y configura tus credenciales.
 2. Ejecuta `generar_reporte_avanzado.py` especificando las fechas de inicio y fin del período a analizar.
 
 ```bash
