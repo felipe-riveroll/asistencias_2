@@ -461,7 +461,7 @@ if __name__ == "__main__":
     # Define aquí el rango de fechas y el dispositivo que quieres analizar
     start_date = "2025-06-01"
     end_date = "2025-06-15"
-    device_filter = "%31%"
+    device_filter = "%villas%"
 
     # 1. Obtener datos de la API
     checkin_records = fetch_checkins(start_date, end_date, device_filter)
