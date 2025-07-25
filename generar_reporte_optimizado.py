@@ -365,7 +365,10 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
         obtener_horario_fila, axis=1, result_type='expand'
     )
 
-    print("   - Calculando retardos y puntualidad con tolerancia de 15 minutos...")
+    print("   - Calculando retardos y puntualidad con nueva lógica:")
+    print("     • Puntual: hasta 15 minutos de tolerancia")
+    print("     • Retardo: entre 16 y 30 minutos")
+    print("     • Falta Injustificada: más de 30 minutos")
 
     def analizar_retardo(row):
         if pd.isna(row.get("hora_entrada_programada")):
@@ -395,11 +398,17 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
             if not row.get('cruza_medianoche', False) and diferencia < -12 * 60:
                 diferencia += 24 * 60  # Añadir un día
             
-            # Clasificar según la tolerancia
+            # Clasificar según la nueva lógica de puntualidad y retardos:
+            # - Puntual: Check-in hasta 15 minutos después de la hora acordada
+            # - Retardo: Check-in entre 16 y 30 minutos después (cuenta para acumulación)
+            # - Falta Injustificada: Check-in después de 30 minutos (se marca automáticamente como falta)
             if diferencia <= 15:
                 tipo = "A Tiempo"
-            else:
+            elif diferencia <= 30:
                 tipo = "Retardo"
+            else:
+                # Más de 30 minutos se considera Falta Injustificada automáticamente
+                tipo = "Falta Injustificada"
                 
             return pd.Series([tipo, int(diferencia)])
             
@@ -414,7 +423,7 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
     print("   - Verificando acumulación de retardos y faltas para descuentos...")
     df = df.sort_values(by=["employee", "dia"]).reset_index(drop=True)
     df["es_retardo_acumulable"] = (df["tipo_retardo"] == "Retardo").astype(int)
-    df["es_falta"] = (df["tipo_retardo"] == "Falta").astype(int)
+    df["es_falta"] = (df["tipo_retardo"].isin(["Falta", "Falta Injustificada"])).astype(int)
     df["retardos_acumulados"] = df.groupby("employee")["es_retardo_acumulable"].cumsum()
 
     df["descuento_por_3_retardos"] = df.apply(
@@ -524,8 +533,8 @@ if __name__ == "__main__":
     # Define aquí el rango de fechas y el dispositivo que quieres analizar
     start_date = "2025-07-01"
     end_date = "2025-07-15"
-    sucursal = "Villas"
-    device_filter = "%villas%"
+    sucursal = "Nave"
+    device_filter = "%Nave%"
     
     # Determinar si es primera quincena según la fecha de inicio
     fecha_inicio_dt = datetime.strptime(start_date, "%Y-%m-%d")
