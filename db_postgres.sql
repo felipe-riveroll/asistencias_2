@@ -244,9 +244,9 @@ INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
 (10, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
 
--- Ivana Reyes Santamaria (Nave)
+-- Ivana Reyes Santamaria (31pte)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
-(11, 3, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+(11, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
 
 -- Odalys Castillo Santamaría (Villas)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
