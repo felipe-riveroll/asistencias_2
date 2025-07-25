@@ -172,7 +172,26 @@ INSERT INTO Empleados (empleado_id, apellido_materno, apellido_paterno, codigo_c
 (59, 'Serrano', 'Contreras', 2516, 77, 'Amelia', true),
 (60, 'Vazquez', 'Torres', 2517, 78, 'Lizbeth', true),
 (61, 'Muñoz', 'Mendoza', 2518, 79, 'Juan Jesus', true)
-ON CONFLICT (empleado_id) DO NOTHING; -- O DO UPDATE si prefieres actualizar
+ON CONFLICT (empleado_id) DO NOTHING; 
+-- Empleados faltantes (62–69)
+INSERT INTO Empleados
+    (empleado_id, apellido_materno, apellido_paterno, codigo_checador, codigo_frappe, nombre, tiene_horario_asignado)
+VALUES
+    (62, 'Hernández', 'Morales', 2522, 84, 'Stephany', TRUE),
+    (63, 'Tlaxcalteca', 'Coyotl', 2523, 85, 'Brenda', TRUE),
+    (64, 'García', 'Rojas', 2524, 86, 'Lorenzo', TRUE),
+    (65, 'Galicia', 'Pérez', 4022, 87, 'Elizabeth', TRUE),
+    (66, 'Carrillo', 'Barbosa', 2520, 82, 'Antonio Alejandro', TRUE),
+    (67, 'Sánchez', 'Fuentes', 4016, 88, 'Carolina', TRUE),
+    (68, 'Ramírez', 'Rojas', 4018, 89, 'Iván', TRUE),
+    (69, 'Pineda', 'Hidalgo', 3018, 91, 'Antonio', TRUE)
+ON CONFLICT (empleado_id) DO NOTHING;
+
+-- Ajustar secuencia de empleados
+SELECT setval(pg_get_serial_sequence('empleados','empleado_id'),
+              COALESCE((SELECT MAX(empleado_id) FROM empleados),1));
+
+-- O DO UPDATE si prefieres actualizar
 
 -- Resetear el valor de la secuencia para la tabla Empleados
 SELECT setval(pg_get_serial_sequence('empleados', 'empleado_id'), 62);
@@ -521,6 +540,30 @@ INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
 (61, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '08:00-17:00'));
 
+-- Stephany Morales Hernández (31pte)
+
+-- (removido: insert de AsignacionHorario para empleados 62–69)
+-- Brenda Coyotl Tlaxcalteca (31pte)
+
+-- (removido: insert de AsignacionHorario para empleados 62–69)
+-- Lorenzo García Rojas (31pte)
+
+-- (removido: insert de AsignacionHorario para empleados 62–69)
+-- Elizabeth Galicia Pérez (Villas)
+
+-- (removido: insert de AsignacionHorario para empleados 62–69)
+-- Antonio Alejandro Carrillo Barbosa (31pte)
+
+-- (removido: insert de AsignacionHorario para empleados 62–69)
+-- Carolina Sánchez Fuentes (Villas)
+
+-- (removido: insert de AsignacionHorario para empleados 62–69)
+-- Iván Ramírez Rojas (Villas)
+
+-- (removido: insert de AsignacionHorario para empleados 62–69)
+-- Antonio Pineda Hidalgo (Nave)
+
+-- (removido: insert de AsignacionHorario para empleados 62–69)
 -- Evitar duplicados exactos en asignaciones
 ALTER TABLE AsignacionHorario
 ADD CONSTRAINT uidx_asignacion UNIQUE (empleado_id, sucursal_id, dia_especifico_id, es_primera_quincena);
@@ -692,4 +735,71 @@ AS $func$
     ORDER BY nombre_completo;
 $func$;
 -- =====================================================================
--- 🚀 FIN DE LA SECCIÓN DE FUNCIONES PERSONALIZADAS 
+-- 🚀 FIN DE LA SECCIÓN DE FUNCIONES PERSONALIZADAS
+
+
+-- === Asignaciones seguras 62–69 (idempotentes) ===
+
+-- Asegurar horario 11:00-17:00
+INSERT INTO Horario (hora_entrada, hora_salida, cruza_medianoche, descripcion_horario)
+SELECT '11:00:00','17:00:00', FALSE, '11:00-17:00'
+WHERE NOT EXISTS (SELECT 1 FROM Horario WHERE descripcion_horario='11:00-17:00');
+
+-- 62
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id)
+SELECT 62, 1, tt.tipo_turno_id, h.horario_id
+FROM TipoTurno tt, Horario h
+WHERE tt.descripcion='L-V' AND h.descripcion_horario='09:00-17:00'
+AND NOT EXISTS (SELECT 1 FROM AsignacionHorario a WHERE a.empleado_id=62 AND a.sucursal_id=1 AND a.tipo_turno_id=tt.tipo_turno_id AND a.horario_id=h.horario_id);
+
+-- 63
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id)
+SELECT 63, 1, tt.tipo_turno_id, h.horario_id
+FROM TipoTurno tt, Horario h
+WHERE tt.descripcion='L-V' AND h.descripcion_horario='09:00-17:00'
+AND NOT EXISTS (SELECT 1 FROM AsignacionHorario a WHERE a.empleado_id=63 AND a.sucursal_id=1 AND a.tipo_turno_id=tt.tipo_turno_id AND a.horario_id=h.horario_id);
+
+-- 64 (11:00-17:00)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id)
+SELECT 64, 1, tt.tipo_turno_id, h.horario_id
+FROM TipoTurno tt, Horario h
+WHERE tt.descripcion='L-V' AND h.descripcion_horario='11:00-17:00'
+AND NOT EXISTS (SELECT 1 FROM AsignacionHorario a WHERE a.empleado_id=64 AND a.sucursal_id=1 AND a.tipo_turno_id=tt.tipo_turno_id AND a.horario_id=h.horario_id);
+
+-- 65
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id)
+SELECT 65, 3, tt.tipo_turno_id, h.horario_id
+FROM TipoTurno tt, Horario h
+WHERE tt.descripcion='L-V' AND h.descripcion_horario='09:00-17:00'
+AND NOT EXISTS (SELECT 1 FROM AsignacionHorario a WHERE a.empleado_id=65 AND a.sucursal_id=3 AND a.tipo_turno_id=tt.tipo_turno_id AND a.horario_id=h.horario_id);
+
+-- 66
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id)
+SELECT 66, 1, tt.tipo_turno_id, h.horario_id
+FROM TipoTurno tt, Horario h
+WHERE tt.descripcion='L-V' AND h.descripcion_horario='09:00-17:00'
+AND NOT EXISTS (SELECT 1 FROM AsignacionHorario a WHERE a.empleado_id=66 AND a.sucursal_id=1 AND a.tipo_turno_id=tt.tipo_turno_id AND a.horario_id=h.horario_id);
+
+-- 67 (vie,sáb,dom)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, dia_especifico_id, hora_entrada_especifica, hora_salida_especifica)
+SELECT 67, 3, v.dia_id, v.hora_entrada, v.hora_salida
+FROM (VALUES (5,'09:00:00'::time,'17:00:00'::time),
+             (6,'09:00:00'::time,'17:00:00'::time),
+             (7,'09:00:00'::time,'17:00:00'::time)) AS v(dia_id,hora_entrada,hora_salida)
+WHERE NOT EXISTS (SELECT 1 FROM AsignacionHorario a WHERE a.empleado_id=67 AND a.sucursal_id=3 AND a.dia_especifico_id=v.dia_id);
+
+-- 68 (vie,sáb,dom)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, dia_especifico_id, hora_entrada_especifica, hora_salida_especifica)
+SELECT 68, 3, v.dia_id, v.hora_entrada, v.hora_salida
+FROM (VALUES (5,'09:00:00'::time,'17:00:00'::time),
+             (6,'09:00:00'::time,'17:00:00'::time),
+             (7,'09:00:00'::time,'17:00:00'::time)) AS v(dia_id,hora_entrada,hora_salida)
+WHERE NOT EXISTS (SELECT 1 FROM AsignacionHorario a WHERE a.empleado_id=68 AND a.sucursal_id=3 AND a.dia_especifico_id=v.dia_id);
+
+-- 69
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id)
+SELECT 69, 2, tt.tipo_turno_id, h.horario_id
+FROM TipoTurno tt, Horario h
+WHERE tt.descripcion='L-V' AND h.descripcion_horario='09:00-17:00'
+AND NOT EXISTS (SELECT 1 FROM AsignacionHorario a WHERE a.empleado_id=69 AND a.sucursal_id=2 AND a.tipo_turno_id=tt.tipo_turno_id AND a.horario_id=h.horario_id);
+
