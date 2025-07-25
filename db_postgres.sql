@@ -338,20 +338,20 @@ INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_
 
 -- Mónica Graciela Jiménez López (Nave)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, dia_especifico_id, hora_entrada_especifica, hora_salida_especifica) VALUES
-(33, 3, 1, '09:00:00', '17:00:00'),
-(33, 3, 3, '09:00:00', '17:00:00'),
-(33, 3, 4, '09:00:00', '17:00:00'),
+(33, 1, 1, '09:00:00', '17:00:00'),
+(33, 1, 3, '09:00:00', '17:00:00'),
+(33, 1, 4, '09:00:00', '17:00:00'),
 (33, 3, 6, '09:00:00', '17:00:00'),
-(33, 3, 2, '09:00:00', '16:00:00'),
-(33, 3, 5, '08:00:00', '15:00:00');
+(33, 1, 2, '09:00:00', '16:00:00'),
+(33, 1, 5, '08:00:00', '15:00:00');
 
 -- Maria Brenda Bautista Zavala (Nave)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, dia_especifico_id, hora_entrada_especifica, hora_salida_especifica) VALUES
-(34, 3, 1, '08:00:00', '17:00:00'),
-(34, 3, 2, '13:00:00', '16:45:00'),
-(34, 3, 4, '13:00:00', '16:45:00'),
-(34, 3, 3, '10:00:00', '17:30:00'),
-(34, 3, 5, '10:00:00', '17:00:00');
+(34, 1, 1, '08:00:00', '17:00:00'),
+(34, 1, 2, '13:00:00', '16:45:00'),
+(34, 1, 4, '13:00:00', '16:45:00'),
+(34, 1, 3, '10:00:00', '17:30:00'),
+(34, 1, 5, '10:00:00', '17:00:00');
 
 -- Juan Alonso Ariziga (Nave - no tiene horario asignado)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, comentarios) VALUES
