@@ -59,30 +59,58 @@ def query_horario_programado(codigo_frappe: int, fecha: datetime, conn):
 
         # SQL MODIFICADA: Ahora trae también el tipo de regla para validación posterior
         sql = """
-        SELECT 
-            COALESCE(H.hora_entrada, AH.hora_entrada_especifica) as hora_entrada, 
-            COALESCE(H.hora_salida, AH.hora_salida_especifica) as hora_salida,
-            COALESCE(H.cruza_medianoche, AH.hora_salida_especifica_cruza_medianoche, FALSE) AS cruza_medianoche,
+        -- Bloque de Prioridad 1 y 2: Búsqueda por día específico
+        (SELECT
+            CASE
+            WHEN AH.es_primera_quincena = %s THEN 1
+            ELSE 2
+            END as priority,
+            AH.hora_entrada_especifica AS hora_entrada,
+            AH.hora_salida_especifica AS hora_salida,
+            AH.hora_salida_especifica_cruza_medianoche AS cruza_medianoche,
             AH.dia_especifico_id,
             T.descripcion AS tipo_turno_descripcion
         FROM Empleados AS E
-        LEFT JOIN AsignacionHorario AS AH ON E.empleado_id = AH.empleado_id
-        LEFT JOIN Horario AS H ON AH.horario_id = H.horario_id
+        JOIN AsignacionHorario AS AH ON E.empleado_id = AH.empleado_id
         LEFT JOIN TipoTurno AS T ON AH.tipo_turno_id = T.tipo_turno_id
-        WHERE E.codigo_frappe = %s AND (
-            (AH.dia_especifico_id = %s) OR 
-            (AH.tipo_turno_id IS NOT NULL) OR 
-            (E.tiene_horario_asignado = FALSE)
+        WHERE E.codigo_frappe = %s AND AH.dia_especifico_id = %s
         )
-        ORDER BY 
+        UNION ALL
+        -- Bloque de Prioridad 3 y 4: Búsqueda por tipo de turno general
+        (SELECT
             CASE
-                WHEN AH.dia_especifico_id = %s AND AH.es_primera_quincena = %s THEN 1
-                WHEN AH.dia_especifico_id = %s AND AH.es_primera_quincena IS NULL THEN 2
-                WHEN AH.tipo_turno_id IS NOT NULL AND AH.es_primera_quincena = %s THEN 3
-                WHEN AH.tipo_turno_id IS NOT NULL AND AH.es_primera_quincena IS NULL THEN 4
-                WHEN E.tiene_horario_asignado = FALSE THEN 5
-                ELSE 99 
-            END ASC
+            WHEN AH.es_primera_quincena = %s THEN 3
+            ELSE 4
+            END as priority,
+            H.hora_entrada,
+            H.hora_salida,
+            H.cruza_medianoche,
+            AH.dia_especifico_id,
+            T.descripcion AS tipo_turno_descripcion
+        FROM Empleados AS E
+        JOIN AsignacionHorario AS AH ON E.empleado_id = AH.empleado_id
+        JOIN Horario AS H ON AH.horario_id = H.horario_id
+        JOIN TipoTurno AS T ON AH.tipo_turno_id = T.tipo_turno_id
+        WHERE
+            E.codigo_frappe = %s
+            AND AH.dia_especifico_id IS NULL
+            AND AH.tipo_turno_id IS NOT NULL
+        )
+        UNION ALL
+        -- Bloque de Prioridad 5: Empleado sin horario configurado
+        (SELECT
+            5 as priority,
+            NULL,
+            NULL,
+            FALSE,
+            NULL,
+            'Sin Horario Asignado'
+        FROM Empleados AS E
+        WHERE
+            E.codigo_frappe = %s
+            AND E.tiene_horario_asignado = FALSE
+        )
+        ORDER BY priority ASC
         LIMIT 1;
         """
 
