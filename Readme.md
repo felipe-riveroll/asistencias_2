@@ -26,6 +26,21 @@ La nueva versión del sistema incluye importantes mejoras:
 4. **Manejo de turnos que cruzan medianoche**: Ahora se gestionan correctamente los horarios que empiezan un día y terminan al día siguiente.
 5. **Flujo de trabajo optimizado**: Primero se cargan los horarios programados y luego se procesan los datos del API.
 
+## Mejoras Recientes
+
+### Optimización del Sistema
+
+- **Uso de `codigo_frappe`**: Se optimizó la consulta a la base de datos para utilizar directamente el campo `codigo_frappe`, mejorando la eficiencia y reduciendo el tiempo de procesamiento.
+- **Manejo de Turnos Nocturnos**: Ahora el sistema asocia correctamente las checadas de salida del día siguiente con la entrada del día anterior, resolviendo problemas previos con turnos que cruzan medianoche.
+- **Eliminación de Checadas Duplicadas**: Se implementó un filtro para evitar errores causados por registros duplicados en las checadas.
+
+### Compatibilidad
+
+- **Python 3.11.3**: Se verificó la compatibilidad completa con esta versión de Python.
+- **Librerías**: Uso de `psycopg2-binary` para la conexión con PostgreSQL y `pandas` para el análisis de datos.
+
+Estas mejoras aseguran un análisis más preciso y eficiente de las asistencias, especialmente en escenarios complejos como turnos nocturnos.
+
 ## Estructura del Proyecto
 
 ### `db_postgres_connection.py`
