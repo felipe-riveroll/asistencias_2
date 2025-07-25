@@ -21,3 +21,7 @@ env/
 
 # Ignorar archivos de configuración de Python
 !requirements.txt
+
+.devdbrc
+.cache_ggshield
+db_postgres.sql
