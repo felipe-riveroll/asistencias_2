@@ -1,81 +1,110 @@
-# Sistema de Gestión de Asistencias
+# Sistema de Gestión de Asistencias (Optimizado con PostgreSQL)
 
 Este proyecto es un sistema de gestión de asistencias que integra datos de marcaciones de empleados con horarios programados para generar reportes de asistencia, retardos y horas trabajadas.
 
 ## Requisitos
 
 - Python 3.8+
-- Base de datos MariaDB/MySQL
+- Base de datos PostgreSQL (versión original usaba MariaDB/MySQL)
 - Acceso a la API de registros de asistencia
 - Copia el archivo `.env.example` a `.env` y completa las siguientes variables:
   - `DB_HOST`: Host de la base de datos
-  - `DB_PORT`: Puerto de la base de datos (por defecto: 3306)
+  - `DB_PORT`: Puerto de la base de datos (por defecto: 5432 para PostgreSQL)
   - `DB_NAME`: Nombre de la base de datos
   - `DB_USER`: Usuario de la base de datos
   - `DB_PASSWORD`: Contraseña de la base de datos
   - `ASIATECH_API_KEY`: Clave de API para acceder a los datos de asistencia
   - `ASIATECH_API_SECRET`: Secreto de API para acceder a los datos de asistencia
 
+## Novedades en la versión optimizada con PostgreSQL
+
+La nueva versión del sistema incluye importantes mejoras:
+
+1. **Migración a PostgreSQL**: Mejor rendimiento y funcionalidades avanzadas.
+2. **Función f_tabla_horarios**: Obtiene todos los horarios programados de una sucursal en una sola consulta.
+3. **Sistema de caché**: Los horarios se consultan una sola vez y se almacenan en memoria para evitar consultas repetitivas.
+4. **Manejo de turnos que cruzan medianoche**: Ahora se gestionan correctamente los horarios que empiezan un día y terminan al día siguiente.
+5. **Flujo de trabajo optimizado**: Primero se cargan los horarios programados y luego se procesan los datos del API.
+
 ## Estructura del Proyecto
 
-### `conexión_bd.py`
+### `db_postgres_connection.py`
 
-Este archivo proporciona funcionalidades para conectarse a la base de datos MariaDB y realizar consultas relacionadas con los horarios de los empleados.
-
-**Funciones principales:**
-- `connect_db()`: Establece y retorna una conexión a la base de datos utilizando las credenciales definidas en tu archivo `.env`.
-- `query_horario_programado(codigo_frappe, fecha)`: Consulta el horario programado para un empleado en una fecha específica, aplicando lógica de prioridad para determinar el horario aplicable. Retorna un diccionario con información del horario o `None` si no hay asignación.
-
-### `db_connection.py`
-
-Archivo con funciones para probar la conexión a la base de datos.
+Este archivo proporciona funcionalidades para conectarse a la base de datos PostgreSQL y obtener los horarios programados utilizando la función f_tabla_horarios.
 
 **Funciones principales:**
-- `test_db_connection()`: Verifica la conexión a la base de datos y muestra información del servidor. Útil para diagnósticos.
+- `connect_db()`: Establece y retorna una conexión a la base de datos PostgreSQL.
+- `obtener_tabla_horarios(sucursal, es_primera_quincena, conn)`: Obtiene todos los horarios programados para una sucursal y quincena específica.
+- `mapear_horarios_por_empleado(horarios_tabla, empleados_codigos)`: Mapea los horarios por código de empleado y día de la semana.
+- `obtener_horario_empleado(codigo_frappe, dia_semana, es_primera_quincena, cache_horarios)`: Obtiene el horario de un empleado para un día específico desde el caché.
 
-### `llamada_api.py`
+### `generar_reporte_optimizado.py`
 
-Este módulo se encarga de la comunicación con la API de registros de asistencia para obtener los datos de marcaciones de los empleados.
-
-**Funciones principales:**
-- `fetch_checkins(start_date, end_date, device_filter)`: Obtiene registros de marcaciones entre dos fechas, con filtro por dispositivo.
-- Procesamiento de datos de la API y transformación a formatos útiles para el análisis.
-
-### `generar_reporte_avanzado.py`
-
-Es el módulo principal que integra todos los componentes para generar reportes detallados de asistencia.
+Versión optimizada que utiliza PostgreSQL y el sistema de caché para generar reportes detallados de asistencia.
 
 **Secciones y funciones principales:**
-1. **Configuración y Conexión**: Inicialización de conexiones a bases de datos.
-2. **Procesamiento de Datos**:
+1. **Configuración y Conexión**: Inicialización de conexiones a PostgreSQL.
+2. **Obtención de horarios**: Carga todos los horarios desde la función `f_tabla_horarios`.
+3. **Procesamiento de Datos**:
    - `process_checkins_to_dataframe()`: Convierte los datos de marcaciones en un DataFrame estructurado.
-   - `dia_en_turno()`: Verifica si un día pertenece a un turno específico según descripción textual.
-3. **Análisis de Asistencia**:
-   - `analizar_asistencia_y_horarios()`: Enriquece el DataFrame con análisis de horarios y retardos.
-   - Cálculo de retardos, faltas y descuentos por acumulación.
-4. **Generación de Resumen**:
-   - `generar_resumen_periodo()`: Crea un resumen con totales por empleado, incluyendo faltas y cálculo de diferencia entre horas trabajadas y esperadas.
+   - `procesar_horarios_con_medianoche()`: Gestiona correctamente los turnos que cruzan la medianoche.
+4. **Análisis de Asistencia**:
+   - `analizar_asistencia_con_horarios_cache()`: Enriquece el DataFrame con análisis de horarios y retardos usando el caché.
+5. **Generación de Resumen**:
+   - `generar_resumen_periodo()`: Crea un resumen con totales por empleado.
+
+### `conexión_bd.py` y `db_connection.py`
+
+Versiones anteriores para MariaDB/MySQL (mantenidas por compatibilidad).
+
+### `db_postgres.sql`
+
+Archivo SQL con la estructura y funciones para la base de datos PostgreSQL, incluidas:
+- `f_tabla_horarios`: Función que devuelve todos los horarios programados para una sucursal.
+- `F_CrearJsonHorario`: Función auxiliar para crear JSON con información de horarios.
 
 ## Archivos de Salida
 
 El sistema genera varios archivos CSV como resultado de su ejecución:
 - `reporte_asistencia_analizado.csv`: Reporte detallado con análisis de asistencias.
-- `reporte_asistencia_final.csv`: Reporte final con todos los datos procesados.
 - `resumen_periodo.csv`: Resumen del período con métricas agregadas por empleado.
-- `cheques_agrupados.csv`: Datos para cálculo de cheques agrupados.
-- `cheques_completos_por_dia.csv`: Desglose diario de datos para cheques.
 
 ## Uso
 
-1. Copia `.env.example` a `.env` y configura tus credenciales.
+### Versión optimizada con PostgreSQL:
+
+1. Copia `.env.example` a `.env` y configura tus credenciales (asegúrate de usar los datos de PostgreSQL).
+2. Instala las dependencias:
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Ejecuta el script optimizado:
+
+```bash
+python generar_reporte_optimizado.py
+```
+
+### Versión original con MySQL:
+
+1. Copia `.env.example` a `.env` y configura tus credenciales para MySQL.
 2. Ejecuta `generar_reporte_avanzado.py` especificando las fechas de inicio y fin del período a analizar.
 
 ```bash
-python generar_reporte_avanzado.py --start-date 2025-07-01 --end-date 2025-07-15
+python generar_reporte_avanzado.py
 ```
 
 ## Notas Importantes
 
-- El sistema utiliza una lógica de prioridad para determinar los horarios aplicables a cada empleado.
+- Para configurar las fechas y sucursal en la versión optimizada, edita los valores al final del script `generar_reporte_optimizado.py`:
+  ```python
+  start_date = "2025-07-01"
+  end_date = "2025-07-15"
+  sucursal = "Villas"
+  device_filter = "%villas%"
+  ```
+- El sistema determina automáticamente si es primera o segunda quincena basándose en la fecha de inicio.
 - Se consideran retardos después de 15 minutos de la hora de entrada programada.
 - Tres retardos acumulados generan un descuento equivalente a un día.
+- Para turnos que cruzan medianoche, la checada de salida del día siguiente se asocia correctamente con la entrada del día anterior.

@@ -24,4 +24,3 @@ env/
 
 .devdbrc
 .cache_ggshield
-db_postgres.sql
