@@ -533,8 +533,8 @@ if __name__ == "__main__":
     # Define aquí el rango de fechas y el dispositivo que quieres analizar
     start_date = "2025-07-01"
     end_date = "2025-07-15"
-    sucursal = "Nave"
-    device_filter = "%Nave%"
+    sucursal = "Villas"
+    device_filter = "%villas%"
     
     # Determinar si es primera quincena según la fecha de inicio
     fecha_inicio_dt = datetime.strptime(start_date, "%Y-%m-%d")
