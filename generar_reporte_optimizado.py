@@ -21,6 +21,7 @@ load_dotenv()
 API_KEY = os.getenv("ASIATECH_API_KEY")
 API_SECRET = os.getenv("ASIATECH_API_SECRET")
 API_URL = "https://erp.asiatech.com.mx/api/resource/Employee Checkin"
+LEAVE_API_URL = "https://erp.asiatech.com.mx/api/resource/Leave Application"
 
 # ==============================================================================
 # SECCIÓN 2: OBTENCIÓN DE DATOS DE LA API FRAPPE
@@ -69,6 +70,83 @@ def fetch_checkins(start_date: str, end_date: str, device_filter: str):
     print(f"✅ Se obtuvieron {len(all_records)} registros de la API.")
     return all_records
 
+
+def fetch_leave_applications(start_date: str, end_date: str):
+    """
+    Obtiene todos los permisos aprobados de la API para un rango de fechas.
+    
+    Args:
+        start_date: Fecha de inicio en formato 'YYYY-MM-DD'
+        end_date: Fecha de fin en formato 'YYYY-MM-DD'
+    
+    Returns:
+        Lista de permisos aprobados
+    """
+    print(f"📄 Obteniendo permisos aprobados de la API para el periodo {start_date} - {end_date}...")
+    
+    if not all([API_KEY, API_SECRET]):
+        print("❌ Error: Faltan credenciales de API para obtener permisos")
+        return []
+
+    headers = {"Authorization": f"token {API_KEY}:{API_SECRET}"}
+    
+    # Filtros para obtener solo permisos aprobados en el rango de fechas
+    filters = json.dumps([
+        ["Leave Application", "status", "=", "Approved"],
+        ["Leave Application", "from_date", "Between", [start_date, end_date]],
+    ])
+    
+    params = {
+        "fields": json.dumps([
+            "employee", 
+            "employee_name", 
+            "leave_type", 
+            "from_date", 
+            "to_date", 
+            "status"
+        ]),
+        "filters": filters,
+        "limit_page_length": 100
+    }
+
+    all_leave_records = []
+    limit_start = 0
+
+    while True:
+        params["limit_start"] = limit_start
+        try:
+            response = requests.get(LEAVE_API_URL, headers=headers, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json().get("data", [])
+            
+            if not data:
+                break
+                
+            all_leave_records.extend(data)
+            
+            if len(data) < params["limit_page_length"]:
+                break
+                
+            limit_start += params["limit_page_length"]
+            
+        except requests.exceptions.Timeout:
+            print("⚠️ Timeout al obtener permisos. Reintentando...")
+            continue
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error al obtener permisos de la API: {e}")
+            return []
+
+    print(f"✅ Se obtuvieron {len(all_leave_records)} permisos aprobados de la API.")
+    
+    # Debug: Mostrar algunos permisos obtenidos
+    if all_leave_records:
+        print(f"📋 Ejemplo de permisos obtenidos:")
+        for i, leave in enumerate(all_leave_records[:3]):
+            print(f"   - {leave['employee_name']}: {leave['leave_type']} ({leave['from_date']} - {leave['to_date']})")
+    
+    return all_leave_records
+
+
 # ==============================================================================
 # SECCIÓN 3: PROCESAMIENTO Y ANÁLISIS DE DATOS
 # ==============================================================================
@@ -82,6 +160,148 @@ def obtener_codigos_empleados_api(checkin_data):
         
     df_empleados = pd.DataFrame(checkin_data)[["employee"]].drop_duplicates()
     return list(df_empleados["employee"])
+
+
+def procesar_permisos_empleados(leave_data):
+    """
+    Procesa los datos de permisos y crea un diccionario organizado por empleado y fecha.
+    
+    Args:
+        leave_data: Lista de permisos obtenidos de la API
+    
+    Returns:
+        dict: Diccionario con estructura {employee_code: {fecha: permiso_info}}
+    """
+    if not leave_data:
+        return {}
+    
+    print("🔄 Procesando permisos por empleado y fecha...")
+    
+    permisos_por_empleado = {}
+    
+    for permiso in leave_data:
+        employee_code = permiso['employee']
+        from_date = datetime.strptime(permiso['from_date'], '%Y-%m-%d').date()
+        to_date = datetime.strptime(permiso['to_date'], '%Y-%m-%d').date()
+        
+        # Crear entrada para el empleado si no existe
+        if employee_code not in permisos_por_empleado:
+            permisos_por_empleado[employee_code] = {}
+        
+        # Iterar por cada día del permiso
+        current_date = from_date
+        while current_date <= to_date:
+            permisos_por_empleado[employee_code][current_date] = {
+                'leave_type': permiso['leave_type'],
+                'employee_name': permiso['employee_name'],
+                'from_date': from_date,
+                'to_date': to_date,
+                'status': permiso['status']
+            }
+            current_date += timedelta(days=1)
+    
+    total_dias_con_permiso = sum(len(fechas) for fechas in permisos_por_empleado.values())
+    print(f"✅ Procesados permisos para {len(permisos_por_empleado)} empleados, {total_dias_con_permiso} días con permiso total.")
+    
+    return permisos_por_empleado
+
+
+def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
+    """
+    Ajusta las horas esperadas del DataFrame considerando los permisos aprobados.
+    
+    Args:
+        df: DataFrame con los datos de asistencia
+        permisos_dict: Diccionario de permisos por empleado
+        cache_horarios: Caché de horarios por empleado
+    
+    Returns:
+        DataFrame actualizado con horas esperadas ajustadas y información de permisos
+    """
+    if df.empty:
+        return df
+    
+    print("📊 Ajustando horas esperadas considerando permisos aprobados...")
+    
+    # Añadir columnas para información de permisos
+    df['tiene_permiso'] = False
+    df['tipo_permiso'] = None
+    df['horas_esperadas_originales'] = df['horas_esperadas'].copy()
+    df['horas_descontadas_permiso'] = '00:00:00'
+    
+    for index, row in df.iterrows():
+        employee_code = str(row['employee'])
+        fecha = row['dia']
+        
+        # Verificar si el empleado tiene permiso en esta fecha
+        if (employee_code in permisos_dict and 
+            fecha in permisos_dict[employee_code]):
+            
+            permiso_info = permisos_dict[employee_code][fecha]
+            
+            # Marcar que tiene permiso
+            df.at[index, 'tiene_permiso'] = True
+            df.at[index, 'tipo_permiso'] = permiso_info['leave_type']
+            
+            # Obtener las horas esperadas originales para este día
+            horas_esperadas_orig = row['horas_esperadas']
+            
+            if pd.notna(horas_esperadas_orig) and horas_esperadas_orig != '00:00:00':
+                # Las horas esperadas se reducen a 0 para días con permiso
+                df.at[index, 'horas_esperadas'] = '00:00:00'
+                df.at[index, 'horas_descontadas_permiso'] = horas_esperadas_orig
+                
+                print(f"   - {permiso_info['employee_name']} ({employee_code}): "
+                      f"{fecha} - {permiso_info['leave_type']} - "
+                      f"Horas descontadas: {horas_esperadas_orig}")
+    
+    # Contar empleados afectados
+    empleados_con_permisos = df[df['tiene_permiso'] == True]['employee'].nunique()
+    dias_con_permisos = df['tiene_permiso'].sum()
+    
+    print(f"✅ Ajuste completado: {empleados_con_permisos} empleados con permisos, {dias_con_permisos} días ajustados.")
+    
+    return df
+
+
+def clasificar_faltas_con_permisos(df):
+    """
+    Actualiza la clasificación de faltas considerando los permisos aprobados.
+    
+    Args:
+        df: DataFrame con datos de asistencia y permisos
+    
+    Returns:
+        DataFrame actualizado con faltas justificadas
+    """
+    if df.empty:
+        return df
+    
+    print("📋 Reclasificando faltas considerando permisos aprobados...")
+    
+    # Crear nueva columna para el tipo de falta actualizado
+    df['tipo_falta_ajustada'] = df['tipo_retardo'].copy()
+    df['falta_justificada'] = False
+    
+    # Procesar filas que tienen permiso y eran consideradas faltas
+    mask_permiso_y_falta = (df['tiene_permiso'] == True) & (df['tipo_retardo'].isin(['Falta', 'Falta Injustificada']))
+    
+    if mask_permiso_y_falta.any():
+        # Cambiar el tipo de falta para días con permiso
+        df.loc[mask_permiso_y_falta, 'tipo_falta_ajustada'] = 'Falta Justificada'
+        df.loc[mask_permiso_y_falta, 'falta_justificada'] = True
+        
+        # Actualizar el contador de faltas (no contar las justificadas)
+        df['es_falta_ajustada'] = (df['tipo_falta_ajustada'].isin(['Falta', 'Falta Injustificada'])).astype(int)
+        
+        faltas_justificadas = mask_permiso_y_falta.sum()
+        print(f"✅ Se justificaron {faltas_justificadas} faltas con permisos aprobados.")
+    else:
+        # Si no hay faltas justificadas, mantener el contador original
+        df['es_falta_ajustada'] = df['es_falta'].copy()
+        print("✅ No se encontraron faltas que justificar con permisos.")
+    
+    return df
 
 def process_checkins_to_dataframe(checkin_data, start_date, end_date):
     """Crea un DataFrame base con una fila por empleado y día."""
@@ -446,10 +666,10 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
 # ==============================================================================
 def generar_resumen_periodo(df: pd.DataFrame):
     """
-    Crea un DataFrame de resumen con totales por empleado, incluyendo faltas, y
-    calcula la diferencia entre horas trabajadas y esperadas.
+    Crea un DataFrame de resumen con totales por empleado, incluyendo faltas justificadas, y
+    calcula la diferencia entre horas trabajadas y esperadas ajustadas por permisos.
     """
-    print("\n📊 Generando resumen del periodo con cálculo de diferencia de horas...")
+    print("\n📊 Generando resumen del periodo con cálculo de diferencia de horas y permisos...")
     if df.empty:
         print("   - No hay datos para generar el resumen.")
         return
@@ -461,7 +681,18 @@ def generar_resumen_periodo(df: pd.DataFrame):
     df["horas_esperadas_td"] = pd.to_timedelta(
         df["horas_esperadas"].fillna("00:00:00")
     )
+    
+    # Convertir horas descontadas por permisos a timedelta
+    if 'horas_descontadas_permiso' in df.columns:
+        df["horas_descontadas_permiso_td"] = pd.to_timedelta(
+            df["horas_descontadas_permiso"].fillna("00:00:00")
+        )
+    else:
+        df["horas_descontadas_permiso_td"] = pd.to_timedelta("00:00:00")
 
+    # Preparar las columnas de faltas
+    total_faltas_col = "es_falta_ajustada" if "es_falta_ajustada" in df.columns else "es_falta"
+    
     # Agregación: suma de horas, retardos y faltas
     resumen_final = (
         df.groupby(["employee", "Nombre"])
@@ -469,7 +700,9 @@ def generar_resumen_periodo(df: pd.DataFrame):
             total_horas_trabajadas=("horas_trabajadas_td", "sum"),
             total_horas_esperadas=("horas_esperadas_td", "sum"),
             total_retardos=("es_retardo_acumulable", "sum"),
-            total_faltas=("es_falta", "sum"),
+            total_faltas=(total_faltas_col, "sum"),
+            total_horas_descontadas_permiso=("horas_descontadas_permiso_td", "sum"),
+            total_faltas_justificadas=("falta_justificada", "sum") if 'falta_justificada' in df.columns else ("es_falta", lambda x: 0),
         )
         .reset_index()
     )
@@ -503,29 +736,62 @@ def generar_resumen_periodo(df: pd.DataFrame):
     resumen_final["total_horas_esperadas"] = resumen_final[
         "total_horas_esperadas"
     ].apply(format_positive_timedelta)
+    resumen_final["total_horas_descontadas_permiso"] = resumen_final[
+        "total_horas_descontadas_permiso"
+    ].apply(format_positive_timedelta)
 
     # Ordenar columnas para la presentación
-    resumen_final = resumen_final[
-        [
-            "employee",
-            "Nombre",
-            "total_horas_trabajadas",
-            "total_horas_esperadas",
-            "total_retardos",
-            "total_faltas",
-            "diferencia_segundos",
-            "diferencia_HHMMSS",
-        ]
+    base_columns = [
+        "employee",
+        "Nombre",
+        "total_horas_trabajadas",
+        "total_horas_esperadas",
+        "total_horas_descontadas_permiso",
+        "total_retardos",
+        "total_faltas",
     ]
+    
+    # Añadir faltas justificadas si existe
+    if 'total_faltas_justificadas' in resumen_final.columns:
+        base_columns.append("total_faltas_justificadas")
+    
+    base_columns.extend([
+        "diferencia_segundos",
+        "diferencia_HHMMSS",
+    ])
+    
+    resumen_final = resumen_final[base_columns]
 
     output_filename = "resumen_periodo.csv"
-    resumen_final.to_csv(output_filename, index=False, encoding="utf-8-sig")
-
-    print(f"✅ Resumen del periodo guardado en '{output_filename}'")
+    
+    # Intentar guardar el archivo, usando un nombre alternativo si hay conflictos
+    try:
+        resumen_final.to_csv(output_filename, index=False, encoding="utf-8-sig")
+        print(f"✅ Resumen del periodo guardado en '{output_filename}'")
+    except PermissionError:
+        # Si el archivo está abierto, usar un nombre con timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename_alt = f"resumen_periodo_{timestamp}.csv"
+        resumen_final.to_csv(output_filename_alt, index=False, encoding="utf-8-sig")
+        print(f"⚠️ El archivo original estaba en uso. Resumen guardado en '{output_filename_alt}'")
+        output_filename = output_filename_alt
+    
+    # Mostrar estadísticas de permisos si están disponibles
+    if 'total_faltas_justificadas' in resumen_final.columns:
+        total_faltas_justificadas = resumen_final['total_faltas_justificadas'].sum()
+        total_horas_descontadas = resumen_final['total_horas_descontadas_permiso'].apply(
+            lambda x: pd.to_timedelta(x).total_seconds() / 3600 if x != "00:00:00" else 0
+        ).sum()
+        empleados_con_permisos = (resumen_final['total_faltas_justificadas'] > 0).sum()
+        
+        print(f"\n📋 Estadísticas de permisos:")
+        print(f"   - Empleados con permisos: {empleados_con_permisos}")
+        print(f"   - Total faltas justificadas: {total_faltas_justificadas}")
+        print(f"   - Total horas descontadas por permisos: {total_horas_descontadas:.2f}")
+    
     print("\n**Visualización del Resumen del Periodo:**\n")
     print(resumen_final.to_string())
-
-
 # ==============================================================================
 # SECCIÓN 5: EJECUCIÓN PRINCIPAL DEL SCRIPT
 # ==============================================================================
@@ -554,8 +820,15 @@ if __name__ == "__main__":
     codigos_empleados_api = obtener_codigos_empleados_api(checkin_records)
     print(f"📑 Se obtuvieron {len(codigos_empleados_api)} códigos de empleados únicos de la API.")
     
+    # 2.5. Obtener permisos aprobados de la API para el mismo período
+    print("\n📄 Paso 2.5: Obteniendo permisos aprobados de la API...")
+    leave_records = fetch_leave_applications(start_date, end_date)
+    
+    # Procesar permisos por empleado y fecha
+    permisos_dict = procesar_permisos_empleados(leave_records)
+    
     # 3. Conectar a PostgreSQL y obtener horarios filtrados por los códigos de la API
-    print("\n📋 Paso 2: Obteniendo horarios programados desde la base de datos...")
+    print("\n📋 Paso 3: Obteniendo horarios programados desde la base de datos...")
     conn_pg = connect_db()
     
     if conn_pg is None:
@@ -594,7 +867,7 @@ if __name__ == "__main__":
             print(f"⚠️ ADVERTENCIA: Se solicitó la sucursal '{sucursal}' pero los datos son de '{horarios_programados[0]['nombre_sucursal']}'")
     
     # 4. Mapear los horarios obtenidos por empleado y día usando los códigos frappe
-    print("\n📅 Paso 3: Preparando caché de horarios por empleado y día...")
+    print("\n📅 Paso 4: Preparando caché de horarios por empleado y día...")
     cache_horarios = mapear_horarios_por_empleado(horarios_programados, set(codigos_empleados_api))
     print(f"✅ Caché de horarios creada para {len(cache_horarios)} empleados.")
     
@@ -605,21 +878,29 @@ if __name__ == "__main__":
         print(f"  - Código {codigo}: {dias_con_horario} días programados")
     
     # 5. Crear el DataFrame base con las checadas
-    print("\n📊 Paso 4: Procesando checadas y creando DataFrame base...")
+    print("\n📊 Paso 5: Procesando checadas y creando DataFrame base...")
     df_base = process_checkins_to_dataframe(checkin_records, start_date, end_date)
     
     # 6. Procesar los turnos que cruzan la medianoche
-    print("\n🔄 Paso 5: Procesando turnos que cruzan medianoche...")
+    print("\n🔄 Paso 6: Procesando turnos que cruzan medianoche...")
     df_procesado = procesar_horarios_con_medianoche(df_base, cache_horarios)
     
     # 7. Aplicar el análisis de asistencia usando el caché de horarios
-    print("\n📈 Paso 6: Analizando asistencia con horarios programados...")
+    print("\n📈 Paso 7: Analizando asistencia con horarios programados...")
     df_analizado = analizar_asistencia_con_horarios_cache(df_procesado, cache_horarios)
+    
+    # 8. Ajustar horas esperadas considerando permisos aprobados
+    print("\n🏖️ Paso 8: Ajustando horas esperadas con permisos aprobados...")
+    df_con_permisos = ajustar_horas_esperadas_con_permisos(df_analizado, permisos_dict, cache_horarios)
+    
+    # 9. Reclasificar faltas considerando permisos
+    print("\n📋 Paso 9: Reclasificando faltas con permisos...")
+    df_final_permisos = clasificar_faltas_con_permisos(df_con_permisos)
 
-    # 8. Organizar y guardar el reporte detallado
-    print("\n💾 Paso 7: Generando reporte detallado...")
+    # 10. Organizar y guardar el reporte detallado
+    print("\n💾 Paso 10: Generando reporte detallado...")
     checado_cols = sorted(
-        [c for c in df_analizado.columns if "checado_" in c and c != "checado_1"]
+        [c for c in df_final_permisos.columns if "checado_" in c and c != "checado_1"]
     )
     column_order = [
         "employee",
@@ -630,26 +911,39 @@ if __name__ == "__main__":
         "checado_1",
         "minutos_tarde",
         "tipo_retardo",
+        "tipo_falta_ajustada",
+        "tiene_permiso",
+        "tipo_permiso",
+        "falta_justificada",
         "hora_salida_programada",
         "cruza_medianoche",
+        "horas_esperadas_originales",
         "horas_esperadas",
+        "horas_descontadas_permiso",
         "horas_trabajadas",
         "retardos_acumulados",
         "descuento_por_3_retardos",
     ] + checado_cols
 
-    final_columns = [col for col in column_order if col in df_analizado.columns]
-    df_final = df_analizado[final_columns].fillna("---")
+    final_columns = [col for col in column_order if col in df_final_permisos.columns]
+    df_final = df_final_permisos[final_columns].fillna("---")
 
     output_filename_detallado = "reporte_asistencia_analizado.csv"
-    df_final.to_csv(output_filename_detallado, index=False, encoding="utf-8-sig")
-
-    print(
-        f"\n\n🎉 ¡Reporte detallado finalizado! Los datos se han guardado en '{output_filename_detallado}'"
-    )
+    
+    # Intentar guardar el archivo, usando un nombre alternativo si hay conflictos
+    try:
+        df_final.to_csv(output_filename_detallado, index=False, encoding="utf-8-sig")
+        print(f"\n\n🎉 ¡Reporte detallado finalizado! Los datos se han guardado en '{output_filename_detallado}'")
+    except PermissionError:
+        # Si el archivo está abierto, usar un nombre con timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename_detallado_alt = f"reporte_asistencia_analizado_{timestamp}.csv"
+        df_final.to_csv(output_filename_detallado_alt, index=False, encoding="utf-8-sig")
+        print(f"\n\n🎉 ¡Reporte detallado finalizado! El archivo original estaba en uso. Los datos se han guardado en '{output_filename_detallado_alt}'")
+        output_filename_detallado = output_filename_detallado_alt
     print("\n**Visualización de las primeras 15 filas del reporte detallado:**\n")
     print(df_final.head(15).to_string())
 
-    # 9. Generar y guardar el reporte de resumen
-    print("\n📋 Paso 8: Generando reporte de resumen...")
-    generar_resumen_periodo(df_analizado)
+    # 11. Generar y guardar el reporte de resumen
+    print("\n📋 Paso 11: Generando reporte de resumen...")
+    generar_resumen_periodo(df_final_permisos)
