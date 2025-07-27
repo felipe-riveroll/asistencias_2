@@ -350,7 +350,7 @@
 
             <div class="chart-container">
                 <div class="chart-title">Análisis de Impacto por Ausencias</div>
-                <div class="chart-subtitle">Distribución de tipos de ausencias y su impacto operativo</div>
+                <div class="chart-subtitle">Distribución de faltas y retardos. % de capacidad solo aplica a ausencias.</div>
                 <div id="absenceImpactChart" class="chart"></div>
             </div>
         </div>
@@ -920,151 +920,253 @@
             console.log("✅ Gráfica de eficiencia completada exitosamente");
         }
 
-        // Gráfica de impacto por ausencias
+        // ===== Gráfica: Análisis de Impacto por Ausencias (Refactorizada) =====
         function createAbsenceImpactChart() {
-            console.log("Creando gráfica de impacto por ausencias...");
+            console.log("=== INICIANDO GRÁFICA DE IMPACTO POR AUSENCIAS ===");
             const container = d3.select("#absenceImpactChart");
             container.html("");
 
-            const margin = {top: 20, right: 60, bottom: 80, left: 60};
-            const containerWidth = container.node().getBoundingClientRect().width;
-            const width = Math.max(400, containerWidth - margin.left - margin.right);
-            const height = 400 - margin.top - margin.bottom;
+            // 1) Validación robusta de datos
+            if (!window.employeeData || !Array.isArray(window.employeeData) || window.employeeData.length === 0) {
+                console.warn("❌ No hay datos de empleados disponibles para análisis de ausencias");
+                container.append("div")
+                    .style("padding", "2rem")
+                    .style("color", "#6c757d")
+                    .style("font-weight", "500")
+                    .style("text-align", "center")
+                    .style("background", "#f8f9fa")
+                    .style("border-radius", "8px")
+                    .text("No hay datos de empleados disponibles para el análisis de ausencias.");
+                return;
+            }
 
-            const svg = container.append("svg")
-                .attr("width", containerWidth)
-                .attr("height", 480)
-                .append("g")
-                .attr("transform", `translate(${margin.left},${margin.top})`);
+            // 2) Cálculo seguro de totales con fallbacks
+            const totalUnjustified = window.employeeData.reduce((sum, emp) => {
+                // Priorizar 'absences' sobre 'faltas_del_periodo', fallback a 0
+                const unjustified = emp.absences ?? emp.faltas_del_periodo ?? 0;
+                return sum + (Number.isFinite(unjustified) ? unjustified : 0);
+            }, 0);
 
-            // Calcular datos de impacto mejorados
-            const totalUnjustified = employeeData.reduce((sum, emp) => sum + (emp.totalAbsences || 0), 0);
-            const totalJustified = employeeData.reduce((sum, emp) => sum + (emp.justifiedAbsences || 0), 0);
-            const totalDelays = employeeData.reduce((sum, emp) => sum + (emp.delays || 0), 0);
-            
-            // Calcular porcentajes de impacto
-            const totalEmployees = employeeData.length;
-            const totalPossibleDays = totalEmployees * diasLaborales;
-            
+            const totalJustified = window.employeeData.reduce((sum, emp) => {
+                const justified = emp.justifiedAbsences ?? emp.faltas_justificadas ?? 0;
+                return sum + (Number.isFinite(justified) ? justified : 0);
+            }, 0);
+
+            const totalDelays = window.employeeData.reduce((sum, emp) => {
+                const delays = emp.delays ?? emp.total_retardos ?? 0;
+                return sum + (Number.isFinite(delays) ? delays : 0);
+            }, 0);
+
+            // 3) Determinar días laborales de forma segura
+            let diasLaboralesCalc = 0;
+            if (typeof diasLaborales !== 'undefined' && Number.isFinite(diasLaborales) && diasLaborales > 0) {
+                diasLaboralesCalc = diasLaborales;
+            } else if (typeof dailyData !== 'undefined' && Array.isArray(dailyData) && dailyData.length > 0) {
+                diasLaboralesCalc = dailyData.length;
+                console.log("📊 Días laborales inferidos de dailyData:", diasLaboralesCalc);
+            } else {
+                diasLaboralesCalc = 10; // Valor por defecto documentado (2 semanas típicas)
+                console.warn("⚠️ Usando días laborales por defecto:", diasLaboralesCalc);
+            }
+
+            // 4) Calcular totales para verificación
+            const totalEmployees = window.employeeData.length;
+            const totalPossibleDays = totalEmployees * diasLaboralesCalc;
+
+            // 5) Logging de trazabilidad (solo en desarrollo)
+            console.log("📊 DATOS DE AUSENCIAS:");
+            console.log(`  - Total empleados: ${totalEmployees}`);
+            console.log(`  - Días laborales: ${diasLaboralesCalc}`);
+            console.log(`  - Días posibles totales: ${totalPossibleDays}`);
+            console.log(`  - Faltas injustificadas: ${totalUnjustified}`);
+            console.log(`  - Faltas justificadas: ${totalJustified}`);
+            console.log(`  - Retardos: ${totalDelays}`);
+
+            // 6) Función helper para calcular porcentaje seguro
+            function calculateCapacityPercentage(absences, totalDays) {
+                if (!Number.isFinite(absences) || !Number.isFinite(totalDays) || totalDays <= 0) {
+                    return "—";
+                }
+                return ((absences / totalDays) * 100).toFixed(1);
+            }
+
+            // 7) Estructura de datos fija y consistente
             const impactData = [
-                { 
-                    type: "Faltas\nInjustificadas", 
-                    count: totalUnjustified, 
+                {
+                    type: "Faltas Injustificadas",
+                    shortType: "Injustificadas",
+                    count: totalUnjustified,
                     impact: "Alto",
                     color: "#dc3545",
-                    percentage: ((totalUnjustified / totalPossibleDays) * 100).toFixed(1)
+                    percentage: calculateCapacityPercentage(totalUnjustified, totalPossibleDays),
+                    focus: true // Para destacar visualmente
                 },
-                { 
-                    type: "Faltas\nJustificadas", 
-                    count: totalJustified, 
+                {
+                    type: "Faltas Justificadas", 
+                    shortType: "Justificadas",
+                    count: totalJustified,
                     impact: "Medio",
                     color: "#ffc107",
-                    percentage: ((totalJustified / totalPossibleDays) * 100).toFixed(1)
+                    percentage: calculateCapacityPercentage(totalJustified, totalPossibleDays),
+                    focus: false
                 },
-                { 
-                    type: "Retardos", 
-                    count: totalDelays, 
+                {
+                    type: "Retardos",
+                    shortType: "Retardos", 
+                    count: totalDelays,
                     impact: "Bajo",
                     color: "#17a2b8",
-                    percentage: "N/A"
+                    percentage: "—", // No aplica a retardos
+                    focus: false
                 }
             ];
 
-            console.log("Datos de impacto:", impactData);
-            const maxCount = d3.max(impactData, d => d.count) || 1;
+            // 8) Verificar si hay datos para mostrar
+            const totalEvents = totalUnjustified + totalJustified + totalDelays;
+            if (totalEvents === 0) {
+                console.log("ℹ️ Sin datos de ausencias/retardos en el período");
+                container.append("div")
+                    .style("padding", "2rem")
+                    .style("color", "#28a745")
+                    .style("font-weight", "500")
+                    .style("text-align", "center")
+                    .style("background", "#d4edda")
+                    .style("border-radius", "8px")
+                    .style("border", "1px solid #c3e6cb")
+                    .text("Sin ausencias ni retardos registrados en el período. ¡Excelente asistencia!");
+                return;
+            }
 
-            const xBandScale = d3.scaleBand()
-                .domain(impactData.map(d => d.type))
+            // 9) Configuración de dimensiones y escalas
+            const margin = {top: 30, right: 40, bottom: 90, left: 60};
+            const containerWidth = container.node().getBoundingClientRect().width;
+            const width = Math.max(450, containerWidth - margin.left - margin.right);
+            const height = 350 - margin.top - margin.bottom;
+
+            // 10) Crear SVG con accesibilidad
+            const svg = container.append("svg")
+                .attr("viewBox", `0 0 ${containerWidth} 430`)
+                .attr("role", "img")
+                .attr("aria-label", `Gráfica de impacto por ausencias: ${totalUnjustified} faltas injustificadas (mayor impacto), ${totalJustified} justificadas, ${totalDelays} retardos`)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // 11) Escalas optimizadas
+            const maxCount = Math.max(1, d3.max(impactData, d => d.count) || 0);
+            const yUpperLimit = maxCount + Math.ceil(maxCount * 0.15); // 15% de margen superior
+
+            const xScale = d3.scaleBand()
+                .domain(impactData.map(d => d.shortType))
                 .range([0, width])
-                .padding(0.3);
+                .padding(0.4); // Más espacio entre barras para claridad
 
-            const yLinearScale = d3.scaleLinear()
-                .domain([0, maxCount + Math.ceil(maxCount * 0.1)])
-                .range([height, 0]);
+            const yScale = d3.scaleLinear()
+                .domain([0, yUpperLimit])
+                .range([height, 0])
+                .nice();
 
-            // Ejes
+            // 12) Ejes limpios y legibles
             svg.append("g")
                 .attr("class", "axis")
                 .attr("transform", `translate(0,${height})`)
-                .call(d3.axisBottom(xBandScale))
-                .selectAll("text")
-                .style("text-anchor", "middle")
-                .style("font-size", "11px")
-                .call(d => {
-                    d.each(function() {
-                        const text = d3.select(this);
-                        const words = text.text().split(/\n/);
-                        text.text(null);
-                        words.forEach((word, i) => {
-                            text.append("tspan")
-                                .attr("x", 0)
-                                .attr("dy", i === 0 ? "0.8em" : "1.2em")
-                                .text(word);
-                        });
-                    });
-                });
+                .call(d3.axisBottom(xScale).tickSize(0))
+                .select(".domain").remove();
 
             svg.append("g")
                 .attr("class", "axis")
-                .call(d3.axisLeft(yLinearScale));
+                .call(d3.axisLeft(yScale).ticks(6).tickSize(-width))
+                .call(g => {
+                    g.select(".domain").remove();
+                    g.selectAll(".tick line")
+                        .attr("stroke", "#f1f3f4")
+                        .attr("stroke-dasharray", "2,2");
+                    g.selectAll(".tick text")
+                        .attr("fill", "#6c757d")
+                        .attr("font-size", "12px");
+                });
 
-            // Barras
-            svg.selectAll(".bar")
+            // 13) Barras principales con enfoque visual
+            svg.selectAll(".impact-bar")
                 .data(impactData)
                 .enter().append("rect")
-                .attr("class", "bar")
-                .attr("x", d => xBandScale(d.type))
-                .attr("y", d => yLinearScale(d.count))
-                .attr("width", xBandScale.bandwidth())
-                .attr("height", d => height - yLinearScale(d.count))
+                .attr("class", "impact-bar")
+                .attr("x", d => xScale(d.shortType))
+                .attr("y", d => yScale(d.count))
+                .attr("width", xScale.bandwidth())
+                .attr("height", d => height - yScale(d.count))
                 .attr("fill", d => d.color)
-                .attr("stroke", "white")
-                .attr("stroke-width", 2)
+                .attr("stroke", d => d.focus ? "#212529" : "white") // Destacar faltas injustificadas
+                .attr("stroke-width", d => d.focus ? 2 : 1)
+                .attr("opacity", 0.9)
                 .on("mouseover", (event, d) => {
-                    const tooltipContent = d.percentage !== "N/A" 
-                        ? `<strong>${d.type.replace('\n', ' ')}</strong><br/>
-                           Cantidad: ${d.count}<br/>
-                           Impacto: ${d.impact}<br/>
-                           % Capacidad: ${d.percentage}%`
-                        : `<strong>${d.type}</strong><br/>
-                           Cantidad: ${d.count}<br/>
-                           Impacto: ${d.impact}`;
+                    // Tooltip enriquecido según especificaciones
+                    let tooltipHTML = `<strong>${d.type}</strong><br/>Cantidad: ${d.count}<br/>Impacto: ${d.impact}`;
                     
-                    tooltip.style("opacity", 1)
-                        .html(tooltipContent);
+                    if (d.percentage !== "—") {
+                        tooltipHTML += `<br/>% Capacidad: ${d.percentage}%<br/><small>sobre ${totalPossibleDays} días-persona</small>`;
+                    }
+                    
+                    window.tooltip.style("opacity", 1).html(tooltipHTML);
                 })
                 .on("mousemove", event => {
-                    tooltip.style("left", (event.pageX + 10) + "px")
+                    window.tooltip
+                        .style("left", (event.pageX + 15) + "px")
                         .style("top", (event.pageY - 10) + "px");
                 })
-                .on("mouseout", () => tooltip.style("opacity", 0));
+                .on("mouseout", () => window.tooltip.style("opacity", 0));
 
-            // Etiquetas de valores con porcentajes
-            svg.selectAll(".value-label")
-                .data(impactData)
+            // 14) Etiquetas de conteo sobre las barras
+            svg.selectAll(".count-label")
+                .data(impactData.filter(d => d.count > 0))
                 .enter().append("text")
-                .attr("class", "value-label")
-                .attr("x", d => xBandScale(d.type) + xBandScale.bandwidth() / 2)
-                .attr("y", d => yLinearScale(d.count) - 8)
+                .attr("class", "count-label")
+                .attr("x", d => xScale(d.shortType) + xScale.bandwidth() / 2)
+                .attr("y", d => yScale(d.count) - 8)
                 .attr("text-anchor", "middle")
-                .style("font-weight", "bold")
-                .style("font-size", "14px")
-                .style("fill", "#333")
+                .attr("font-weight", "bold")
+                .attr("font-size", "14px")
+                .attr("fill", "#212529")
                 .text(d => d.count);
 
-            // Etiquetas de porcentaje para faltas
+            // 15) Etiquetas de porcentaje solo para faltas
             svg.selectAll(".percentage-label")
-                .data(impactData.filter(d => d.percentage !== "N/A"))
+                .data(impactData.filter(d => d.percentage !== "—" && d.count > 0))
                 .enter().append("text")
                 .attr("class", "percentage-label")
-                .attr("x", d => xBandScale(d.type) + xBandScale.bandwidth() / 2)
-                .attr("y", d => yLinearScale(d.count) - 25)
+                .attr("x", d => xScale(d.shortType) + xScale.bandwidth() / 2)
+                .attr("y", d => yScale(d.count) - 28)
                 .attr("text-anchor", "middle")
-                .style("font-size", "11px")
-                .style("fill", "#666")
+                .attr("font-size", "11px")
+                .attr("font-weight", "500")
+                .attr("fill", "#495057")
                 .text(d => `(${d.percentage}%)`);
 
-            console.log("Gráfica de impacto completada");
+            // 16) Etiquetas de impacto bajo las barras
+            svg.selectAll(".impact-label")
+                .data(impactData)
+                .enter().append("text")
+                .attr("class", "impact-label")
+                .attr("x", d => xScale(d.shortType) + xScale.bandwidth() / 2)
+                .attr("y", height + 35)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "10px")
+                .attr("font-weight", "600")
+                .attr("fill", d => d.color)
+                .text(d => `Impacto ${d.impact}`);
+
+            // 17) Mensaje informativo si no hay base de capacidad
+            if (totalPossibleDays <= 0) {
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", -10)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "11px")
+                    .attr("fill", "#6c757d")
+                    .attr("font-style", "italic")
+                    .text("% de capacidad no disponible - sin base de cálculo");
+            }
+
+            console.log("✅ Gráfica de impacto por ausencias completada exitosamente");
         }
 
         // Función para envolver texto
