@@ -1,27 +1,95 @@
 # Ignore environment variable definitions
 .env
+.env.local
+.env.*.local
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+*$py.class
 
 # Virtual environment
 .venv/
 venv/
 env/
+ENV/
 
-# Data files
+# Data files (mantener algunos archivos específicos)
 *.csv
 *.log
-*.txt
 
 # IDE directories
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # Ignorar archivos de configuración de Python
 !requirements.txt
 
+# Database files
+*.db
+*.sqlite3
+*.sql.backup
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.pytest_cache/
+.tox/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / pytest
+.pytest_cache/
+.cache
+nosetests.xml
+coverage.xml
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Development files
 .devdbrc
 .cache_ggshield
 uv.lock
+
+# Temporary files
+*.tmp
+*.temp
