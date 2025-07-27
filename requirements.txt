@@ -20,3 +20,5 @@ requests
 six
 tzdata
 urllib3
+pytest
+pytest-cov
