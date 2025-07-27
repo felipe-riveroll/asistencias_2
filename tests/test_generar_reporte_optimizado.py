@@ -310,15 +310,18 @@ class TestGenerarReporteOptimizado:
     @patch('builtins.print')
     def test_generar_resumen_periodo(self, mock_print, tmp_path):
         """Prueba la generación del resumen del periodo."""
-        # Crear DataFrame de prueba con datos completos
+        # Crear DataFrame de prueba con datos completos incluyendo columnas de permisos
         df_test = pd.DataFrame({
             "employee": ["EMP001", "EMP001", "EMP002"],
             "Nombre": ["Juan Pérez", "Juan Pérez", "María García"],
             "dia": [date(2025, 1, 15), date(2025, 1, 16), date(2025, 1, 15)],
             "horas_trabajadas": ["09:00:00", "08:30:00", "09:00:00"],
             "horas_esperadas": ["09:00:00", "09:00:00", "09:00:00"],
+            "horas_esperadas_originales": ["09:00:00", "09:00:00", "09:00:00"],
+            "horas_descontadas_permiso": ["00:00:00", "00:00:00", "00:00:00"],
             "es_retardo_acumulable": [0, 1, 0],
-            "es_falta": [0, 0, 1]
+            "es_falta": [0, 0, 1],
+            "falta_justificada": [False, False, False]
         })
 
         # Cambiar al directorio temporal para las pruebas
@@ -615,15 +618,18 @@ class TestIntegracion:
     @patch('builtins.print')
     def test_generacion_resumen_integracion(self, mock_print, tmp_path):
         """Prueba la generación de resumen con datos reales."""
-        # Crear DataFrame analizado completo
+        # Crear DataFrame analizado completo con columnas de permisos
         df_analizado = pd.DataFrame({
             "employee": ["EMP001", "EMP001", "EMP002"],
             "Nombre": ["Juan Pérez", "Juan Pérez", "María García"],
             "dia": [date(2025, 1, 15), date(2025, 1, 16), date(2025, 1, 15)],
             "horas_trabajadas": ["09:00:00", "08:30:00", "09:00:00"],
             "horas_esperadas": ["09:00:00", "09:00:00", "09:00:00"],
+            "horas_esperadas_originales": ["09:00:00", "09:00:00", "09:00:00"],
+            "horas_descontadas_permiso": ["00:00:00", "00:00:00", "00:00:00"],
             "es_retardo_acumulable": [0, 1, 0],
-            "es_falta": [0, 0, 1]
+            "es_falta": [0, 0, 1],
+            "falta_justificada": [False, False, False]
         })
 
         # Cambiar al directorio temporal para las pruebas
@@ -657,4 +663,220 @@ class TestIntegracion:
                 assert col in df_resumen.columns
         finally:
             # Restaurar directorio original
+            os.chdir(original_cwd)
+
+    @patch('builtins.print')
+    def test_generar_resumen_periodo_calculo_corregido(self, mock_print, tmp_path):
+        """Prueba las correcciones en los cálculos del resumen del periodo."""
+        # Crear DataFrame que incluye empleados con y sin permisos para probar cálculos
+        df_test = pd.DataFrame({
+            "employee": ["EMP001", "EMP001", "EMP002", "EMP002", "EMP003"],
+            "Nombre": ["Juan Pérez", "Juan Pérez", "María García", "María García", "Carlos López"],
+            "dia": [date(2025, 1, 15), date(2025, 1, 16), date(2025, 1, 15), date(2025, 1, 16), date(2025, 1, 15)],
+            # Horas trabajadas reales (de base de datos)
+            "horas_trabajadas": ["10:00:00", "08:00:00", "07:00:00", "00:00:00", "12:00:00"],
+            # Horas esperadas ajustadas por permisos (para cálculo de total_horas)
+            "horas_esperadas": ["09:00:00", "00:00:00", "09:00:00", "09:00:00", "08:00:00"],
+            # Horas esperadas originales (para total_horas_trabajadas)
+            "horas_esperadas_originales": ["09:00:00", "09:00:00", "09:00:00", "09:00:00", "08:00:00"],
+            # Horas descontadas por permisos
+            "horas_descontadas_permiso": ["00:00:00", "09:00:00", "00:00:00", "00:00:00", "00:00:00"],
+            "es_retardo_acumulable": [0, 0, 1, 0, 0],
+            "es_falta": [0, 0, 0, 1, 0],
+            "falta_justificada": [False, False, False, True, False]
+        })
+
+        # Cambiar al directorio temporal para las pruebas
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            # Generar resumen
+            generar_resumen_periodo(df_test)
+
+            # Verificar que se creó el archivo
+            assert os.path.exists("resumen_periodo.csv")
+
+            # Leer el archivo para verificar los cálculos
+            df_resumen = pd.read_csv("resumen_periodo.csv")
+            assert not df_resumen.empty
+
+            # Validar columnas requeridas
+            required_cols = [
+                "employee", "Nombre", "total_horas_trabajadas", "total_horas_esperadas",
+                "total_horas_descontadas_permiso", "total_horas", "total_retardos",
+                "faltas_del_periodo", "faltas_justificadas", "total_faltas", "diferencia_HHMMSS"
+            ]
+            for col in required_cols:
+                assert col in df_resumen.columns
+
+            # Verificar cálculos específicos para EMP001 (con permiso)
+            emp001 = df_resumen[df_resumen['employee'] == 'EMP001'].iloc[0]
+            assert emp001['total_horas_trabajadas'] == "18:00:00"  # 10:00 + 8:00 (horas originales trabajadas)
+            assert emp001['total_horas_esperadas'] == "18:00:00"   # 9:00 + 9:00 (horas esperadas originales)
+            assert emp001['total_horas_descontadas_permiso'] == "09:00:00"  # Solo del día 16
+            assert emp001['total_horas'] == "09:00:00"  # 18:00 - 9:00 (esperadas - descontadas)
+            assert emp001['diferencia_HHMMSS'] == "+09:00:00"  # 18:00 - 9:00 = +9:00 (horas extra)
+
+            # Verificar cálculos específicos para EMP002 (déficit de horas)
+            emp002 = df_resumen[df_resumen['employee'] == 'EMP002'].iloc[0]
+            assert emp002['total_horas_trabajadas'] == "07:00:00"  # 7:00 + 0:00 (horas originales trabajadas)
+            assert emp002['total_horas_esperadas'] == "18:00:00"   # 9:00 + 9:00 (horas esperadas originales)
+            assert emp002['total_horas_descontadas_permiso'] == "00:00:00"  # Sin permisos
+            assert emp002['total_horas'] == "18:00:00"  # 18:00 - 0:00 (esperadas - descontadas)
+            assert emp002['diferencia_HHMMSS'] == "-11:00:00"  # 7:00 - 18:00 = -11:00 (déficit)
+
+            # Verificar cálculos específicos para EMP003 (horas extra sin permisos)
+            emp003 = df_resumen[df_resumen['employee'] == 'EMP003'].iloc[0]
+            assert emp003['total_horas_trabajadas'] == "12:00:00"  # 12:00 (horas originales trabajadas)
+            assert emp003['total_horas_esperadas'] == "08:00:00"   # 8:00 (horas esperadas originales)
+            assert emp003['total_horas_descontadas_permiso'] == "00:00:00"  # Sin permisos
+            assert emp003['total_horas'] == "08:00:00"  # 8:00 - 0:00 (esperadas - descontadas)
+            assert emp003['diferencia_HHMMSS'] == "+04:00:00"  # 12:00 - 8:00 = +4:00 (horas extra)
+
+        finally:
+            # Restaurar directorio original
+            os.chdir(original_cwd)
+
+    @patch('builtins.print')
+    def test_generar_resumen_periodo_con_permisos_complejos(self, mock_print, tmp_path):
+        """Prueba el resumen con casos complejos de permisos y justificaciones."""
+        df_test = pd.DataFrame({
+            "employee": ["EMP001", "EMP001", "EMP001", "EMP002", "EMP002"],
+            "Nombre": ["Juan Pérez", "Juan Pérez", "Juan Pérez", "María García", "María García"],
+            "dia": [date(2025, 1, 15), date(2025, 1, 16), date(2025, 1, 17), date(2025, 1, 15), date(2025, 1, 16)],
+            # Casos mixtos: trabajo normal, permiso completo, trabajo con permiso parcial
+            "horas_trabajadas": ["09:00:00", "00:00:00", "04:00:00", "09:30:00", "00:00:00"],
+            "horas_esperadas": ["09:00:00", "00:00:00", "04:00:00", "09:00:00", "00:00:00"],
+            "horas_esperadas_originales": ["09:00:00", "09:00:00", "08:00:00", "09:00:00", "09:00:00"],
+            "horas_descontadas_permiso": ["00:00:00", "09:00:00", "04:00:00", "00:00:00", "09:00:00"],
+            "es_retardo_acumulable": [0, 0, 0, 1, 0],
+            "es_falta": [0, 1, 0, 0, 1],
+            "falta_justificada": [False, True, False, False, True]
+        })
+
+        # Cambiar al directorio temporal para las pruebas
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            # Generar resumen
+            generar_resumen_periodo(df_test)
+
+            # Verificar que se creó el archivo
+            assert os.path.exists("resumen_periodo.csv")
+
+            df_resumen = pd.read_csv("resumen_periodo.csv")
+            assert not df_resumen.empty
+
+            # Verificar EMP001 (casos mixtos)
+            emp001 = df_resumen[df_resumen['employee'] == 'EMP001'].iloc[0]
+            assert emp001['total_horas_trabajadas'] == "13:00:00"  # 9:00 + 0:00 + 4:00
+            assert emp001['total_horas_esperadas'] == "26:00:00"   # 9:00 + 9:00 + 8:00
+            assert emp001['total_horas_descontadas_permiso'] == "13:00:00"  # 0:00 + 9:00 + 4:00
+            assert emp001['total_horas'] == "13:00:00"  # 26:00 - 13:00
+            assert emp001['faltas_justificadas'] == 1  # Solo el día 16 tiene falta justificada
+
+            # Verificar EMP002 (un día normal, un día con falta justificada)
+            emp002 = df_resumen[df_resumen['employee'] == 'EMP002'].iloc[0]
+            assert emp002['total_horas_trabajadas'] == "09:30:00"  # 9:30 + 0:00
+            assert emp002['total_horas_esperadas'] == "18:00:00"   # 9:00 + 9:00
+            assert emp002['total_horas_descontadas_permiso'] == "09:00:00"  # 0:00 + 9:00
+            assert emp002['total_horas'] == "09:00:00"  # 18:00 - 9:00
+            assert emp002['faltas_justificadas'] == 1  # Solo el día 16 tiene falta justificada
+
+        finally:
+            # Restaurar directorio original
+            os.chdir(original_cwd)
+
+
+class TestFormatoDiferenciaHoras:
+    """Pruebas específicas para el formato de diferencia de horas con signo."""
+    
+    @patch('builtins.print')
+    def test_formato_diferencia_positiva_negativa_cero(self, mock_print, tmp_path):
+        """Prueba que la diferencia de horas se formatee correctamente con signos."""
+        df_test = pd.DataFrame({
+            "employee": ["EMP001", "EMP002", "EMP003"],
+            "Nombre": ["Horas Extra", "Horas Déficit", "Horas Exactas"],
+            "dia": [date(2025, 1, 15), date(2025, 1, 15), date(2025, 1, 15)],
+            # Caso 1: Más horas trabajadas que esperadas (positivo)
+            # Caso 2: Menos horas trabajadas que esperadas (negativo)  
+            # Caso 3: Horas exactas (cero)
+            "horas_trabajadas": ["10:00:00", "06:00:00", "08:00:00"],
+            "horas_esperadas": ["08:00:00", "08:00:00", "08:00:00"],
+            "horas_esperadas_originales": ["08:00:00", "08:00:00", "08:00:00"],
+            "horas_descontadas_permiso": ["00:00:00", "00:00:00", "00:00:00"],
+            "es_retardo_acumulable": [0, 0, 0],
+            "es_falta": [0, 0, 0],
+            "falta_justificada": [False, False, False]
+        })
+
+        # Cambiar al directorio temporal para las pruebas
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from generar_reporte_optimizado import generar_resumen_periodo
+            generar_resumen_periodo(df_test)
+
+            # Leer el archivo generado
+            df_resumen = pd.read_csv("resumen_periodo.csv")
+            
+            # Verificar formatos específicos
+            emp001 = df_resumen[df_resumen['employee'] == 'EMP001'].iloc[0]
+            emp002 = df_resumen[df_resumen['employee'] == 'EMP002'].iloc[0]
+            emp003 = df_resumen[df_resumen['employee'] == 'EMP003'].iloc[0]
+            
+            # Diferencia positiva debe tener signo +
+            assert emp001['diferencia_HHMMSS'] == "+02:00:00", f"Expected +02:00:00, got {emp001['diferencia_HHMMSS']}"
+            
+            # Diferencia negativa debe tener signo -
+            assert emp002['diferencia_HHMMSS'] == "-02:00:00", f"Expected -02:00:00, got {emp002['diferencia_HHMMSS']}"
+            
+            # Diferencia cero no debe tener signo
+            assert emp003['diferencia_HHMMSS'] == "00:00:00", f"Expected 00:00:00, got {emp003['diferencia_HHMMSS']}"
+        finally:
+            os.chdir(original_cwd)
+
+    @patch('builtins.print') 
+    def test_calculo_horas_trabajadas_vs_esperadas(self, mock_print, tmp_path):
+        """Prueba que total_horas_trabajadas use horas originales y total_horas use horas ajustadas."""
+        df_test = pd.DataFrame({
+            "employee": ["EMP001", "EMP001"],
+            "Nombre": ["Empleado con Permiso", "Empleado con Permiso"],
+            "dia": [date(2025, 1, 15), date(2025, 1, 16)],
+            # Trabajó ambos días pero tuvo permiso un día
+            "horas_trabajadas": ["09:00:00", "08:00:00"],  # Total trabajadas: 17:00:00
+            "horas_esperadas": ["09:00:00", "00:00:00"],   # Ajustadas por permiso: 9:00:00
+            "horas_esperadas_originales": ["09:00:00", "09:00:00"],  # Originales: 18:00:00
+            "horas_descontadas_permiso": ["00:00:00", "09:00:00"],   # Descontadas: 9:00:00
+            "es_retardo_acumulable": [0, 0],
+            "es_falta": [0, 0],
+            "falta_justificada": [False, False]
+        })
+
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from generar_reporte_optimizado import generar_resumen_periodo
+            generar_resumen_periodo(df_test)
+
+            df_resumen = pd.read_csv("resumen_periodo.csv")
+            emp001 = df_resumen[df_resumen['employee'] == 'EMP001'].iloc[0]
+            
+            # total_horas_trabajadas debe usar las horas originales trabajadas
+            assert emp001['total_horas_trabajadas'] == "17:00:00"
+            
+            # total_horas_esperadas debe usar las horas esperadas originales
+            assert emp001['total_horas_esperadas'] == "18:00:00"
+            
+            # total_horas debe ser horas esperadas - horas descontadas por permisos
+            assert emp001['total_horas'] == "09:00:00"  # 18:00 - 9:00
+            
+            # diferencia debe ser horas_trabajadas - total_horas (17:00 - 9:00 = +8:00)
+            assert emp001['diferencia_HHMMSS'] == "+08:00:00"
+
+        finally:
             os.chdir(original_cwd)

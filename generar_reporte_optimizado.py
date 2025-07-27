@@ -678,9 +678,15 @@ def generar_resumen_periodo(df: pd.DataFrame):
     df["horas_trabajadas_td"] = pd.to_timedelta(
         df["horas_trabajadas"].fillna("00:00:00")
     )
-    df["horas_esperadas_td"] = pd.to_timedelta(
-        df["horas_esperadas"].fillna("00:00:00")
-    )
+    # Para horas esperadas, usar las originales (antes de ajustar por permisos)
+    if 'horas_esperadas_originales' in df.columns:
+        df["horas_esperadas_originales_td"] = pd.to_timedelta(
+            df["horas_esperadas_originales"].fillna("00:00:00")
+        )
+    else:
+        df["horas_esperadas_originales_td"] = pd.to_timedelta(
+            df["horas_esperadas"].fillna("00:00:00")
+        )
     
     # Convertir horas descontadas por permisos a timedelta
     if 'horas_descontadas_permiso' in df.columns:
@@ -690,33 +696,37 @@ def generar_resumen_periodo(df: pd.DataFrame):
     else:
         df["horas_descontadas_permiso_td"] = pd.to_timedelta("00:00:00")
 
+    # Preparar las columnas de faltas
+    total_faltas_col = "es_falta_ajustada" if "es_falta_ajustada" in df.columns else "es_falta"
+    
     # Agregaciones base para horas y conteo de incidencias
     resumen_final = (
         df.groupby(["employee", "Nombre"])
         .agg(
             total_horas_trabajadas=("horas_trabajadas_td", "sum"),
-            total_horas_esperadas=("horas_esperadas_td", "sum"),
+            total_horas_esperadas=("horas_esperadas_originales_td", "sum"),
             total_horas_descontadas_permiso=("horas_descontadas_permiso_td", "sum"),
             total_retardos=("es_retardo_acumulable", "sum"),
-            faltas_del_periodo=("es_falta", "sum"),
+            faltas_del_periodo=(total_faltas_col, "sum"),
             faltas_justificadas=("falta_justificada", "sum") if "falta_justificada" in df.columns else ("es_falta", lambda x: 0),
         )
         .reset_index()
     )
 
-    # Calcular totales derivados
+    # Calcular horas esperadas ajustadas (horas esperadas - horas descontadas por permisos)
     resumen_final["total_horas"] = (
         resumen_final["total_horas_esperadas"] - resumen_final["total_horas_descontadas_permiso"]
     )
-    resumen_final["total_faltas"] = (
-        resumen_final["faltas_del_periodo"] - resumen_final["faltas_justificadas"]
-    )
+    
+    # Total de faltas es el mismo que faltas del periodo (ya viene ajustado)
+    resumen_final["total_faltas"] = resumen_final["faltas_del_periodo"]
 
-    # Diferencia entre horas esperadas efectivas y trabajadas
-    diferencia_td = resumen_final["total_horas"] - resumen_final["total_horas_trabajadas"]
+    # Diferencia: horas trabajadas - horas esperadas ajustadas
+    # Si es positivo = horas extra, si es negativo = horas faltantes
+    diferencia_td = resumen_final["total_horas_trabajadas"] - resumen_final["total_horas"]
 
     def format_timedelta_with_sign(td):
-        sign = "-" if td.total_seconds() < 0 else ""
+        sign = "+" if td.total_seconds() > 0 else "-" if td.total_seconds() < 0 else ""
         td_abs = abs(td)
         total_seconds = int(td_abs.total_seconds())
         hours, remainder = divmod(total_seconds, 3600)
@@ -775,12 +785,12 @@ def generar_resumen_periodo(df: pd.DataFrame):
         output_filename = output_filename_alt
     
     # Mostrar estadísticas de permisos si están disponibles
-    if 'total_faltas_justificadas' in resumen_final.columns:
-        total_faltas_justificadas = resumen_final['total_faltas_justificadas'].sum()
+    if 'faltas_justificadas' in resumen_final.columns:
+        total_faltas_justificadas = resumen_final['faltas_justificadas'].sum()
         total_horas_descontadas = resumen_final['total_horas_descontadas_permiso'].apply(
             lambda x: pd.to_timedelta(x).total_seconds() / 3600 if x != "00:00:00" else 0
         ).sum()
-        empleados_con_permisos = (resumen_final['total_faltas_justificadas'] > 0).sum()
+        empleados_con_permisos = (resumen_final['faltas_justificadas'] > 0).sum()
         
         print(f"\n📋 Estadísticas de permisos:")
         print(f"   - Empleados con permisos: {empleados_con_permisos}")

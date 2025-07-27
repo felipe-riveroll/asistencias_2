@@ -280,8 +280,11 @@ class TestCasosEdge:
             "dia": [date(2025, 1, 15), date(2025, 1, 15)],
             "horas_trabajadas": ["07:00:00", "06:00:00"],  # Menos horas trabajadas
             "horas_esperadas": ["09:00:00", "09:00:00"],   # Más horas esperadas
+            "horas_esperadas_originales": ["09:00:00", "09:00:00"],
+            "horas_descontadas_permiso": ["00:00:00", "00:00:00"],
             "es_retardo_acumulable": [1, 0],
-            "es_falta": [0, 1]
+            "es_falta": [0, 1],
+            "falta_justificada": [False, False]
         })
 
         # Cambiar al directorio temporal para las pruebas
@@ -318,8 +321,11 @@ class TestCasosEdge:
             "dia": [date(2025, 1, 15)],
             "horas_trabajadas": ["24:00:00"],  # 24 horas trabajadas
             "horas_esperadas": ["08:00:00"],   # 8 horas esperadas
+            "horas_esperadas_originales": ["08:00:00"],
+            "horas_descontadas_permiso": ["00:00:00"],
             "es_retardo_acumulable": [0],
-            "es_falta": [0]
+            "es_falta": [0],
+            "falta_justificada": [False]
         })
 
         # Cambiar al directorio temporal para las pruebas
