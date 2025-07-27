@@ -690,29 +690,30 @@ def generar_resumen_periodo(df: pd.DataFrame):
     else:
         df["horas_descontadas_permiso_td"] = pd.to_timedelta("00:00:00")
 
-    # Preparar las columnas de faltas
-    total_faltas_col = "es_falta_ajustada" if "es_falta_ajustada" in df.columns else "es_falta"
-    
-    # Agregación: suma de horas, retardos y faltas
+    # Agregaciones base para horas y conteo de incidencias
     resumen_final = (
         df.groupby(["employee", "Nombre"])
         .agg(
             total_horas_trabajadas=("horas_trabajadas_td", "sum"),
             total_horas_esperadas=("horas_esperadas_td", "sum"),
-            total_retardos=("es_retardo_acumulable", "sum"),
-            total_faltas=(total_faltas_col, "sum"),
             total_horas_descontadas_permiso=("horas_descontadas_permiso_td", "sum"),
-            total_faltas_justificadas=("falta_justificada", "sum") if 'falta_justificada' in df.columns else ("es_falta", lambda x: 0),
+            total_retardos=("es_retardo_acumulable", "sum"),
+            faltas_del_periodo=("es_falta", "sum"),
+            faltas_justificadas=("falta_justificada", "sum") if "falta_justificada" in df.columns else ("es_falta", lambda x: 0),
         )
         .reset_index()
     )
 
-    # Calcular la diferencia entre horas trabajadas y esperadas
-    diferencia_td = (
-        resumen_final["total_horas_trabajadas"] - resumen_final["total_horas_esperadas"]
+    # Calcular totales derivados
+    resumen_final["total_horas"] = (
+        resumen_final["total_horas_esperadas"] - resumen_final["total_horas_descontadas_permiso"]
+    )
+    resumen_final["total_faltas"] = (
+        resumen_final["faltas_del_periodo"] - resumen_final["faltas_justificadas"]
     )
 
-    resumen_final["diferencia_segundos"] = diferencia_td.dt.total_seconds().astype(int)
+    # Diferencia entre horas esperadas efectivas y trabajadas
+    diferencia_td = resumen_final["total_horas"] - resumen_final["total_horas_trabajadas"]
 
     def format_timedelta_with_sign(td):
         sign = "-" if td.total_seconds() < 0 else ""
@@ -739,6 +740,7 @@ def generar_resumen_periodo(df: pd.DataFrame):
     resumen_final["total_horas_descontadas_permiso"] = resumen_final[
         "total_horas_descontadas_permiso"
     ].apply(format_positive_timedelta)
+    resumen_final["total_horas"] = resumen_final["total_horas"].apply(format_positive_timedelta)
 
     # Ordenar columnas para la presentación
     base_columns = [
@@ -747,18 +749,13 @@ def generar_resumen_periodo(df: pd.DataFrame):
         "total_horas_trabajadas",
         "total_horas_esperadas",
         "total_horas_descontadas_permiso",
+        "total_horas",
         "total_retardos",
+        "faltas_del_periodo",
+        "faltas_justificadas",
         "total_faltas",
-    ]
-    
-    # Añadir faltas justificadas si existe
-    if 'total_faltas_justificadas' in resumen_final.columns:
-        base_columns.append("total_faltas_justificadas")
-    
-    base_columns.extend([
-        "diferencia_segundos",
         "diferencia_HHMMSS",
-    ])
+    ]
     
     resumen_final = resumen_final[base_columns]
 
