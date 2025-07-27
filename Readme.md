@@ -142,6 +142,19 @@ device_filter = "%villas%"   # Filtro de dispositivos
 - `reporte_asistencia_analizado.csv`: Análisis detallado por empleado con permisos
 - `resumen_periodo.csv`: Resumen agregado del período incluyendo faltas justificadas
 
+**Columnas del Resumen:**
+- `employee`: Código del empleado
+- `Nombre`: Nombre completo
+- `total_horas_trabajadas`: Horas trabajadas sin descuentos
+- `total_horas_esperadas`: Horas programadas en el periodo
+- `total_horas_descontadas_permiso`: Horas restadas por permisos
+- `total_horas`: Horas efectivas esperadas
+- `total_retardos`: Número de retardos
+- `faltas_del_periodo`: Faltas totales registradas
+- `faltas_justificadas`: Faltas justificadas por permisos
+- `total_faltas`: Faltas reales descontando justificadas
+- `diferencia_HHMMSS`: Diferencia entre horas esperadas y trabajadas
+
 **Nuevas Columnas en el Reporte:**
 - `tiene_permiso`: Indica si el empleado tiene permiso aprobado para el día
 - `tipo_permiso`: Tipo de permiso (Vacaciones, Incapacidad, etc.)
