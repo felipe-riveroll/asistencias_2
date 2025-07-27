@@ -334,6 +334,23 @@ class TestGenerarReporteOptimizado:
 
             # Verificar que se creó el archivo de resumen
             assert os.path.exists("resumen_periodo.csv")
+
+            df_resumen = pd.read_csv("resumen_periodo.csv")
+            columnas = [
+                "employee",
+                "Nombre",
+                "total_horas_trabajadas",
+                "total_horas_esperadas",
+                "total_horas_descontadas_permiso",
+                "total_horas",
+                "total_retardos",
+                "faltas_del_periodo",
+                "faltas_justificadas",
+                "total_faltas",
+                "diferencia_HHMMSS",
+            ]
+            for col in columnas:
+                assert col in df_resumen.columns
         finally:
             # Restaurar directorio original
             os.chdir(original_cwd)
@@ -619,6 +636,25 @@ class TestIntegracion:
 
             # Verificar que se ejecutó correctamente
             assert mock_print.call_count > 0
+
+            assert os.path.exists("resumen_periodo.csv")
+            df_resumen = pd.read_csv("resumen_periodo.csv")
+            assert not df_resumen.empty
+            required_cols = [
+                "employee",
+                "Nombre",
+                "total_horas_trabajadas",
+                "total_horas_esperadas",
+                "total_horas_descontadas_permiso",
+                "total_horas",
+                "total_retardos",
+                "faltas_del_periodo",
+                "faltas_justificadas",
+                "total_faltas",
+                "diferencia_HHMMSS",
+            ]
+            for col in required_cols:
+                assert col in df_resumen.columns
         finally:
             # Restaurar directorio original
-            os.chdir(original_cwd) 
+            os.chdir(original_cwd)
