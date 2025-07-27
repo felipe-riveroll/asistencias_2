@@ -293,10 +293,18 @@ class TestCasosEdge:
 
             # Verificar que se creó el archivo
             assert os.path.exists("resumen_periodo.csv")
-            
+
             # Leer el archivo para verificar que las diferencias negativas se procesaron
             df_resumen = pd.read_csv("resumen_periodo.csv")
             assert not df_resumen.empty
+            for col in [
+                "employee",
+                "Nombre",
+                "total_horas",
+                "total_faltas",
+                "diferencia_HHMMSS",
+            ]:
+                assert col in df_resumen.columns
         finally:
             # Restaurar directorio original
             os.chdir(original_cwd)
@@ -323,10 +331,19 @@ class TestCasosEdge:
 
             # Verificar que se creó el archivo
             assert os.path.exists("resumen_periodo.csv")
-            
+
             # Leer el archivo para verificar que se procesó correctamente
             df_resumen = pd.read_csv("resumen_periodo.csv")
             assert not df_resumen.empty
+            required = [
+                "total_horas_trabajadas",
+                "total_horas_esperadas",
+                "total_horas",
+                "total_retardos",
+                "diferencia_HHMMSS",
+            ]
+            for col in required:
+                assert col in df_resumen.columns
         finally:
             # Restaurar directorio original
             os.chdir(original_cwd)
