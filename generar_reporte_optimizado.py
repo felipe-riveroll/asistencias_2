@@ -959,9 +959,6 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
         # Tasa de Asistencia = (Σ horas trabajadas / Σ horas planificadas) × 100
         attendance_rate = (total_worked / total_expected * 100) if total_expected > 0 else 0
         
-        # Eficiencia Horaria = igual que tasa de asistencia en este contexto
-        efficiency_rate = attendance_rate
-        
         # Índice de Puntualidad = (empleados puntuales que asistieron / total empleados) × 100
         punctuality_rate = (punctual_employees / total_employees * 100) if total_employees > 0 else 0
         
@@ -974,7 +971,6 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
     else:
         # Si no hay empleados válidos, usar valores por defecto
         attendance_rate = 0
-        efficiency_rate = 0
         punctuality_rate = 0
         lost_days = 0
         lost_days_percent = 0    # Generar HTML
@@ -1118,8 +1114,8 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
         .metric-card.attendance {{ border-left-color: #28a745; }}
         .metric-card.attendance .metric-value {{ color: #28a745; }}
 
-        .metric-card.efficiency {{ border-left-color: #007bff; }}
-        .metric-card.efficiency .metric-value {{ color: #007bff; }}
+        .metric-card.deviation {{ border-left-color: #ff6b35; }}
+        .metric-card.deviation .metric-value {{ color: #ff6b35; }}
 
         .metric-card.punctuality {{ border-left-color: #ffc107; }}
         .metric-card.punctuality .metric-value {{ color: #fd7e14; }}
@@ -1295,11 +1291,11 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
                     <div class="metric-value" id="attendanceRate">{attendance_rate:.1f}%</div>
                     <div class="metric-subtitle">Horas trabajadas vs planificadas</div>
                 </div>
-                <div class="metric-card efficiency">
-                    <div class="status-indicator" id="efficiencyStatus"></div>
-                    <h3>Eficiencia Horaria</h3>
-                    <div class="metric-value" id="efficiencyRate">{efficiency_rate:.1f}%</div>
-                    <div class="metric-subtitle">Productividad del equipo</div>
+                <div class="metric-card deviation" aria-label="Desviación media horaria: calculando">
+                    <div class="status-indicator" id="deviationStatus"></div>
+                    <h3>Desviación Media Horaria</h3>
+                    <div class="metric-value" id="avgDeviationHours">±0.0 h</div>
+                    <div class="metric-subtitle">Promedio de horas de sobra o faltantes por empleado</div>
                 </div>
                 <div class="metric-card punctuality">
                     <div class="status-indicator" id="punctualityStatus"></div>
@@ -1405,13 +1401,18 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
 
         // === Utils tiempo ===
         function timeToHours(hhmmss) {{
-            if (!hhmmss || hhmmss === "00:00:00") return 0;
+            if (!hhmmss || hhmmss === "00:00:00" || typeof hhmmss !== "string") return 0;
             const [h, m, s] = hhmmss.split(":").map(Number);
             return (h || 0) + (m || 0) / 60 + (s || 0) / 3600;
         }}
 
         function safeDiv(a, b) {{
             return b > 0 ? a / b : 0;
+        }}
+
+        function formatHoursDecimal(hours) {{
+            if (!Number.isFinite(hours)) return "0.0 h";
+            return `${{hours.toFixed(1)}} h`;
         }}
 
         // ===== Utils: tiempo y números =====
@@ -1484,11 +1485,11 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
             return processedData;
         }}
 
-        // === KPIs: Asistencia (%) y Eficiencia (%) ===
-        // Ambas son (Σ horas_trabajadas / Σ horas_planificadas_ajustadas) * 100
+        // === KPIs: Asistencia (%) y Desviación Media Horaria ===
         function calculateKPIs() {{
             console.log("Calculando KPIs...");
             
+            // Calcular Tasa de Asistencia
             const rows = employeeData
                 .map(e => ({{ 
                     worked: timeToHours(e.workedHours), 
@@ -1503,16 +1504,75 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
             
             console.log(`Total trabajadas: ${{totalWorked.toFixed(2)}}h, Total planificadas: ${{totalPlanned.toFixed(2)}}h`);
 
-            const pct = totalPlanned > 0 ? (totalWorked / totalPlanned) * 100 : 0;
-            const attendanceRate = pct.toFixed(1) + "%";
-            const efficiencyRate = pct.toFixed(1) + "%";
+            const attendancePct = totalPlanned > 0 ? (totalWorked / totalPlanned) * 100 : 0;
+            const attendanceRate = attendancePct.toFixed(1) + "%";
 
-            console.log(`KPI calculado: ${{pct.toFixed(1)}}%`);
+            console.log(`Tasa de Asistencia calculada: ${{attendancePct.toFixed(1)}}%`);
 
             document.getElementById("attendanceRate").textContent = attendanceRate;
-            document.getElementById("efficiencyRate").textContent = efficiencyRate;
 
-            // Puntualidad y días perdidos (si ya existen en el DOM)
+            // Calcular Desviación Media Horaria
+            console.log("Calculando Desviación Media Horaria...");
+            
+            const validEmployeesForDeviation = employeeData
+                .map(emp => {{
+                    // Convertir horas trabajadas
+                    const worked = emp.workedDecimal != null 
+                        ? emp.workedDecimal 
+                        : timeToHours(emp.workedHours || "00:00:00");
+                    
+                    // Determinar horas planificadas con prioridad
+                    let planned = 0;
+                    if (emp.expectedDecimalAdjusted != null && emp.expectedDecimalAdjusted > 0) {{
+                        planned = emp.expectedDecimalAdjusted;
+                    }} else if (emp.netHours) {{
+                        planned = timeToHours(emp.netHours);
+                    }} else if (emp.expectedDecimal != null && emp.expectedDecimal > 0) {{
+                        planned = emp.expectedDecimal;
+                    }}
+                    
+                    return {{
+                        employee: emp.employee,
+                        name: emp.name,
+                        worked,
+                        planned,
+                        valid: planned > 0 && Number.isFinite(worked) && Number.isFinite(planned)
+                    }};
+                }})
+                .filter(emp => emp.valid);
+
+            console.log(`Empleados válidos para desviación: ${{validEmployeesForDeviation.length}} de ${{employeeData.length}}`);
+            
+            if (validEmployeesForDeviation.length > 0) {{
+                const deviations = validEmployeesForDeviation.map(emp => {{
+                    const deviation = Math.abs(emp.worked - emp.planned);
+                    console.log(`${{emp.employee}} - ${{emp.name}}: ${{emp.worked.toFixed(2)}}h trabajadas - ${{emp.planned.toFixed(2)}}h planificadas = ±${{deviation.toFixed(2)}}h desviación`);
+                    return deviation;
+                }});
+                
+                const avgDeviation = deviations.reduce((sum, dev) => sum + dev, 0) / deviations.length;
+                const avgDeviationFormatted = `±${{formatHoursDecimal(avgDeviation)}}`;
+                
+                console.log(`Desviación Media Horaria calculada: ${{avgDeviationFormatted}}`);
+                document.getElementById("avgDeviationHours").textContent = avgDeviationFormatted;
+                
+                // Actualizar aria-label para accesibilidad
+                const deviationCard = document.querySelector('.metric-card.deviation');
+                if (deviationCard) {{
+                    deviationCard.setAttribute('aria-label', `Desviación media horaria: ${{avgDeviationFormatted}}`);
+                }}
+            }} else {{
+                console.warn("No hay empleados válidos para calcular desviación media horaria");
+                document.getElementById("avgDeviationHours").textContent = "–";
+                document.getElementById("avgDeviationHours").title = "Sin horas planificadas válidas";
+                
+                const deviationCard = document.querySelector('.metric-card.deviation');
+                if (deviationCard) {{
+                    deviationCard.setAttribute('aria-label', 'Desviación media horaria: sin datos válidos');
+                }}
+            }}
+
+            // Puntualidad y días perdidos (mantener lógica existente)
             const punctualEmployees = employeeData.filter(emp => emp.delays === 0).length;
             const punctuality = (punctualEmployees / employeeData.length) * 100;
             const totalAbsences = employeeData.reduce((s, e) => s + (e.totalAbsences || 0), 0);
@@ -1553,15 +1613,27 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
                 attendanceStatus.className = 'status-indicator status-poor';
             }}
 
-            // Semáforo de eficiencia
-            const efficiencyRate = parseFloat(document.getElementById('efficiencyRate').textContent);
-            const efficiencyStatus = document.getElementById('efficiencyStatus');
-            if (efficiencyRate >= 95) {{
-                efficiencyStatus.className = 'status-indicator status-excellent';
-            }} else if (efficiencyRate >= 85) {{
-                efficiencyStatus.className = 'status-indicator status-good';
+            // Semáforo de desviación horaria (invertido: menor desviación = mejor)
+            const avgDeviationText = document.getElementById('avgDeviationHours').textContent;
+            const deviationStatus = document.getElementById('deviationStatus');
+            
+            if (avgDeviationText === "–") {{
+                deviationStatus.className = 'status-indicator status-poor';
             }} else {{
-                efficiencyStatus.className = 'status-indicator status-poor';
+                // Extraer el valor numérico de "±X.X h"
+                const deviationMatch = avgDeviationText.match(/±([0-9.]+)/);
+                if (deviationMatch) {{
+                    const deviationHours = parseFloat(deviationMatch[1]);
+                    if (deviationHours <= 1.0) {{
+                        deviationStatus.className = 'status-indicator status-excellent';
+                    }} else if (deviationHours <= 2.0) {{
+                        deviationStatus.className = 'status-indicator status-good';
+                    }} else {{
+                        deviationStatus.className = 'status-indicator status-poor';
+                    }}
+                }} else {{
+                    deviationStatus.className = 'status-indicator status-poor';
+                }}
             }}
 
             // Semáforo de puntualidad
