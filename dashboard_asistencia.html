@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Ejecutivo de Asistencia - 31pte</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* Estilos Generales - Diseño Ejecutivo */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            color: #212529;
+            line-height: 1.5;
+        }
+
+        .header {
+            background: white;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+            border-bottom: 3px solid #0066cc;
+        }
+
+        .header h1 {
+            color: #0066cc;
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            color: #6c757d;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        
+        /* Pestañas - Diseño Limpio */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            gap: 1rem;
+        }
+
+        .tab-button {
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 2px solid #0066cc;
+            background-color: white;
+            color: #0066cc;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .tab-button.active {
+            background: #0066cc;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* KPIs Ejecutivos */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid;
+            position: relative;
+        }
+
+        .metric-card h3 {
+            color: #495057;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-subtitle {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+        }
+
+        /* Semáforos de estado */
+        .status-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .status-excellent { background: #28a745; }
+        .status-good { background: #ffc107; }
+        .status-poor { background: #dc3545; }
+
+        .metric-card.attendance { border-left-color: #28a745; }
+        .metric-card.attendance .metric-value { color: #28a745; }
+
+        .metric-card.efficiency { border-left-color: #007bff; }
+        .metric-card.efficiency .metric-value { color: #007bff; }
+
+        .metric-card.punctuality { border-left-color: #ffc107; }
+        .metric-card.punctuality .metric-value { color: #fd7e14; }
+
+        .metric-card.absences { border-left-color: #dc3545; }
+        .metric-card.absences .metric-value { color: #dc3545; }
+
+        /* Contenedores de Gráficas */
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .chart-title {
+            color: #212529;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            text-align: left;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .chart-subtitle {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        /* Estilos D3 - Minimalistas */
+        .chart svg {
+            width: 100%;
+            height: auto;
+            font-family: inherit;
+        }
+
+        .axis path, .axis .domain {
+            stroke: #dee2e6;
+            stroke-width: 1;
+        }
+
+        .axis .tick line {
+            stroke: #e9ecef;
+            stroke-width: 1;
+        }
+
+        .axis .tick text {
+            fill: #6c757d;
+            font-size: 12px;
+        }
+
+        .grid line {
+            stroke: #f1f3f4;
+            stroke-width: 1;
+            stroke-dasharray: 2,2;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 12px;
+            background: rgba(33, 37, 41, 0.95);
+            color: white;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+        }
+
+        /* Tabla Ejecutiva */
+        .table-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search-box input, .filter-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus, .filter-select:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        .employee-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .employee-table th {
+            background: #f8f9fa;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .employee-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .employee-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-complete { background: #d4edda; color: #155724; }
+        .status-overtime { background: #cce5ff; color: #004085; }
+        .status-incomplete { background: #f8d7da; color: #721c24; }
+
+        .positive { color: #28a745; font-weight: 600; }
+        .negative { color: #dc3545; font-weight: 600; }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.8rem; }
+            .metrics-grid { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Dashboard Ejecutivo de Asistencia</h1>
+        <p>Sucursal: 31PTE | Período: 2025-07-01 - 2025-07-15</p>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-button active" onclick="window.openTab(event, 'dashboard')">Resumen Ejecutivo</button>
+            <button class="tab-button" onclick="window.openTab(event, 'employee-table')">Detalle por Empleado</button>
+        </div>
+
+        <div id="dashboard" class="tab-content active">
+            <!-- KPIs Principales -->
+            <div class="metrics-grid">
+                <div class="metric-card attendance">
+                    <div class="status-indicator" id="attendanceStatus"></div>
+                    <h3>Tasa de Asistencia</h3>
+                    <div class="metric-value" id="attendanceRate">87.7%</div>
+                    <div class="metric-subtitle">Horas trabajadas vs planificadas</div>
+                </div>
+                <div class="metric-card efficiency">
+                    <div class="status-indicator" id="efficiencyStatus"></div>
+                    <h3>Eficiencia Horaria</h3>
+                    <div class="metric-value" id="efficiencyRate">87.7%</div>
+                    <div class="metric-subtitle">Productividad del equipo</div>
+                </div>
+                <div class="metric-card punctuality">
+                    <div class="status-indicator" id="punctualityStatus"></div>
+                    <h3>Índice de Puntualidad</h3>
+                    <div class="metric-value" id="punctualityRate">76%</div>
+                    <div class="metric-subtitle">Empleados puntuales activos</div>
+                </div>
+                <div class="metric-card absences">
+                    <div class="status-indicator" id="absencesStatus"></div>
+                    <h3>Días Perdidos</h3>
+                    <div class="metric-value" id="totalLostDays">26</div>
+                    <div class="metric-subtitle" id="lostDaysPercent">9.5% de capacidad perdida</div>
+                </div>
+            </div>
+
+            <!-- Gráficas Principales -->
+            <div class="chart-container">
+                <div class="chart-title">Tendencia de Asistencia del Período</div>
+                <div class="chart-subtitle">Comparativo de asistencias, faltas y permisos por día</div>
+                <div id="dailyTrendChart" class="chart"></div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Eficiencia de Recursos Humanos</div>
+                <div class="chart-subtitle">Horas trabajadas vs. horas planificadas por empleado</div>
+                <div id="efficiencyChart" class="chart"></div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Análisis de Impacto por Ausencias</div>
+                <div class="chart-subtitle">Distribución de tipos de ausencias y su impacto operativo</div>
+                <div id="absenceImpactChart" class="chart"></div>
+            </div>
+        </div>
+
+        <div id="employee-table" class="tab-content">
+            <div class="table-section">
+                <div class="chart-title">Análisis Individual de Rendimiento</div>
+                <div class="controls">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="Buscar empleado..." onkeyup="window.filterTable()">
+                    </div>
+                    <select id="statusFilter" onchange="window.filterTable()" class="filter-select">
+                        <option value="">Todos los estados</option>
+                        <option value="complete">Rendimiento Completo</option>
+                        <option value="overtime">Tiempo Extra</option>
+                        <option value="incomplete">Rendimiento Incompleto</option>
+                    </select>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="employee-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Empleado</th>
+                                <th>Hrs. Trabajadas</th>
+                                <th>Hrs. Planificadas</th>
+                                <th>Variación</th>
+                                <th>Retardos</th>
+                                <th>Ausencias</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip"></div>
+
+    <script>
+        // Variables globales
+        const tooltip = d3.select(".tooltip");
+        window.tooltip = tooltip;
+        
+        // Datos del período analizado
+        const employeeData = [{'employee': '1', 'name': 'Beatriz Pérez Reyes', 'workedHours': '91:58:05', 'expectedHours': '99:00:00', 'permitHours': '00:00:00', 'netHours': '99:00:00', 'delays': 0, 'absences': 1, 'justifiedAbsences': 0, 'totalAbsences': 1, 'difference': '-07:01:55', 'workedDecimal': 91.96805555555555, 'expectedDecimal': 99.0, 'expectedDecimalAdjusted': 99.0, 'permitDecimal': 0.0}, {'employee': '10', 'name': 'Jose Juan Guillermo Avila Chavez', 'workedHours': '57:01:40', 'expectedHours': '54:00:00', 'permitHours': '00:00:00', 'netHours': '54:00:00', 'delays': 0, 'absences': 1, 'justifiedAbsences': 0, 'totalAbsences': 1, 'difference': '+03:01:40', 'workedDecimal': 57.02777777777778, 'expectedDecimal': 54.0, 'expectedDecimalAdjusted': 54.0, 'permitDecimal': 0.0}, {'employee': '12', 'name': 'Esmeralda Hernández Lara', 'workedHours': '79:17:49', 'expectedHours': '88:00:00', 'permitHours': '00:00:00', 'netHours': '88:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '-08:42:11', 'workedDecimal': 79.29694444444445, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 88.0, 'permitDecimal': 0.0}, {'employee': '13', 'name': 'José Omar Villalva Pastrana', 'workedHours': '70:29:18', 'expectedHours': '88:00:00', 'permitHours': '00:00:00', 'netHours': '88:00:00', 'delays': 1, 'absences': 2, 'justifiedAbsences': 0, 'totalAbsences': 2, 'difference': '-17:30:42', 'workedDecimal': 70.48833333333333, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 88.0, 'permitDecimal': 0.0}, {'employee': '14', 'name': 'Ivanna Reyes Santamaria', 'workedHours': '66:01:24', 'expectedHours': '88:00:00', 'permitHours': '08:00:00', 'netHours': '80:00:00', 'delays': 0, 'absences': 1, 'justifiedAbsences': 1, 'totalAbsences': 1, 'difference': '-13:58:36', 'workedDecimal': 66.02333333333333, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 80.0, 'permitDecimal': 8.0}, {'employee': '16', 'name': 'Odalys Castillo Santamaría', 'workedHours': '77:35:16', 'expectedHours': '88:00:00', 'permitHours': '00:00:00', 'netHours': '88:00:00', 'delays': 3, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '-10:24:44', 'workedDecimal': 77.58777777777777, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 88.0, 'permitDecimal': 0.0}, {'employee': '17', 'name': 'Rodrigo Cabrera Márquez', 'workedHours': '78:27:24', 'expectedHours': '88:00:00', 'permitHours': '00:00:00', 'netHours': '88:00:00', 'delays': 0, 'absences': 1, 'justifiedAbsences': 0, 'totalAbsences': 1, 'difference': '-09:32:36', 'workedDecimal': 78.45666666666666, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 88.0, 'permitDecimal': 0.0}, {'employee': '2', 'name': 'Rocío Eufracia García Zamudio', 'workedHours': '46:24:14', 'expectedHours': '42:00:00', 'permitHours': '00:00:00', 'netHours': '42:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '+04:24:14', 'workedDecimal': 46.403888888888886, 'expectedDecimal': 42.0, 'expectedDecimalAdjusted': 42.0, 'permitDecimal': 0.0}, {'employee': '25', 'name': 'Karla Ivette Chimal Moreno', 'workedHours': '72:51:31', 'expectedHours': '88:00:00', 'permitHours': '08:00:00', 'netHours': '80:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 1, 'totalAbsences': 0, 'difference': '-07:08:29', 'workedDecimal': 72.8586111111111, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 80.0, 'permitDecimal': 8.0}, {'employee': '26', 'name': 'Tanya Maribel Morales Hernandez', 'workedHours': '81:10:51', 'expectedHours': '88:00:00', 'permitHours': '00:00:00', 'netHours': '88:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '-06:49:09', 'workedDecimal': 81.18083333333334, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 88.0, 'permitDecimal': 0.0}, {'employee': '27', 'name': 'Erick Tadeo Ortega Melendez', 'workedHours': '82:00:49', 'expectedHours': '88:00:00', 'permitHours': '00:00:00', 'netHours': '88:00:00', 'delays': 1, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '-05:59:11', 'workedDecimal': 82.01361111111112, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 88.0, 'permitDecimal': 0.0}, {'employee': '28', 'name': 'Daniela Zarate Castillo', 'workedHours': '72:08:27', 'expectedHours': '88:00:00', 'permitHours': '08:00:00', 'netHours': '80:00:00', 'delays': 3, 'absences': 0, 'justifiedAbsences': 1, 'totalAbsences': 0, 'difference': '-07:51:33', 'workedDecimal': 72.14083333333333, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 80.0, 'permitDecimal': 8.0}, {'employee': '4', 'name': 'Antonio Rojas', 'workedHours': '03:06:19', 'expectedHours': '00:00:00', 'permitHours': '00:00:00', 'netHours': '00:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '+03:06:19', 'workedDecimal': 3.105277777777778, 'expectedDecimal': 0.0, 'expectedDecimalAdjusted': 0.0, 'permitDecimal': 0.0}, {'employee': '46', 'name': 'Mónica Graciela Jiménez López', 'workedHours': '52:14:58', 'expectedHours': '83:00:00', 'permitHours': '00:00:00', 'netHours': '83:00:00', 'delays': 0, 'absences': 5, 'justifiedAbsences': 0, 'totalAbsences': 5, 'difference': '-30:45:02', 'workedDecimal': 52.24944444444444, 'expectedDecimal': 83.0, 'expectedDecimalAdjusted': 83.0, 'permitDecimal': 0.0}, {'employee': '47', 'name': 'Maria Brenda Bautista Zavala', 'workedHours': '47:14:22', 'expectedHours': '65:45:00', 'permitHours': '31:00:00', 'netHours': '34:45:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 5, 'totalAbsences': 0, 'difference': '+12:29:22', 'workedDecimal': 47.239444444444445, 'expectedDecimal': 65.75, 'expectedDecimalAdjusted': 34.75, 'permitDecimal': 31.0}, {'employee': '5', 'name': 'Marlene Durán Zamudio', 'workedHours': '93:02:21', 'expectedHours': '99:00:00', 'permitHours': '00:00:00', 'netHours': '99:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '-05:57:39', 'workedDecimal': 93.03916666666666, 'expectedDecimal': 99.0, 'expectedDecimalAdjusted': 99.0, 'permitDecimal': 0.0}, {'employee': '6', 'name': 'Rebeca Miranda Vergara', 'workedHours': '80:09:45', 'expectedHours': '99:00:00', 'permitHours': '00:00:00', 'netHours': '99:00:00', 'delays': 4, 'absences': 5, 'justifiedAbsences': 0, 'totalAbsences': 5, 'difference': '-18:50:15', 'workedDecimal': 80.16250000000001, 'expectedDecimal': 99.0, 'expectedDecimalAdjusted': 99.0, 'permitDecimal': 0.0}, {'employee': '7', 'name': 'Ana Paola Machorro Buenrostro', 'workedHours': '76:29:38', 'expectedHours': '88:00:00', 'permitHours': '00:00:00', 'netHours': '88:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '-11:30:22', 'workedDecimal': 76.49388888888889, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 88.0, 'permitDecimal': 0.0}, {'employee': '76', 'name': 'Maximiliano Cuapa Ruiz', 'workedHours': '84:52:24', 'expectedHours': '88:00:00', 'permitHours': '08:00:00', 'netHours': '80:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '+04:52:24', 'workedDecimal': 84.87333333333332, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 80.0, 'permitDecimal': 8.0}, {'employee': '78', 'name': 'Lizbeth Torres Vazquez', 'workedHours': '92:00:19', 'expectedHours': '99:00:00', 'permitHours': '00:00:00', 'netHours': '99:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '-06:59:41', 'workedDecimal': 92.00527777777778, 'expectedDecimal': 99.0, 'expectedDecimalAdjusted': 99.0, 'permitDecimal': 0.0}, {'employee': '79', 'name': 'Juan Jesús Mendoza Muñoz', 'workedHours': '95:48:34', 'expectedHours': '99:00:00', 'permitHours': '00:00:00', 'netHours': '99:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '-03:11:26', 'workedDecimal': 95.80944444444444, 'expectedDecimal': 99.0, 'expectedDecimalAdjusted': 99.0, 'permitDecimal': 0.0}, {'employee': '8', 'name': 'Quetzalli López Becerra', 'workedHours': '71:54:40', 'expectedHours': '88:00:00', 'permitHours': '08:00:00', 'netHours': '80:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 1, 'totalAbsences': 0, 'difference': '-08:05:20', 'workedDecimal': 71.91111111111111, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 80.0, 'permitDecimal': 8.0}, {'employee': '82', 'name': 'Antonio Alejandro Barbosa Carrillo', 'workedHours': '74:34:03', 'expectedHours': '88:00:00', 'permitHours': '08:00:00', 'netHours': '80:00:00', 'delays': 3, 'absences': 1, 'justifiedAbsences': 0, 'totalAbsences': 1, 'difference': '-05:25:57', 'workedDecimal': 74.5675, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 80.0, 'permitDecimal': 8.0}, {'employee': '84', 'name': 'Stephany Morales Hernández', 'workedHours': '81:03:37', 'expectedHours': '88:00:00', 'permitHours': '00:00:00', 'netHours': '88:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '-06:56:23', 'workedDecimal': 81.06027777777777, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 88.0, 'permitDecimal': 0.0}, {'employee': '85', 'name': 'Brenda Coyotl Tlaxcalteca', 'workedHours': '81:41:04', 'expectedHours': '88:00:00', 'permitHours': '00:00:00', 'netHours': '88:00:00', 'delays': 0, 'absences': 0, 'justifiedAbsences': 0, 'totalAbsences': 0, 'difference': '-06:18:56', 'workedDecimal': 81.68444444444445, 'expectedDecimal': 88.0, 'expectedDecimalAdjusted': 88.0, 'permitDecimal': 0.0}];
+        const dailyData = [{'date': '01 Jul', 'day': 'Martes', 'attendance': 20, 'absences': 2, 'permits': 0, 'total': 22}, {'date': '02 Jul', 'day': 'Miércoles', 'attendance': 24, 'absences': 0, 'permits': 0, 'total': 24}, {'date': '03 Jul', 'day': 'Jueves', 'attendance': 23, 'absences': 1, 'permits': 0, 'total': 24}, {'date': '04 Jul', 'day': 'Viernes', 'attendance': 20, 'absences': 2, 'permits': 2, 'total': 24}, {'date': '07 Jul', 'day': 'Lunes', 'attendance': 20, 'absences': 2, 'permits': 0, 'total': 22}, {'date': '08 Jul', 'day': 'Martes', 'attendance': 21, 'absences': 0, 'permits': 1, 'total': 22}, {'date': '09 Jul', 'day': 'Miércoles', 'attendance': 20, 'absences': 3, 'permits': 1, 'total': 24}, {'date': '10 Jul', 'day': 'Jueves', 'attendance': 20, 'absences': 2, 'permits': 2, 'total': 24}, {'date': '11 Jul', 'day': 'Viernes', 'attendance': 20, 'absences': 3, 'permits': 1, 'total': 24}, {'date': '14 Jul', 'day': 'Lunes', 'attendance': 20, 'absences': 1, 'permits': 1, 'total': 22}, {'date': '15 Jul', 'day': 'Martes', 'attendance': 20, 'absences': 1, 'permits': 1, 'total': 22}];
+        const diasLaborales = 11;
+        
+        // Asegurar que employeeData esté disponible globalmente
+        window.employeeData = employeeData;
+
+        console.log("Datos de empleados:", employeeData.length);
+        console.log("Datos diarios:", dailyData.length);
+        console.log("Días laborales del período:", diasLaborales);
+        console.log("Datos diarios:", dailyData);
+
+        // Debug KPIs
+        console.log("=== DEBUG KPIs ===");
+        const empleadosValidos = employeeData.filter(emp => emp.expectedDecimal > 0);
+        console.log("Empleados válidos (horas esperadas > 0):", empleadosValidos.length);
+        
+        if (empleadosValidos.length > 0) {
+            const totalTrabajadas = empleadosValidos.reduce((sum, emp) => sum + emp.workedDecimal, 0);
+            const totalEsperadas = empleadosValidos.reduce((sum, emp) => sum + emp.expectedDecimal, 0);
+            console.log("Total horas trabajadas:", totalTrabajadas.toFixed(2));
+            console.log("Total horas esperadas:", totalEsperadas.toFixed(2));
+            console.log("Tasa calculada:", ((totalTrabajadas / totalEsperadas) * 100).toFixed(1) + "%");
+        }
+
+        // === Utils tiempo ===
+        function timeToHours(hhmmss) {
+            if (!hhmmss || hhmmss === "00:00:00") return 0;
+            const [h, m, s] = hhmmss.split(":").map(Number);
+            return (h || 0) + (m || 0) / 60 + (s || 0) / 3600;
+        }
+
+        function safeDiv(a, b) {
+            return b > 0 ? a / b : 0;
+        }
+
+        // ===== Utils: tiempo y números =====
+        function hhmmssToDecimal(hhmmss) {
+            if (!hhmmss || typeof hhmmss !== "string") return 0;
+            const [h, m, s] = hhmmss.split(":").map(Number);
+            return (h || 0) + (m || 0)/60 + (s || 0)/3600;
+        }
+
+        function safeNumber(n) {
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        function truncateName(name, max=24) {
+            if (!name) return "";
+            return name.length > max ? name.slice(0, max) + "…" : name;
+        }
+
+        // ===== Preparación robusta del dataset para eficiencia =====
+        // Usa los campos del resumen: total_horas_trabajadas vs total_horas (ajustadas por permisos)
+        function prepareEfficiencyData(employeeData) {
+            console.log("Preparando datos de eficiencia...", employeeData.length, "empleados");
+            
+            // Debug: mostrar estructura del primer empleado
+            if (employeeData.length > 0) {
+                console.log("DEBUG: Estructura primer empleado:", employeeData[0]);
+            }
+            
+            const processedData = employeeData
+                .map(d => {
+                    // 1) Horas trabajadas (siempre disponible)
+                    const worked = d.workedDecimal != null
+                        ? safeNumber(d.workedDecimal)
+                        : hhmmssToDecimal(d.workedHours || "00:00:00");
+
+                    // 2) Horas planificadas ajustadas (total_horas = esperadas - permisos)
+                    const planned = d.expectedDecimalAdjusted != null
+                        ? safeNumber(d.expectedDecimalAdjusted)
+                        : hhmmssToDecimal(d.netHours || "00:00:00");
+
+                    // 3) Calcular eficiencia solo si hay horas planificadas
+                    const efficiency = planned > 0 ? (worked / planned) * 100 : 0;
+
+                    const fullName = d.name || d.fullName || "";
+                    
+                    const result = {
+                        name: truncateName(fullName, 24),
+                        fullName,
+                        efficiency,
+                        worked,
+                        planned,
+                        employee: d.employee
+                    };
+                    
+                    console.log(`${d.employee} - ${fullName}: ${worked.toFixed(2)}h trabajadas / ${planned.toFixed(2)}h planificadas = ${efficiency.toFixed(1)}%`);
+                    
+                    return result;
+                })
+                .filter(d => {
+                    const valid = d.planned > 0;
+                    if (!valid) {
+                        console.log(`Filtrado empleado ${d.employee} - ${d.fullName}: sin horas planificadas (${d.planned})`);
+                    }
+                    return valid;
+                })
+                .sort((a, b) => b.efficiency - a.efficiency)
+                .slice(0, 15);
+                
+            console.log("Datos procesados para eficiencia:", processedData.length, "empleados válidos");
+            return processedData;
+        }
+
+        // === KPIs: Asistencia (%) y Eficiencia (%) ===
+        // Ambas son (Σ horas_trabajadas / Σ horas_planificadas_ajustadas) * 100
+        function calculateKPIs() {
+            console.log("Calculando KPIs...");
+            
+            const rows = employeeData
+                .map(e => ({ 
+                    worked: timeToHours(e.workedHours), 
+                    planned: timeToHours(e.netHours)  // netHours = total_horas (ajustadas por permisos)
+                }))
+                .filter(r => r.planned > 0);
+
+            console.log("Filas válidas para KPIs:", rows.length);
+            
+            const totalWorked = rows.reduce((a, b) => a + b.worked, 0);
+            const totalPlanned = rows.reduce((a, b) => a + b.planned, 0);
+            
+            console.log(`Total trabajadas: ${totalWorked.toFixed(2)}h, Total planificadas: ${totalPlanned.toFixed(2)}h`);
+
+            const pct = totalPlanned > 0 ? (totalWorked / totalPlanned) * 100 : 0;
+            const attendanceRate = pct.toFixed(1) + "%";
+            const efficiencyRate = pct.toFixed(1) + "%";
+
+            console.log(`KPI calculado: ${pct.toFixed(1)}%`);
+
+            document.getElementById("attendanceRate").textContent = attendanceRate;
+            document.getElementById("efficiencyRate").textContent = efficiencyRate;
+
+            // Puntualidad y días perdidos (si ya existen en el DOM)
+            const punctualEmployees = employeeData.filter(emp => emp.delays === 0).length;
+            const punctuality = (punctualEmployees / employeeData.length) * 100;
+            const totalAbsences = employeeData.reduce((s, e) => s + (e.totalAbsences || 0), 0);
+            const totalJustified = employeeData.reduce((s, e) => s + (e.justifiedAbsences || 0), 0);
+
+            const punctualityNode = document.getElementById("punctualityRate");
+            if (punctualityNode) punctualityNode.textContent = `${punctuality.toFixed(0)}%`;
+            const lostNode = document.getElementById("totalLostDays");
+            if (lostNode) lostNode.textContent = (totalAbsences + totalJustified).toString();
+        }
+
+        // Función para cambiar pestañas
+        window.openTab = function(evt, tabName) {
+            const tabcontent = document.getElementsByClassName("tab-content");
+            const tablinks = document.getElementsByClassName("tab-button");
+            
+            for (let i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            for (let i = 0; i < tablinks.length; i++) {
+                tablinks[i].classList.remove("active");
+            }
+            
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.classList.add("active");
+        };
+
+        // Función para establecer semáforos de estado
+        function setStatusIndicators() {
+            // Semáforo de asistencia
+            const attendanceRate = parseFloat(document.getElementById('attendanceRate').textContent);
+            const attendanceStatus = document.getElementById('attendanceStatus');
+            if (attendanceRate >= 95) {
+                attendanceStatus.className = 'status-indicator status-excellent';
+            } else if (attendanceRate >= 85) {
+                attendanceStatus.className = 'status-indicator status-good';
+            } else {
+                attendanceStatus.className = 'status-indicator status-poor';
+            }
+
+            // Semáforo de eficiencia
+            const efficiencyRate = parseFloat(document.getElementById('efficiencyRate').textContent);
+            const efficiencyStatus = document.getElementById('efficiencyStatus');
+            if (efficiencyRate >= 95) {
+                efficiencyStatus.className = 'status-indicator status-excellent';
+            } else if (efficiencyRate >= 85) {
+                efficiencyStatus.className = 'status-indicator status-good';
+            } else {
+                efficiencyStatus.className = 'status-indicator status-poor';
+            }
+
+            // Semáforo de puntualidad
+            const punctualityRate = parseFloat(document.getElementById('punctualityRate').textContent);
+            const punctualityStatus = document.getElementById('punctualityStatus');
+            if (punctualityRate >= 80) {
+                punctualityStatus.className = 'status-indicator status-excellent';
+            } else if (punctualityRate >= 60) {
+                punctualityStatus.className = 'status-indicator status-good';
+            } else {
+                punctualityStatus.className = 'status-indicator status-poor';
+            }
+
+            // Semáforo de días perdidos (invertido: menos días perdidos = mejor)
+            const lostDaysPercent = parseFloat(document.getElementById('lostDaysPercent').textContent);
+            const absencesStatus = document.getElementById('absencesStatus');
+            if (lostDaysPercent <= 5) {
+                absencesStatus.className = 'status-indicator status-excellent';
+            } else if (lostDaysPercent <= 10) {
+                absencesStatus.className = 'status-indicator status-good';
+            } else {
+                absencesStatus.className = 'status-indicator status-poor';
+            }
+        }
+
+        // Gráfica de tendencia diaria
+        function createDailyTrendChart() {
+            console.log("Creando gráfica de tendencia diaria...");
+            const container = d3.select("#dailyTrendChart");
+            container.html("");
+
+            if (!dailyData || dailyData.length === 0) {
+                console.log("No hay datos diarios disponibles");
+                container.append("div")
+                    .style("text-align", "center")
+                    .style("padding", "2rem")
+                    .style("color", "#6c757d")
+                    .text("No hay datos de tendencia diaria disponibles");
+                return;
+            }
+
+            console.log("Datos diarios:", dailyData);
+            const margin = { top: 20, right: 120, bottom: 60, left: 48 };
+            const cw = container.node().getBoundingClientRect().width;
+            const width = Math.max(480, cw - margin.left - margin.right);
+            const height = 400 - margin.top - margin.bottom;
+
+            const svg = container.append("svg")
+                .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Series a graficar
+            const series = [
+                { key: "attendance", label: "Asistencias", color: "#28a745", strokeWidth: 3, z: 3 },
+                { key: "absences",   label: "Faltas",      color: "#dc3545", strokeWidth: 2, z: 2 },
+                { key: "permits",    label: "Permisos",    color: "#ffc107", strokeWidth: 2, z: 1 }
+            ];
+
+            // Escalas
+            const x = d3.scaleBand()
+                .domain(dailyData.map(d => d.date))
+                .range([0, width])
+                .padding(0.1);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(dailyData, d => Math.max(d.total, d.attendance, d.absences, d.permits)) || 1])
+                .nice()
+                .range([height, 0]);
+
+            // Ejes (minimalistas, legibles)
+            svg.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-0.6em")
+                .attr("dy", "0.15em")
+                .attr("transform", "rotate(-45)");
+
+            svg.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(y).ticks(6));
+
+            // Grid horizontal sutil (decluttering)
+            svg.append("g")
+                .attr("class", "grid")
+                .call(d3.axisLeft(y).tickSize(-width).tickFormat(""))
+                .selectAll("line")
+                .attr("stroke", "#f1f3f4")
+                .attr("stroke-dasharray", "2,2");
+
+            // Generador de línea
+            const lineGen = key => d3.line()
+                .x(d => x(d.date) + x.bandwidth() / 2)
+                .y(d => y(d[key]))
+                .curve(d3.curveMonotoneX);
+
+            // Dibujar cada serie
+            series.forEach(s => {
+                // línea
+                svg.append("path")
+                    .datum(dailyData)
+                    .attr("fill", "none")
+                    .attr("stroke", s.color)
+                    .attr("stroke-width", s.strokeWidth)
+                    .attr("d", lineGen(s.key))
+                    .attr("opacity", 0.95);
+
+                // puntos
+                svg.selectAll(`.dot-${s.key}`)
+                    .data(dailyData)
+                    .enter()
+                    .append("circle")
+                    .attr("class", `dot-${s.key}`)
+                    .attr("cx", d => x(d.date) + x.bandwidth() / 2)
+                    .attr("cy", d => y(d[s.key]))
+                    .attr("r", 4.5)
+                    .attr("fill", s.color)
+                    .attr("stroke", "white")
+                    .attr("stroke-width", 1.5)
+                    .on("mouseover", (event, d) => {
+                        window.tooltip.style("opacity", 1)
+                            .html(`<strong>${d.date} (${d.day})</strong><br/>
+                                   Asistencias: ${d.attendance}<br/>
+                                   Faltas: ${d.absences}<br/>
+                                   Permisos: ${d.permits}<br/>
+                                   Total: ${d.total}`);
+                    })
+                    .on("mousemove", event => {
+                        window.tooltip
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 10) + "px");
+                    })
+                    .on("mouseout", () => window.tooltip.style("opacity", 0));
+            });
+
+            // Etiquetas del último punto (storytelling)
+            series.forEach(s => {
+                const last = dailyData[dailyData.length - 1];
+                svg.append("text")
+                    .attr("x", x(last.date) + x.bandwidth() / 2 + 8)
+                    .attr("y", y(last[s.key]))
+                    .attr("dominant-baseline", "middle")
+                    .attr("font-size", 12)
+                    .attr("font-weight", s.key === "attendance" ? 700 : 600)
+                    .attr("fill", s.color)
+                    .text(`${s.label}: ${last[s.key]}`);
+            });
+
+            // Leyenda
+            const legend = svg.append("g")
+                .attr("transform", `translate(${width + 16}, 4)`);
+            const li = legend.selectAll(".litem")
+                .data(series)
+                .enter().append("g")
+                .attr("class", "litem")
+                .attr("transform", (d, i) => `translate(0, ${i * 22})`);
+            li.append("line")
+                .attr("x1", 0).attr("x2", 20).attr("y1", 8).attr("y2", 8)
+                .attr("stroke", d => d.color).attr("stroke-width", d => d.strokeWidth);
+            li.append("circle")
+                .attr("cx", 10).attr("cy", 8).attr("r", 3.5)
+                .attr("fill", d => d.color).attr("stroke", "white").attr("stroke-width", 1);
+            li.append("text")
+                .attr("x", 28).attr("y", 11)
+                .attr("font-size", 12)
+                .text(d => d.label);
+
+            console.log("Gráfica diaria completada");
+        }
+
+        // ===== Gráfica: Eficiencia de Recursos Humanos =====
+        function createEfficiencyChart() {
+            console.log("=== INICIANDO GRÁFICA DE EFICIENCIA ===");
+            console.log("employeeData disponible:", typeof window.employeeData, window.employeeData ? window.employeeData.length : 'undefined');
+            
+            const container = d3.select("#efficiencyChart");
+            container.html(""); // limpiar
+
+            if (!window.employeeData || window.employeeData.length === 0) {
+                console.error("❌ No hay employeeData disponible");
+                container.append("div")
+                    .style("padding", "2rem")
+                    .style("color", "#dc3545")
+                    .style("font-weight", "600")
+                    .style("text-align", "center")
+                    .text("Error: No hay datos de empleados disponibles.");
+                return;
+            }
+
+            const data = prepareEfficiencyData(window.employeeData);
+            console.log("Datos después de prepareEfficiencyData:", data.length);
+            
+            if (!data || data.length === 0) {
+                console.log("❌ No hay datos de eficiencia válidos");
+                container.append("div")
+                    .style("padding", "2rem")
+                    .style("color", "#6c757d")
+                    .style("font-weight", "600")
+                    .style("text-align", "center")
+                    .text("Sin datos suficientes para mostrar la eficiencia (no hay horas planificadas).");
+                return;
+            }
+
+            console.log("✅ Datos de eficiencia válidos:", data);
+            
+            // Margen izquierdo amplio para nombres; ajusta dinámicamente en función del nombre más largo
+            const longestName = data.reduce((a, b) => (a.length > b.fullName.length ? a : b.fullName), "");
+            const baseLeft = 200;
+            const extra = Math.min(200, Math.max(0, longestName.length - 18) * 6); // heurística
+            const margin = { top: 20, right: 30, bottom: 40, left: baseLeft + extra };
+
+            const cw = container.node().getBoundingClientRect().width;
+            const width = Math.max(480, cw - margin.left - margin.right);
+            const height = Math.max(420, data.length * 30);
+
+            const svg = container.append("svg")
+                .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Eje X: % con techo dinámico (mínimo 100%)
+            const maxEff = d3.max(data, d => d.efficiency) || 0;
+            const upper = Math.max(100, Math.ceil(maxEff / 10) * 10, 110); // margen extra por encima de 100
+            const x = d3.scaleLinear().domain([0, upper]).range([0, width]);
+
+            // Eje Y: nombres
+            const y = d3.scaleBand()
+                .domain(data.map(d => d.name))
+                .range([0, height])
+                .padding(0.15);
+
+            // Ejes
+            svg.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(y).tickSize(0))
+                .select(".domain").remove();
+
+            svg.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x).tickFormat(d => d + "%"));
+
+            // Grid horizontal sutil (decluttering)
+            svg.append("g")
+                .attr("class", "grid")
+                .call(d3.axisBottom(x).tickSize(height).tickFormat(""))
+                .selectAll("line")
+                .attr("stroke", "#f1f3f4")
+                .attr("stroke-dasharray", "2,2");
+
+            // Línea de referencia 100%
+            if (x(100) <= width) {
+                svg.append("line")
+                    .attr("x1", x(100))
+                    .attr("x2", x(100))
+                    .attr("y1", 0)
+                    .attr("y2", height)
+                    .attr("stroke", "#dc3545")
+                    .attr("stroke-width", 2)
+                    .attr("stroke-dasharray", "5,5");
+            }
+
+            // Barras con color semáforo
+            svg.selectAll(".bar")
+                .data(data)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", 0)
+                .attr("y", d => y(d.name))
+                .attr("width", d => x(d.efficiency))
+                .attr("height", y.bandwidth())
+                .attr("fill", d => d.efficiency >= 100 ? "#28a745" : (d.efficiency >= 80 ? "#ffc107" : "#dc3545"))
+                .on("mouseover", (event, d) => {
+                    window.tooltip.style("opacity", 1)
+                        .html(
+                            `<strong>${d.fullName}</strong><br/>
+                             Eficiencia: ${d.efficiency.toFixed(1)}%<br/>
+                             Trabajadas: ${d.worked.toFixed(1)} h<br/>
+                             Planificadas: ${d.planned.toFixed(1)} h`
+                        );
+                })
+                .on("mousemove", event => {
+                    window.tooltip
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", () => window.tooltip.style("opacity", 0))
+                .append("title")
+                .text(d => d.fullName); // accesibilidad extra
+
+            // Etiquetas de porcentaje con colocación inteligente
+            svg.selectAll(".label")
+                .data(data)
+                .enter().append("text")
+                .attr("class", "label")
+                .attr("y", d => y(d.name) + y.bandwidth() / 2)
+                .attr("dy", "0.35em")
+                .attr("x", d => {
+                    const px = x(d.efficiency);
+                    // si la barra es muy corta, coloca afuera
+                    return px > 40 ? px - 6 : px + 6;
+                })
+                .attr("text-anchor", d => x(d.efficiency) > 40 ? "end" : "start")
+                .attr("fill", d => x(d.efficiency) > 40 ? "white" : "#212529")
+                .attr("font-weight", 600)
+                .attr("font-size", "12px")
+                .text(d => `${d.efficiency.toFixed(1)}%`);
+
+            // (Opcional) Anotaciones storytelling: top y bottom
+            const top = data[0];
+            const bottom = data[data.length - 1];
+            if (top) {
+                svg.append("text")
+                    .attr("x", x(top.efficiency) + 10)
+                    .attr("y", y(top.name) + y.bandwidth() / 2)
+                    .attr("dy", "0.35em")
+                    .attr("fill", "#28a745")
+                    .attr("font-size", 11)
+                    .attr("font-weight", 600)
+                    .text("Top");
+            }
+            if (bottom && bottom !== top) {
+                svg.append("text")
+                    .attr("x", x(bottom.efficiency) + 10)
+                    .attr("y", y(bottom.name) + y.bandwidth() / 2)
+                    .attr("dy", "0.35em")
+                    .attr("fill", "#dc3545")
+                    .attr("font-size", 11)
+                    .attr("font-weight", 600)
+                    .text("Bottom");
+            }
+
+            console.log("✅ Gráfica de eficiencia completada exitosamente");
+        }
+
+        // Gráfica de impacto por ausencias
+        function createAbsenceImpactChart() {
+            console.log("Creando gráfica de impacto por ausencias...");
+            const container = d3.select("#absenceImpactChart");
+            container.html("");
+
+            const margin = {top: 20, right: 60, bottom: 80, left: 60};
+            const containerWidth = container.node().getBoundingClientRect().width;
+            const width = Math.max(400, containerWidth - margin.left - margin.right);
+            const height = 400 - margin.top - margin.bottom;
+
+            const svg = container.append("svg")
+                .attr("width", containerWidth)
+                .attr("height", 480)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Calcular datos de impacto mejorados
+            const totalUnjustified = employeeData.reduce((sum, emp) => sum + (emp.totalAbsences || 0), 0);
+            const totalJustified = employeeData.reduce((sum, emp) => sum + (emp.justifiedAbsences || 0), 0);
+            const totalDelays = employeeData.reduce((sum, emp) => sum + (emp.delays || 0), 0);
+            
+            // Calcular porcentajes de impacto
+            const totalEmployees = employeeData.length;
+            const totalPossibleDays = totalEmployees * diasLaborales;
+            
+            const impactData = [
+                { 
+                    type: "Faltas\nInjustificadas", 
+                    count: totalUnjustified, 
+                    impact: "Alto",
+                    color: "#dc3545",
+                    percentage: ((totalUnjustified / totalPossibleDays) * 100).toFixed(1)
+                },
+                { 
+                    type: "Faltas\nJustificadas", 
+                    count: totalJustified, 
+                    impact: "Medio",
+                    color: "#ffc107",
+                    percentage: ((totalJustified / totalPossibleDays) * 100).toFixed(1)
+                },
+                { 
+                    type: "Retardos", 
+                    count: totalDelays, 
+                    impact: "Bajo",
+                    color: "#17a2b8",
+                    percentage: "N/A"
+                }
+            ];
+
+            console.log("Datos de impacto:", impactData);
+            const maxCount = d3.max(impactData, d => d.count) || 1;
+
+            const xBandScale = d3.scaleBand()
+                .domain(impactData.map(d => d.type))
+                .range([0, width])
+                .padding(0.3);
+
+            const yLinearScale = d3.scaleLinear()
+                .domain([0, maxCount + Math.ceil(maxCount * 0.1)])
+                .range([height, 0]);
+
+            // Ejes
+            svg.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xBandScale))
+                .selectAll("text")
+                .style("text-anchor", "middle")
+                .style("font-size", "11px")
+                .call(d => {
+                    d.each(function() {
+                        const text = d3.select(this);
+                        const words = text.text().split(/\n/);
+                        text.text(null);
+                        words.forEach((word, i) => {
+                            text.append("tspan")
+                                .attr("x", 0)
+                                .attr("dy", i === 0 ? "0.8em" : "1.2em")
+                                .text(word);
+                        });
+                    });
+                });
+
+            svg.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(yLinearScale));
+
+            // Barras
+            svg.selectAll(".bar")
+                .data(impactData)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", d => xBandScale(d.type))
+                .attr("y", d => yLinearScale(d.count))
+                .attr("width", xBandScale.bandwidth())
+                .attr("height", d => height - yLinearScale(d.count))
+                .attr("fill", d => d.color)
+                .attr("stroke", "white")
+                .attr("stroke-width", 2)
+                .on("mouseover", (event, d) => {
+                    const tooltipContent = d.percentage !== "N/A" 
+                        ? `<strong>${d.type.replace('\n', ' ')}</strong><br/>
+                           Cantidad: ${d.count}<br/>
+                           Impacto: ${d.impact}<br/>
+                           % Capacidad: ${d.percentage}%`
+                        : `<strong>${d.type}</strong><br/>
+                           Cantidad: ${d.count}<br/>
+                           Impacto: ${d.impact}`;
+                    
+                    tooltip.style("opacity", 1)
+                        .html(tooltipContent);
+                })
+                .on("mousemove", event => {
+                    tooltip.style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", () => tooltip.style("opacity", 0));
+
+            // Etiquetas de valores con porcentajes
+            svg.selectAll(".value-label")
+                .data(impactData)
+                .enter().append("text")
+                .attr("class", "value-label")
+                .attr("x", d => xBandScale(d.type) + xBandScale.bandwidth() / 2)
+                .attr("y", d => yLinearScale(d.count) - 8)
+                .attr("text-anchor", "middle")
+                .style("font-weight", "bold")
+                .style("font-size", "14px")
+                .style("fill", "#333")
+                .text(d => d.count);
+
+            // Etiquetas de porcentaje para faltas
+            svg.selectAll(".percentage-label")
+                .data(impactData.filter(d => d.percentage !== "N/A"))
+                .enter().append("text")
+                .attr("class", "percentage-label")
+                .attr("x", d => xBandScale(d.type) + xBandScale.bandwidth() / 2)
+                .attr("y", d => yLinearScale(d.count) - 25)
+                .attr("text-anchor", "middle")
+                .style("font-size", "11px")
+                .style("fill", "#666")
+                .text(d => `(${d.percentage}%)`);
+
+            console.log("Gráfica de impacto completada");
+        }
+
+        // Función para envolver texto
+        function wrapText(text, width) {
+            text.each(function() {
+                const textElement = d3.select(this);
+                const words = textElement.text().split(/\s+/).reverse();
+                let word;
+                let line = [];
+                let lineNumber = 0;
+                const lineHeight = 1.1;
+                const y = textElement.attr("y");
+                const dy = parseFloat(textElement.attr("dy")) || 0;
+                let tspan = textElement.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em");
+                
+                while (word = words.pop()) {
+                    line.push(word);
+                    tspan.text(line.join(" "));
+                    if (tspan.node().getComputedTextLength() > width) {
+                        line.pop();
+                        tspan.text(line.join(" "));
+                        line = [word];
+                        tspan = textElement.append("tspan").attr("x", 0).attr("y", y).attr("dy", ++lineNumber * lineHeight + dy + "em").text(word);
+                    }
+                }
+            });
+        }
+
+        // Funciones de la tabla
+        function getStatus(difference) {
+            const isPositive = difference.startsWith('+');
+            const timeStr = difference.substring(1);
+            const hours = timeToHours(timeStr);
+            
+            if (isPositive && hours > 1) return 'overtime';
+            if (!isPositive && hours > 0.5) return 'incomplete';
+            return 'complete';
+        }
+
+        function renderTable(data) {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 20px; color: #6c757d;">No se encontraron empleados que coincidan con los criterios de búsqueda.</td></tr>';
+                return;
+            }
+
+            data.forEach(emp => {
+                const status = getStatus(emp.difference);
+                const row = document.createElement('tr');
+                
+                const statusLabels = {
+                    'complete': 'Completo',
+                    'overtime': 'Tiempo Extra',
+                    'incomplete': 'Incompleto'
+                };
+
+                row.innerHTML = `
+                    <td><strong>${emp.employee}</strong></td>
+                    <td>${emp.name}</td>
+                    <td>${emp.workedHours}</td>
+                    <td>${emp.netHours}</td>
+                    <td class="${emp.difference.startsWith('+') ? 'positive' : 'negative'}">${emp.difference}</td>
+                    <td>${emp.delays}</td>
+                    <td>${emp.totalAbsences + emp.justifiedAbsences}</td>
+                    <td><span class="status-badge status-${status}">${statusLabels[status]}</span></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Función de filtrado de tabla
+        window.filterTable = function() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            const filteredData = employeeData.filter(employee => {
+                const matchesSearch = employee.name.toLowerCase().includes(searchTerm) ||
+                                        employee.employee.toString().includes(searchTerm);
+                const matchesStatus = !statusFilter || getStatus(employee.difference) === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
+            
+            renderTable(filteredData);
+        };
+
+        // Inicialización
+        function initDashboard() {
+            console.log("Inicializando dashboard...");
+            console.log("Empleados:", employeeData.length);
+            console.log("Días:", dailyData.length);
+            
+            // Calcular KPIs corregidos
+            calculateKPIs();
+            
+            // Establecer semáforos de estado
+            setStatusIndicators();
+            
+            // Esperar a que D3 esté completamente cargado
+            setTimeout(() => {
+                try {
+                    createDailyTrendChart();
+                    console.log("Gráfica diaria creada");
+                } catch (e) {
+                    console.error("Error en gráfica diaria:", e);
+                }
+                
+                try {
+                    createEfficiencyChart();
+                    console.log("Gráfica de eficiencia creada");
+                } catch (e) {
+                    console.error("Error en gráfica de eficiencia:", e);
+                }
+                
+                try {
+                    createAbsenceImpactChart();
+                    console.log("Gráfica de ausencias creada");
+                } catch (e) {
+                    console.error("Error en gráfica de ausencias:", e);
+                }
+                
+                try {
+                    renderTable(employeeData);
+                    console.log("Tabla renderizada");
+                } catch (e) {
+                    console.error("Error en tabla:", e);
+                }
+            }, 500);
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', initDashboard);
+
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                createDailyTrendChart();
+                createEfficiencyChart();
+                createAbsenceImpactChart();
+            }, 250);
+        });
+    </script>
+</body>
+</html>
