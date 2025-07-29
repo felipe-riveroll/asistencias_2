@@ -522,7 +522,7 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
             
             if diferencia <= 15:
                 tipo = "A Tiempo"
-            elif diferencia <= 30:
+            elif diferencia <= 60:
                 tipo = "Retardo"
             else:
                 tipo = "Falta Injustificada"
