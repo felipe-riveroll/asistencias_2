@@ -29,6 +29,32 @@ API_URL = "https://erp.asiatech.com.mx/api/resource/Employee Checkin"
 LEAVE_API_URL = "https://erp.asiatech.com.mx/api/resource/Leave Application"
 
 # ==============================================================================
+# CONFIGURACIÓN DE POLÍTICAS DE PERMISOS
+# ==============================================================================
+
+# Política por tipo de permiso - define cómo se manejan las horas esperadas
+POLITICA_PERMISOS = {
+    "permiso sin goce de sueldo": "no_ajustar",
+    # Espacio para futuras políticas:
+    # "permiso con goce": "ajustar_a_cero",
+    # "permiso médico": "prorratear",
+}
+
+def normalize_leave_type(leave_type):
+    """
+    Normaliza el tipo de permiso para comparación consistente.
+    
+    Args:
+        leave_type (str): Tipo de permiso original
+        
+    Returns:
+        str: Tipo normalizado (lowercase, sin espacios extra)
+    """
+    if not leave_type:
+        return ""
+    return leave_type.strip().casefold()
+
+# ==============================================================================
 # SECCIÓN 2: OBTENCIÓN DE DATOS DE LA API FRAPPE
 # ==============================================================================
 def fetch_checkins(start_date: str, end_date: str, device_filter: str):
@@ -109,7 +135,8 @@ def fetch_leave_applications(start_date: str, end_date: str):
     # Filtros para obtener solo permisos aprobados en el rango de fechas
     filters = json.dumps([
         ["Leave Application", "status", "=", "Approved"],
-        ["Leave Application", "from_date", "Between", [start_date, end_date]],
+        ["Leave Application", "from_date", "<=", end_date],
+        ["Leave Application", "to_date", ">=", start_date],
     ])
     
     params = {
@@ -119,7 +146,9 @@ def fetch_leave_applications(start_date: str, end_date: str):
             "leave_type", 
             "from_date", 
             "to_date", 
-            "status"
+            "status",
+            "half_day",
+            "half_day_date"
         ]),
         "filters": filters,
         "limit_page_length": 100
@@ -207,8 +236,12 @@ def procesar_permisos_empleados(leave_data):
         # Iterar por cada día del permiso
         current_date = from_date
         while current_date <= to_date:
+            # Normalizar el tipo de permiso para aplicar políticas
+            leave_type_normalized = normalize_leave_type(permiso['leave_type'])
+            
             permisos_por_empleado[employee_code][current_date] = {
                 'leave_type': permiso['leave_type'],
+                'leave_type_normalized': leave_type_normalized,
                 'employee_name': permiso['employee_name'],
                 'from_date': from_date,
                 'to_date': to_date,
@@ -242,8 +275,13 @@ def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
     # Añadir columnas para información de permisos
     df['tiene_permiso'] = False
     df['tipo_permiso'] = None
+    df['es_permiso_sin_goce'] = False
     df['horas_esperadas_originales'] = df['horas_esperadas'].copy()
     df['horas_descontadas_permiso'] = '00:00:00'
+    
+    # Contadores para estadísticas
+    permisos_con_descuento = 0
+    permisos_sin_goce = 0
     
     for index, row in df.iterrows():
         employee_code = str(row['employee'])
@@ -254,28 +292,47 @@ def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
             fecha in permisos_dict[employee_code]):
             
             permiso_info = permisos_dict[employee_code][fecha]
+            leave_type_normalized = permiso_info.get('leave_type_normalized', '')
             
             # Marcar que tiene permiso
             df.at[index, 'tiene_permiso'] = True
             df.at[index, 'tipo_permiso'] = permiso_info['leave_type']
             
+            # Determinar la acción según la política
+            accion = POLITICA_PERMISOS.get(leave_type_normalized, "ajustar_a_cero")
+            
             # Obtener las horas esperadas originales para este día
             horas_esperadas_orig = row['horas_esperadas']
             
             if pd.notna(horas_esperadas_orig) and horas_esperadas_orig != '00:00:00':
-                # Las horas esperadas se reducen a 0 para días con permiso
-                df.at[index, 'horas_esperadas'] = '00:00:00'
-                df.at[index, 'horas_descontadas_permiso'] = horas_esperadas_orig
+                if accion == "no_ajustar":
+                    # Permiso sin goce de sueldo - NO descontar horas
+                    df.at[index, 'es_permiso_sin_goce'] = True
+                    permisos_sin_goce += 1
+                    print(f"   - {permiso_info['employee_name']} ({employee_code}): "
+                          f"{fecha} - {permiso_info['leave_type']} - "
+                          f"SIN DESCUENTO (permiso sin goce)")
+                    
+                elif accion == "ajustar_a_cero":
+                    # Comportamiento actual - descontar horas completamente
+                    df.at[index, 'horas_esperadas'] = '00:00:00'
+                    df.at[index, 'horas_descontadas_permiso'] = horas_esperadas_orig
+                    permisos_con_descuento += 1
+                    print(f"   - {permiso_info['employee_name']} ({employee_code}): "
+                          f"{fecha} - {permiso_info['leave_type']} - "
+                          f"Horas descontadas: {horas_esperadas_orig}")
                 
-                print(f"   - {permiso_info['employee_name']} ({employee_code}): "
-                      f"{fecha} - {permiso_info['leave_type']} - "
-                      f"Horas descontadas: {horas_esperadas_orig}")
+                # TODO: Implementar lógica para "prorratear" en el futuro
     
     # Contar empleados afectados
     empleados_con_permisos = df[df['tiene_permiso'] == True]['employee'].nunique()
     dias_con_permisos = df['tiene_permiso'].sum()
     
-    print(f"✅ Ajuste completado: {empleados_con_permisos} empleados con permisos, {dias_con_permisos} días ajustados.")
+    print(f"✅ Ajuste completado:")
+    print(f"   - {empleados_con_permisos} empleados con permisos")
+    print(f"   - {dias_con_permisos} días con permisos")
+    print(f"   - {permisos_con_descuento} permisos con horas descontadas")
+    print(f"   - {permisos_sin_goce} permisos sin goce (sin descuento)")
     
     return df
 
@@ -808,10 +865,20 @@ def generar_resumen_periodo(df: pd.DataFrame):
         ).sum()
         empleados_con_permisos = (resumen_final['faltas_justificadas'] > 0).sum()
         
+        # Estadísticas adicionales para permisos sin goce
+        if 'es_permiso_sin_goce' in df.columns:
+            total_permisos_sin_goce = df['es_permiso_sin_goce'].sum()
+            empleados_sin_goce = df[df['es_permiso_sin_goce'] == True]['employee'].nunique()
+        else:
+            total_permisos_sin_goce = 0
+            empleados_sin_goce = 0
+        
         print(f"\n📋 Estadísticas de permisos:")
         print(f"   - Empleados con permisos: {empleados_con_permisos}")
         print(f"   - Total faltas justificadas: {total_faltas_justificadas}")
         print(f"   - Total horas descontadas por permisos: {total_horas_descontadas:.2f}")
+        print(f"   - Empleados con permisos sin goce: {empleados_sin_goce}")
+        print(f"   - Total días con permisos sin goce: {total_permisos_sin_goce}")
     
     print("\n**Visualización del Resumen del Periodo:**\n")
     print(resumen_final.to_string())
@@ -866,6 +933,7 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
             print(f"  - worked_hours decimal: {worked_hours}")
             print(f"  - expected_hours_original decimal: {expected_hours_original}")
             print(f"  - expected_hours_adjusted decimal: {expected_hours_adjusted}")
+            print(f"  - permit_hours decimal: {permit_hours}")
             print(f"  - ¿Válido para gráfica? {expected_hours_adjusted > 0}")
         
         employee_data_js.append({
@@ -903,7 +971,7 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
                 total_empleados = int(row['employee'])
                 faltas_injustificadas = int(row['tipo_falta_ajustada'])
                 permisos = int(row['falta_justificada'])
-                asistencias = total_empleados - faltas_injustificadas - permisos
+                asistencias = total_empleados - faltas_injustificadas - permisos;
                 
                 daily_data_js.append({
                     'date': row['dia'].strftime('%d %b'),
@@ -931,20 +999,20 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
             total_emp = len(employee_data_js)
             estimated_absences = total_absences // 7 if total_absences > 0 else 0
             estimated_permits = total_justified // 7 if total_justified > 0 else 0
-            estimated_attendance = max(0, total_emp - estimated_absences - estimated_permits)
+            estimated_attendance = max(0, total_emp - estimated_absences - estimated_permits);
             
-            daily_data_js.append({
+            daily_data_js.push({
                 'date': current_dt.strftime('%d %b'),
                 'day': day_name,
                 'attendance': estimated_attendance,
                 'absences': estimated_absences,
                 'permits': estimated_permits,
                 'total': total_emp
-            })
-            current_dt += timedelta(days=1)
+            });
+            current_dt += timedelta(days=1);
     # Calcular KPIs corregidos según las especificaciones
     # Filtrar empleados con horas esperadas > 0 para evitar divisiones por cero
-    empleados_validos = [emp for emp in employee_data_js if emp['expectedDecimal'] > 0]
+    empleados_validos = [emp for emp in employee_data_js if emp['expectedDecimal'] > 0];
     
     # Calcular días laborales del período
     from datetime import datetime, timedelta
@@ -959,12 +1027,12 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
         current_dt += timedelta(days=1)
     
     if empleados_validos:
-        total_worked = sum(emp['workedDecimal'] for emp in empleados_validos)
-        total_expected = sum(emp['expectedDecimal'] for emp in empleados_validos)
-        total_delays = sum(emp['delays'] for emp in employee_data_js)
-        total_absences = sum(emp['totalAbsences'] for emp in employee_data_js)
-        total_justified = sum(emp['justifiedAbsences'] for emp in employee_data_js)
-        total_employees = len(employee_data_js)
+        total_worked = sum(emp['workedDecimal'] for emp in empleados_validos);
+        total_expected = sum(emp['expectedDecimal'] for emp in empleados_validos);
+        total_delays = sum(emp['delays'] for emp in employee_data_js);
+        total_absences = sum(emp['totalAbsences'] for emp in employee_data_js);
+        total_justified = sum(emp['justifiedAbsences'] for emp in employee_data_js);
+        total_employees = len(employee_data_js);
         
         # Puntualidad mejorada: solo empleados que asistieron al menos una vez Y no tuvieron retardos
         punctual_employees = sum(1 for emp in employee_data_js 
@@ -972,23 +1040,23 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
         
         # Fórmulas corregidas:
         # Tasa de Asistencia = (Σ horas trabajadas / Σ horas planificadas) × 100
-        attendance_rate = (total_worked / total_expected * 100) if total_expected > 0 else 0
+        attendance_rate = (total_worked / total_expected * 100) if total_expected > 0 else 0;
         
         # Índice de Puntualidad = (empleados puntuales que asistieron / total empleados) × 100
-        punctuality_rate = (punctual_employees / total_employees * 100) if total_employees > 0 else 0
+        punctuality_rate = (punctual_employees / total_employees * 100) if total_employees > 0 else 0;
         
         # Días perdidos = total de ausencias (justificadas + injustificadas)
-        lost_days = total_absences + total_justified
+        lost_days = total_absences + total_justified;
         
         # Porcentaje de capacidad perdida
-        total_possible_days = total_employees * dias_laborales
-        lost_days_percent = (lost_days / total_possible_days * 100) if total_possible_days > 0 else 0
+        total_possible_days = total_employees * dias_laborales;
+        lost_days_percent = (lost_days / total_possible_days * 100) if total_possible_days > 0 else 0;
     else:
         # Si no hay empleados válidos, usar valores por defecto
-        attendance_rate = 0
-        punctuality_rate = 0
-        lost_days = 0
-        lost_days_percent = 0    # Generar HTML
+        attendance_rate = 0;
+        punctuality_rate = 0;
+        lost_days = 0;
+        lost_days_percent = 0;    # Generar HTML
     html_content = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1491,8 +1559,6 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
                     if (!valid) {{
                         console.log(`Filtrado empleado ${{d.employee}} - ${{d.fullName}}: sin horas planificadas (${{d.planned}})`);
                     }}
-                    return valid;
-                }})
                 .sort((a, b) => b.efficiency - a.efficiency)
                 .slice(0, 15);
                 
@@ -2406,7 +2472,7 @@ def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, p
 if __name__ == "__main__":
     # Define aquí el rango de fechas y el dispositivo que quieres analizar
     start_date = "2025-07-01"
-    end_date = "2025-07-15"
+    end_date = "2025-07-28"
     sucursal = "31pte"
     device_filter = "%31%"
     
