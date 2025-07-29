@@ -1,0 +1,9 @@
+# Configuración general para archivos de texto
+* text=auto
+
+# Forzar LF para archivos de código específicos (opcional pero recomendado)
+*.py text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
