@@ -93,3 +93,5 @@ uv.lock
 # Temporary files
 *.tmp
 *.temp
+
+*.html

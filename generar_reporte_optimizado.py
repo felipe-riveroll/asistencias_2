@@ -1,14 +1,20 @@
 import json
 import os
+import glob
 import requests
 import pandas as pd
 from itertools import product
 from datetime import datetime, timedelta
+import pytz
 import re
+import unicodedata
 from dotenv import load_dotenv
 
 # Importamos la nueva conexión a PostgreSQL
-from db_postgres_connection import connect_db, obtener_tabla_horarios, mapear_horarios_por_empleado, obtener_horario_empleado
+from db_postgres_connection import (
+    connect_db, obtener_tabla_horarios, mapear_horarios_por_empleado, obtener_horario_empleado,
+    obtener_horarios_multi_quincena, mapear_horarios_por_empleado_multi
+)
 
 # ==============================================================================
 # SECCIÓN 1: CONFIGURACIÓN Y VARIABLES DE ENTORNO
@@ -22,6 +28,55 @@ API_KEY = os.getenv("ASIATECH_API_KEY")
 API_SECRET = os.getenv("ASIATECH_API_SECRET")
 API_URL = "https://erp.asiatech.com.mx/api/resource/Employee Checkin"
 LEAVE_API_URL = "https://erp.asiatech.com.mx/api/resource/Leave Application"
+
+# ==============================================================================
+# CONFIGURACIÓN DE POLÍTICAS DE PERMISOS
+# ==============================================================================
+
+# Política por tipo de permiso - define cómo se manejan las horas esperadas
+POLITICA_PERMISOS = {
+    "permiso sin goce de sueldo": "no_ajustar",
+    "permiso sin goce": "no_ajustar",
+    "sin goce de sueldo": "no_ajustar",
+    "sin goce": "no_ajustar",
+    "permiso sin goce": "no_ajustar",
+    "sin goce de sueldo": "no_ajustar",
+    "sin goce": "no_ajustar",
+    # Espacio para futuras políticas:
+    # "permiso con goce": "ajustar_a_cero",
+    # "permiso médico": "prorratear",
+}
+
+
+def _strip_accents(text):
+    """Helper function to remove accents from a string."""
+    try:
+        text = unicode(text, 'utf-8')
+    except (TypeError, NameError):  # unicode is a default on python 3
+        pass
+    text = unicodedata.normalize('NFD', text)
+    text = text.encode('ascii', 'ignore')
+    text = text.decode("utf-8")
+    return str(text)
+
+def normalize_leave_type(leave_type):
+    """
+    Normaliza el tipo de permiso para comparación consistente (minúsculas, sin acentos y sin espacios extra).
+    """
+    if not leave_type:
+        return ""
+    cleaned = _strip_accents(str(leave_type)).casefold().strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    # Canonicaliza alias comunes hacia el mismo tipo
+    if "sin goce" in cleaned:
+        return "permiso sin goce de sueldo"
+    aliases = {
+        "permiso sin goce": "permiso sin goce de sueldo",
+        "sin goce de sueldo": "permiso sin goce de sueldo",
+        "sin goce": "permiso sin goce de sueldo",
+        "permiso sgs": "permiso sin goce de sueldo",
+    }
+    return aliases.get(cleaned, cleaned)
 
 # ==============================================================================
 # SECCIÓN 2: OBTENCIÓN DE DATOS DE LA API FRAPPE
@@ -59,6 +114,17 @@ def fetch_checkins(start_date: str, end_date: str, device_filter: str):
             data = response.json().get("data", [])
             if not data:
                 break
+
+            # Normalizar la zona horaria de los registros de la API a America/Mexico_City
+            for record in data:
+                # Convertir el string ISO a datetime UTC
+                time_utc = datetime.fromisoformat(record['time'].replace('Z', '+00:00'))
+                # Convertir de UTC a America/Mexico_City
+                mexico_tz = pytz.timezone('America/Mexico_City')
+                time_mexico = time_utc.astimezone(mexico_tz)
+                # Actualizar el valor en el registro
+                record['time'] = time_mexico.isoformat()
+
             all_records.extend(data)
             if len(data) < page_length:
                 break
@@ -74,36 +140,31 @@ def fetch_checkins(start_date: str, end_date: str, device_filter: str):
 def fetch_leave_applications(start_date: str, end_date: str):
     """
     Obtiene todos los permisos aprobados de la API para un rango de fechas.
-    
-    Args:
-        start_date: Fecha de inicio en formato 'YYYY-MM-DD'
-        end_date: Fecha de fin en formato 'YYYY-MM-DD'
-    
-    Returns:
-        Lista de permisos aprobados
     """
     print(f"📄 Obteniendo permisos aprobados de la API para el periodo {start_date} - {end_date}...")
-    
+
     if not all([API_KEY, API_SECRET]):
         print("❌ Error: Faltan credenciales de API para obtener permisos")
         return []
 
     headers = {"Authorization": f"token {API_KEY}:{API_SECRET}"}
-    
-    # Filtros para obtener solo permisos aprobados en el rango de fechas
+
     filters = json.dumps([
         ["Leave Application", "status", "=", "Approved"],
-        ["Leave Application", "from_date", "Between", [start_date, end_date]],
+        ["Leave Application", "from_date", "<=", end_date],
+        ["Leave Application", "to_date", ">=", start_date],
     ])
-    
+
     params = {
         "fields": json.dumps([
-            "employee", 
-            "employee_name", 
-            "leave_type", 
-            "from_date", 
-            "to_date", 
-            "status"
+            "employee",
+            "employee_name",
+            "leave_type",
+            "from_date",
+            "to_date",
+            "status",
+            "half_day",
+            "half_day_date"
         ]),
         "filters": filters,
         "limit_page_length": 100
@@ -118,17 +179,17 @@ def fetch_leave_applications(start_date: str, end_date: str):
             response = requests.get(LEAVE_API_URL, headers=headers, params=params, timeout=30)
             response.raise_for_status()
             data = response.json().get("data", [])
-            
+
             if not data:
                 break
-                
+
             all_leave_records.extend(data)
-            
+
             if len(data) < params["limit_page_length"]:
                 break
-                
+
             limit_start += params["limit_page_length"]
-            
+
         except requests.exceptions.Timeout:
             print("⚠️ Timeout al obtener permisos. Reintentando...")
             continue
@@ -137,13 +198,12 @@ def fetch_leave_applications(start_date: str, end_date: str):
             return []
 
     print(f"✅ Se obtuvieron {len(all_leave_records)} permisos aprobados de la API.")
-    
-    # Debug: Mostrar algunos permisos obtenidos
+
     if all_leave_records:
         print(f"📋 Ejemplo de permisos obtenidos:")
         for i, leave in enumerate(all_leave_records[:3]):
             print(f"   - {leave['employee_name']}: {leave['leave_type']} ({leave['from_date']} - {leave['to_date']})")
-    
+
     return all_leave_records
 
 
@@ -157,7 +217,7 @@ def obtener_codigos_empleados_api(checkin_data):
     """
     if not checkin_data:
         return []
-        
+
     df_empleados = pd.DataFrame(checkin_data)[["employee"]].drop_duplicates()
     return list(df_empleados["employee"])
 
@@ -165,142 +225,122 @@ def obtener_codigos_empleados_api(checkin_data):
 def procesar_permisos_empleados(leave_data):
     """
     Procesa los datos de permisos y crea un diccionario organizado por empleado y fecha.
-    
-    Args:
-        leave_data: Lista de permisos obtenidos de la API
-    
-    Returns:
-        dict: Diccionario con estructura {employee_code: {fecha: permiso_info}}
     """
     if not leave_data:
         return {}
-    
+
     print("🔄 Procesando permisos por empleado y fecha...")
-    
+
     permisos_por_empleado = {}
-    
+
     for permiso in leave_data:
         employee_code = permiso['employee']
         from_date = datetime.strptime(permiso['from_date'], '%Y-%m-%d').date()
         to_date = datetime.strptime(permiso['to_date'], '%Y-%m-%d').date()
-        
-        # Crear entrada para el empleado si no existe
+
         if employee_code not in permisos_por_empleado:
             permisos_por_empleado[employee_code] = {}
-        
-        # Iterar por cada día del permiso
+
         current_date = from_date
         while current_date <= to_date:
+            leave_type_normalized = normalize_leave_type(permiso['leave_type'])
+
             permisos_por_empleado[employee_code][current_date] = {
                 'leave_type': permiso['leave_type'],
+                'leave_type_normalized': leave_type_normalized,
                 'employee_name': permiso['employee_name'],
                 'from_date': from_date,
                 'to_date': to_date,
                 'status': permiso['status']
             }
             current_date += timedelta(days=1)
-    
+
     total_dias_con_permiso = sum(len(fechas) for fechas in permisos_por_empleado.values())
     print(f"✅ Procesados permisos para {len(permisos_por_empleado)} empleados, {total_dias_con_permiso} días con permiso total.")
-    
+
     return permisos_por_empleado
 
 
 def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
     """
     Ajusta las horas esperadas del DataFrame considerando los permisos aprobados.
-    
-    Args:
-        df: DataFrame con los datos de asistencia
-        permisos_dict: Diccionario de permisos por empleado
-        cache_horarios: Caché de horarios por empleado
-    
-    Returns:
-        DataFrame actualizado con horas esperadas ajustadas y información de permisos
     """
     if df.empty:
         return df
-    
+
     print("📊 Ajustando horas esperadas considerando permisos aprobados...")
-    
-    # Añadir columnas para información de permisos
+
     df['tiene_permiso'] = False
     df['tipo_permiso'] = None
+    df['es_permiso_sin_goce'] = False
     df['horas_esperadas_originales'] = df['horas_esperadas'].copy()
     df['horas_descontadas_permiso'] = '00:00:00'
-    
+
+    permisos_con_descuento = 0
+    permisos_sin_goce = 0
+
     for index, row in df.iterrows():
         employee_code = str(row['employee'])
         fecha = row['dia']
-        
-        # Verificar si el empleado tiene permiso en esta fecha
-        if (employee_code in permisos_dict and 
+
+        if (employee_code in permisos_dict and
             fecha in permisos_dict[employee_code]):
-            
+
             permiso_info = permisos_dict[employee_code][fecha]
-            
-            # Marcar que tiene permiso
+            leave_type_normalized = permiso_info.get('leave_type_normalized', '')
+
             df.at[index, 'tiene_permiso'] = True
             df.at[index, 'tipo_permiso'] = permiso_info['leave_type']
-            
-            # Obtener las horas esperadas originales para este día
+
+            accion = POLITICA_PERMISOS.get(leave_type_normalized, "ajustar_a_cero")
+
             horas_esperadas_orig = row['horas_esperadas']
-            
+
             if pd.notna(horas_esperadas_orig) and horas_esperadas_orig != '00:00:00':
-                # Las horas esperadas se reducen a 0 para días con permiso
-                df.at[index, 'horas_esperadas'] = '00:00:00'
-                df.at[index, 'horas_descontadas_permiso'] = horas_esperadas_orig
-                
-                print(f"   - {permiso_info['employee_name']} ({employee_code}): "
-                      f"{fecha} - {permiso_info['leave_type']} - "
-                      f"Horas descontadas: {horas_esperadas_orig}")
-    
-    # Contar empleados afectados
+                if accion == "no_ajustar":
+                    df.at[index, 'es_permiso_sin_goce'] = True
+                    permisos_sin_goce += 1
+                elif accion == "ajustar_a_cero":
+                    df.at[index, 'horas_esperadas'] = '00:00:00'
+                    df.at[index, 'horas_descontadas_permiso'] = horas_esperadas_orig
+                    permisos_con_descuento += 1
+
     empleados_con_permisos = df[df['tiene_permiso'] == True]['employee'].nunique()
     dias_con_permisos = df['tiene_permiso'].sum()
-    
-    print(f"✅ Ajuste completado: {empleados_con_permisos} empleados con permisos, {dias_con_permisos} días ajustados.")
-    
+
+    print(f"✅ Ajuste completado:")
+    print(f"   - {empleados_con_permisos} empleados con permisos")
+    print(f"   - {dias_con_permisos} días con permisos")
+    print(f"   - {permisos_con_descuento} permisos con horas descontadas")
+    print(f"   - {permisos_sin_goce} permisos sin goce (sin descuento)")
+
     return df
 
 
 def clasificar_faltas_con_permisos(df):
     """
     Actualiza la clasificación de faltas considerando los permisos aprobados.
-    
-    Args:
-        df: DataFrame con datos de asistencia y permisos
-    
-    Returns:
-        DataFrame actualizado con faltas justificadas
     """
     if df.empty:
         return df
-    
+
     print("📋 Reclasificando faltas considerando permisos aprobados...")
-    
-    # Crear nueva columna para el tipo de falta actualizado
+
     df['tipo_falta_ajustada'] = df['tipo_retardo'].copy()
     df['falta_justificada'] = False
-    
-    # Procesar filas que tienen permiso y eran consideradas faltas
+
     mask_permiso_y_falta = (df['tiene_permiso'] == True) & (df['tipo_retardo'].isin(['Falta', 'Falta Injustificada']))
-    
+
     if mask_permiso_y_falta.any():
-        # Cambiar el tipo de falta para días con permiso
         df.loc[mask_permiso_y_falta, 'tipo_falta_ajustada'] = 'Falta Justificada'
         df.loc[mask_permiso_y_falta, 'falta_justificada'] = True
-        
-        # Actualizar el contador de faltas (no contar las justificadas)
         df['es_falta_ajustada'] = (df['tipo_falta_ajustada'].isin(['Falta', 'Falta Injustificada'])).astype(int)
-        
         faltas_justificadas = mask_permiso_y_falta.sum()
         print(f"✅ Se justificaron {faltas_justificadas} faltas con permisos aprobados.")
     else:
-        # Si no hay faltas justificadas, mantener el contador original
         df['es_falta_ajustada'] = df['es_falta'].copy()
         print("✅ No se encontraron faltas que justificar con permisos.")
-    
+
     return df
 
 def process_checkins_to_dataframe(checkin_data, start_date, end_date):
@@ -319,14 +359,12 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
         .rename(columns={"employee_name": "Nombre"})
     )
 
-    # Agrupar por empleado y día para obtener entrada y salida
     df_hours = df.groupby(["employee", "dia"])["time"].agg(["min", "max"]).reset_index()
     duration = df_hours["max"] - df_hours["min"]
     df_hours["horas_trabajadas"] = duration.apply(
         lambda x: str(x).split(" ")[-1] if pd.notna(x) else "00:00:00"
     )
 
-    # Generar pivot para múltiples checadas por día
     df["checado_rank"] = df.groupby(["employee", "dia"]).cumcount() + 1
     df_pivot = df.pivot_table(
         index=["employee", "dia"],
@@ -337,14 +375,12 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
     if not df_pivot.empty:
         df_pivot.columns = [f"checado_{i}" for i in range(1, len(df_pivot.columns) + 1)]
 
-    # Crear base completa de todos los empleados para todos los días
     all_employees = df["employee"].unique()
     all_dates = pd.to_datetime(pd.date_range(start=start_date, end=end_date)).date
     base_df = pd.DataFrame(
         list(product(all_employees, all_dates)), columns=["employee", "dia"]
     )
 
-    # Unir con las checadas y los datos de horas
     daily_df = pd.merge(
         base_df, df_pivot.reset_index(), on=["employee", "dia"], how="left"
     )
@@ -357,21 +393,11 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
         how="left",
     )
 
-    # Añadir día de la semana en español
     dias_espanol = {
-        "Monday": "Lunes",
-        "Tuesday": "Martes",
-        "Wednesday": "Miércoles",
-        "Thursday": "Jueves",
-        "Friday": "Viernes",
-        "Saturday": "Sábado",
-        "Sunday": "Domingo",
+        "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles",
+        "Thursday": "Jueves", "Friday": "Viernes", "Saturday": "Sábado", "Sunday": "Domingo"
     }
-    final_df["dia_semana"] = (
-        pd.to_datetime(final_df["dia"]).dt.day_name().map(dias_espanol)
-    )
-    
-    # Añadir día de la semana como número (1-7)
+    final_df["dia_semana"] = pd.to_datetime(final_df["dia"]).dt.day_name().map(dias_espanol)
     final_df["dia_iso"] = pd.to_datetime(final_df["dia"]).dt.weekday + 1
 
     return final_df
@@ -379,170 +405,68 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
 
 def procesar_horarios_con_medianoche(df, cache_horarios):
     """
-    Reorganiza las checadas para turnos que cruzan la medianoche, respetando los horarios
-    programados en la base de datos y corrigiendo errores de múltiples checadas.
-    
-    Args:
-        df: DataFrame con las checadas
-        cache_horarios: Caché de horarios por empleado
-    
-    Returns:
-        DataFrame actualizado
+    Reorganiza las checadas para turnos que cruzan la medianoche.
     """
     print("\n🔄 Procesando turnos que cruzan medianoche...")
-    
-    # Creamos una copia para no modificar el original durante el procesamiento
-    df_proc = df.copy()
-    
-    # Ordenar por empleado y fecha para procesar secuencialmente
-    df_proc = df_proc.sort_values(['employee', 'dia']).reset_index(drop=True)
-    
-    # Determinar si es primera quincena para cada registro
+    df_proc = df.copy().sort_values(['employee', 'dia']).reset_index(drop=True)
     df_proc['es_primera_quincena'] = df_proc['dia'].apply(lambda x: x.day <= 15)
-    
-    # Iterar por cada empleado para procesar sus checadas
+
     for empleado in df_proc['employee'].unique():
-        # Obtener todas las filas del empleado
         mask_empleado = df_proc['employee'] == empleado
         filas_empleado = df_proc.loc[mask_empleado].copy()
-        
-        # Procesar cada día
+
         for i in range(len(filas_empleado)):
             idx_actual = filas_empleado.index[i]
             fila_actual = df_proc.loc[idx_actual]
-            
-            # Obtener el horario programado para el día actual
+
             horario = obtener_horario_empleado(
-                str(empleado),
-                fila_actual['dia_iso'],
-                fila_actual['es_primera_quincena'],
-                cache_horarios
+                str(empleado), fila_actual['dia_iso'], fila_actual['es_primera_quincena'], cache_horarios
             )
-            
+
             if horario and horario.get('cruza_medianoche', False):
-                # Para turnos que cruzan medianoche, necesitamos reorganizar las checadas
-                checadas_dia = []
-                
-                # Recopilar todas las checadas del día actual
-                for j in range(1, 10):  # Hasta 10 checadas posibles
-                    col_name = f'checado_{j}'
-                    if col_name in df_proc.columns and pd.notna(df_proc.loc[idx_actual, col_name]):
-                        checadas_dia.append(df_proc.loc[idx_actual, col_name])
-                
-                # Si tenemos checadas, buscar la checada de salida en el día siguiente
+                checadas_dia = [df_proc.loc[idx_actual, f'checado_{j}'] for j in range(1, 10) if f'checado_{j}' in df_proc.columns and pd.notna(df_proc.loc[idx_actual, f'checado_{j}'])]
+
                 if checadas_dia:
-                    # Buscar el día siguiente
                     dia_siguiente = fila_actual['dia'] + timedelta(days=1)
                     mask_siguiente = (df_proc['employee'] == empleado) & (df_proc['dia'] == dia_siguiente)
-                    
+
                     if mask_siguiente.any():
                         idx_siguiente = df_proc[mask_siguiente].index[0]
-                        
-                        # Recopilar checadas del día siguiente
-                        checadas_siguiente = []
+                        checadas_siguiente = [df_proc.loc[idx_siguiente, f'checado_{j}'] for j in range(1, 10) if f'checado_{j}' in df_proc.columns and pd.notna(df_proc.loc[idx_siguiente, f'checado_{j}'])]
+
+                        entrada_real = min(checadas_dia)
+                        salida_real = max(checadas_siguiente) if checadas_siguiente else max(checadas_dia)
+
                         for j in range(1, 10):
-                            col_name = f'checado_{j}'
-                            if col_name in df_proc.columns and pd.notna(df_proc.loc[idx_siguiente, col_name]):
-                                checadas_siguiente.append(df_proc.loc[idx_siguiente, col_name])
+                            if f'checado_{j}' in df_proc.columns:
+                                df_proc.loc[idx_actual, f'checado_{j}'] = None
                         
-                        # Usar la hora programada como referencia para determinar entrada/salida
-                        hora_entrada_prog = horario['hora_entrada']
-                        hora_salida_prog = horario['hora_salida']
+                        df_proc.loc[idx_actual, 'checado_1'] = entrada_real
+                        df_proc.loc[idx_actual, 'checado_2'] = salida_real
+
+                        entrada_time = datetime.strptime(entrada_real, '%H:%M:%S')
+                        salida_time = datetime.strptime(salida_real, '%H:%M:%S')
                         
-                        # Filtrar checadas por proximidad a los horarios programados
-                        entrada_real = None
-                        salida_real = None
+                        if salida_time <= entrada_time:
+                            salida_time += timedelta(days=1)
                         
-                        # Buscar la entrada más cercana a la hora programada
-                        for checada in checadas_dia:
-                            if calcular_proximidad_horario(checada, hora_entrada_prog) <= 120:  # 2 horas de tolerancia
-                                if entrada_real is None or calcular_proximidad_horario(checada, hora_entrada_prog) < calcular_proximidad_horario(entrada_real, hora_entrada_prog):
-                                    entrada_real = checada
-                        
-                        # Buscar la salida más cercana en el día siguiente
-                        for checada in checadas_siguiente:
-                            if calcular_proximidad_horario(checada, hora_salida_prog) <= 120:  # 2 horas de tolerancia
-                                if salida_real is None or calcular_proximidad_horario(checada, hora_salida_prog) < calcular_proximidad_horario(salida_real, hora_salida_prog):
-                                    salida_real = checada
-                        
-                        # Si no encontramos salida en día siguiente, usar la última checada del día actual
-                        if salida_real is None and len(checadas_dia) > 1:
-                            salida_real = checadas_dia[-1]
-                        
-                        # Reorganizar las checadas en el día actual
-                        # Limpiar todas las checadas existentes
-                        for j in range(1, 10):
-                            col_name = f'checado_{j}'
-                            if col_name in df_proc.columns:
-                                df_proc.loc[idx_actual, col_name] = None
-                        
-                        # Asignar entrada y salida corregidas
-                        if entrada_real:
-                            df_proc.loc[idx_actual, 'checado_1'] = entrada_real
-                        if salida_real:
-                            df_proc.loc[idx_actual, 'checado_2'] = salida_real
-                        
-                        # Recalcular horas trabajadas
-                        if entrada_real and salida_real:
-                            entrada_time = datetime.strptime(entrada_real, '%H:%M:%S')
-                            salida_time = datetime.strptime(salida_real, '%H:%M:%S')
-                            
-                            # Si la salida es menor que la entrada, añadir un día
-                            if salida_time <= entrada_time:
-                                salida_time = salida_time + timedelta(days=1)
-                            
-                            duracion = salida_time - entrada_time
-                            df_proc.loc[idx_actual, 'horas_trabajadas'] = str(duracion)
-                        
-                        # Limpiar checadas del día siguiente si la usamos como salida
+                        df_proc.loc[idx_actual, 'horas_trabajadas'] = str(salida_time - entrada_time)
+
                         if salida_real in checadas_siguiente:
                             for j in range(1, 10):
-                                col_name = f'checado_{j}'
-                                if col_name in df_proc.columns and df_proc.loc[idx_siguiente, col_name] == salida_real:
-                                    df_proc.loc[idx_siguiente, col_name] = None
+                                if f'checado_{j}' in df_proc.columns and df_proc.loc[idx_siguiente, f'checado_{j}'] == salida_real:
+                                    df_proc.loc[idx_siguiente, f'checado_{j}'] = None
                                     break
                             
-                            # Recalcular horas del día siguiente
-                            checadas_restantes = []
-                            for j in range(1, 10):
-                                col_name = f'checado_{j}'
-                                if col_name in df_proc.columns and pd.notna(df_proc.loc[idx_siguiente, col_name]):
-                                    checadas_restantes.append(df_proc.loc[idx_siguiente, col_name])
-                            
+                            # Recalculate hours for the next day
+                            checadas_restantes = [df_proc.loc[idx_siguiente, f'checado_{j}'] for j in range(1, 10) if f'checado_{j}' in df_proc.columns and pd.notna(df_proc.loc[idx_siguiente, f'checado_{j}'])]
                             if len(checadas_restantes) >= 2:
-                                entrada_sig = min(checadas_restantes)
-                                salida_sig = max(checadas_restantes)
-                                entrada_time_sig = datetime.strptime(entrada_sig, '%H:%M:%S')
-                                salida_time_sig = datetime.strptime(salida_sig, '%H:%M:%S')
-                                duracion_sig = salida_time_sig - entrada_time_sig
-                                df_proc.loc[idx_siguiente, 'horas_trabajadas'] = str(duracion_sig)
+                                df_proc.loc[idx_siguiente, 'horas_trabajadas'] = str(datetime.strptime(max(checadas_restantes), '%H:%M:%S') - datetime.strptime(min(checadas_restantes), '%H:%M:%S'))
                             else:
                                 df_proc.loc[idx_siguiente, 'horas_trabajadas'] = "00:00:00"
-    
+
     print("✅ Procesamiento de turnos con medianoche completado")
     return df_proc
-
-
-def calcular_proximidad_horario(checada_str, horario_prog_str):
-    """
-    Calcula la proximidad en minutos entre una checada y un horario programado.
-    
-    Args:
-        checada_str: Hora de checada en formato "HH:MM:SS"
-        horario_prog_str: Hora programada en formato "HH:MM"
-        
-    Returns:
-        Diferencia en minutos (valor absoluto)
-    """
-    try:
-        checada_time = datetime.strptime(checada_str, '%H:%M:%S')
-        horario_prog_time = datetime.strptime(horario_prog_str + ":00", '%H:%M:%S')
-        
-        # Calcular diferencia en minutos
-        diff = abs((checada_time - horario_prog_time).total_seconds() / 60)
-        return diff
-    except:
-        return float('inf')  # Si hay error, devolver infinito
 
 
 def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
@@ -553,24 +477,17 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
         return df
     print("\n🔄 Iniciando análisis de horarios y retardos...")
 
-    # Determinar si es primera quincena para cada registro
     df['es_primera_quincena'] = df['dia'].apply(lambda x: x.day <= 15)
     
-    # Crear columnas para almacenar los horarios programados
     df['hora_entrada_programada'] = None
     df['hora_salida_programada'] = None
     df['cruza_medianoche'] = False
     df['horas_esperadas'] = None
     
-    # Para cada fila, obtener el horario desde la caché
     def obtener_horario_fila(row):
         horario = obtener_horario_empleado(
-            row['employee'], 
-            row['dia_iso'], 
-            row['es_primera_quincena'], 
-            cache_horarios
+            row['employee'], row['dia_iso'], row['es_primera_quincena'], cache_horarios
         )
-        
         if horario:
             return pd.Series([
                 horario.get('hora_entrada'),
@@ -580,80 +497,50 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
             ])
         return pd.Series([None, None, False, None])
     
-    # Aplicar la función a cada fila
     df[['hora_entrada_programada', 'hora_salida_programada', 'cruza_medianoche', 'horas_esperadas']] = df.apply(
         obtener_horario_fila, axis=1, result_type='expand'
     )
 
-    print("   - Calculando retardos y puntualidad con nueva lógica:")
-    print("     • Puntual: hasta 15 minutos de tolerancia")
-    print("     • Retardo: entre 16 y 30 minutos")
-    print("     • Falta Injustificada: más de 30 minutos")
+    print("   - Calculando retardos y puntualidad...")
 
     def analizar_retardo(row):
         if pd.isna(row.get("hora_entrada_programada")):
             return pd.Series(["Día no Laborable", 0])
-
         if pd.isna(row.get("checado_1")):
             return pd.Series(["Falta", 0])
-
-        # Convertir strings de tiempo a datetime para manejar mejor los cruces de medianoche
         try:
             hora_prog = datetime.strptime(row['hora_entrada_programada'] + ":00", '%H:%M:%S')
             hora_checada = datetime.strptime(row['checado_1'], '%H:%M:%S')
             
-            # Para horarios que cruzan medianoche, la entrada puede ser en la tarde/noche
-            # Si la hora programada es mayor que 12:00 y la checada es menor que 12:00,
-            # probablemente la checada es del día siguiente
-            if row.get('cruza_medianoche', False):
-                if hora_prog.hour >= 12 and hora_checada.hour < 12:
-                    # La checada es del día siguiente, restar un día a la programada para comparar
-                    hora_prog = hora_prog - timedelta(days=1)
+            if row.get('cruza_medianoche', False) and hora_prog.hour >= 12 and hora_checada.hour < 12:
+                hora_prog -= timedelta(days=1)
             
-            # Calcular diferencia en minutos
             diferencia = (hora_checada - hora_prog).total_seconds() / 60
             
-            # Para horarios normales, si la diferencia es muy negativa, 
-            # podría ser que la checada sea del día siguiente
             if not row.get('cruza_medianoche', False) and diferencia < -12 * 60:
-                diferencia += 24 * 60  # Añadir un día
+                diferencia += 24 * 60
             
-            # Clasificar según la nueva lógica de puntualidad y retardos:
-            # - Puntual: Check-in hasta 15 minutos después de la hora acordada
-            # - Retardo: Check-in entre 16 y 30 minutos después (cuenta para acumulación)
-            # - Falta Injustificada: Check-in después de 30 minutos (se marca automáticamente como falta)
             if diferencia <= 15:
                 tipo = "A Tiempo"
             elif diferencia <= 30:
                 tipo = "Retardo"
             else:
-                # Más de 30 minutos se considera Falta Injustificada automáticamente
                 tipo = "Falta Injustificada"
-                
             return pd.Series([tipo, int(diferencia)])
-            
         except (ValueError, TypeError):
-            # Si hay error en el parsing, considerarlo como falta
             return pd.Series(["Falta", 0])
 
     df[["tipo_retardo", "minutos_tarde"]] = df.apply(
         analizar_retardo, axis=1, result_type="expand"
     )
 
-    print("   - Verificando acumulación de retardos y faltas para descuentos...")
     df = df.sort_values(by=["employee", "dia"]).reset_index(drop=True)
     df["es_retardo_acumulable"] = (df["tipo_retardo"] == "Retardo").astype(int)
     df["es_falta"] = (df["tipo_retardo"].isin(["Falta", "Falta Injustificada"])).astype(int)
     df["retardos_acumulados"] = df.groupby("employee")["es_retardo_acumulable"].cumsum()
 
     df["descuento_por_3_retardos"] = df.apply(
-        lambda row: (
-            "Sí (3er retardo)"
-            if row["es_retardo_acumulable"]
-            and row["retardos_acumulados"] > 0
-            and row["retardos_acumulados"] % 3 == 0
-            else "No"
-        ),
+        lambda row: ("Sí (3er retardo)" if row["es_retardo_acumulable"] and row["retardos_acumulados"] > 0 and row["retardos_acumulados"] % 3 == 0 else "No"),
         axis=1,
     )
 
@@ -666,40 +553,27 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
 # ==============================================================================
 def generar_resumen_periodo(df: pd.DataFrame):
     """
-    Crea un DataFrame de resumen con totales por empleado, incluyendo faltas justificadas, y
-    calcula la diferencia entre horas trabajadas y esperadas ajustadas por permisos.
+    Crea un DataFrame de resumen con totales por empleado.
     """
-    print("\n📊 Generando resumen del periodo con cálculo de diferencia de horas y permisos...")
+    print("\n📊 Generando resumen del periodo...")
     if df.empty:
         print("   - No hay datos para generar el resumen.")
-        return
+        return pd.DataFrame()
 
-    # Convertir las columnas de horas a timedelta
-    df["horas_trabajadas_td"] = pd.to_timedelta(
-        df["horas_trabajadas"].fillna("00:00:00")
-    )
-    # Para horas esperadas, usar las originales (antes de ajustar por permisos)
-    if 'horas_esperadas_originales' in df.columns:
-        df["horas_esperadas_originales_td"] = pd.to_timedelta(
-            df["horas_esperadas_originales"].fillna("00:00:00")
-        )
-    else:
-        df["horas_esperadas_originales_td"] = pd.to_timedelta(
-            df["horas_esperadas"].fillna("00:00:00")
-        )
+    df["horas_trabajadas_td"] = pd.to_timedelta(df["horas_trabajadas"].fillna("00:00:00"))
     
-    # Convertir horas descontadas por permisos a timedelta
+    if 'horas_esperadas_originales' in df.columns:
+        df["horas_esperadas_originales_td"] = pd.to_timedelta(df["horas_esperadas_originales"].fillna("00:00:00"))
+    else:
+        df["horas_esperadas_originales_td"] = pd.to_timedelta(df["horas_esperadas"].fillna("00:00:00"))
+    
     if 'horas_descontadas_permiso' in df.columns:
-        df["horas_descontadas_permiso_td"] = pd.to_timedelta(
-            df["horas_descontadas_permiso"].fillna("00:00:00")
-        )
+        df["horas_descontadas_permiso_td"] = pd.to_timedelta(df["horas_descontadas_permiso"].fillna("00:00:00"))
     else:
         df["horas_descontadas_permiso_td"] = pd.to_timedelta("00:00:00")
 
-    # Preparar las columnas de faltas
     total_faltas_col = "es_falta_ajustada" if "es_falta_ajustada" in df.columns else "es_falta"
     
-    # Agregaciones base para horas y conteo de incidencias
     resumen_final = (
         df.groupby(["employee", "Nombre"])
         .agg(
@@ -713,20 +587,14 @@ def generar_resumen_periodo(df: pd.DataFrame):
         .reset_index()
     )
 
-    # Calcular horas esperadas ajustadas (horas esperadas - horas descontadas por permisos)
     resumen_final["total_horas"] = (
         resumen_final["total_horas_esperadas"] - resumen_final["total_horas_descontadas_permiso"]
     )
-    
-    # Total de faltas es el mismo que faltas del periodo (ya viene ajustado)
     resumen_final["total_faltas"] = resumen_final["faltas_del_periodo"]
-
-    # Diferencia: horas trabajadas - horas esperadas ajustadas
-    # Si es positivo = horas extra, si es negativo = horas faltantes
     diferencia_td = resumen_final["total_horas_trabajadas"] - resumen_final["total_horas"]
 
     def format_timedelta_with_sign(td):
-        sign = "+" if td.total_seconds() > 0 else "-" if td.total_seconds() < 0 else ""
+        sign = "+" if td.total_seconds() >= 0 else "-"
         td_abs = abs(td)
         total_seconds = int(td_abs.total_seconds())
         hours, remainder = divmod(total_seconds, 3600)
@@ -739,218 +607,515 @@ def generar_resumen_periodo(df: pd.DataFrame):
         minutes, seconds = divmod(remainder, 60)
         return f"{hours:02}:{minutes:02}:{seconds:02}"
 
-    # Formatear las columnas de tiempo
     resumen_final["diferencia_HHMMSS"] = diferencia_td.apply(format_timedelta_with_sign)
-    resumen_final["total_horas_trabajadas"] = resumen_final[
-        "total_horas_trabajadas"
-    ].apply(format_positive_timedelta)
-    resumen_final["total_horas_esperadas"] = resumen_final[
-        "total_horas_esperadas"
-    ].apply(format_positive_timedelta)
-    resumen_final["total_horas_descontadas_permiso"] = resumen_final[
-        "total_horas_descontadas_permiso"
-    ].apply(format_positive_timedelta)
+    resumen_final["total_horas_trabajadas"] = resumen_final["total_horas_trabajadas"].apply(format_positive_timedelta)
+    resumen_final["total_horas_esperadas"] = resumen_final["total_horas_esperadas"].apply(format_positive_timedelta)
+    resumen_final["total_horas_descontadas_permiso"] = resumen_final["total_horas_descontadas_permiso"].apply(format_positive_timedelta)
     resumen_final["total_horas"] = resumen_final["total_horas"].apply(format_positive_timedelta)
 
-    # Ordenar columnas para la presentación
     base_columns = [
-        "employee",
-        "Nombre",
-        "total_horas_trabajadas",
-        "total_horas_esperadas",
-        "total_horas_descontadas_permiso",
-        "total_horas",
-        "total_retardos",
-        "faltas_del_periodo",
-        "faltas_justificadas",
-        "total_faltas",
-        "diferencia_HHMMSS",
+        "employee", "Nombre", "total_horas_trabajadas", "total_horas_esperadas",
+        "total_horas_descontadas_permiso", "total_horas", "total_retardos",
+        "faltas_del_periodo", "faltas_justificadas", "total_faltas", "diferencia_HHMMSS",
     ]
-    
     resumen_final = resumen_final[base_columns]
 
     output_filename = "resumen_periodo.csv"
-    
-    # Intentar guardar el archivo, usando un nombre alternativo si hay conflictos
     try:
         resumen_final.to_csv(output_filename, index=False, encoding="utf-8-sig")
         print(f"✅ Resumen del periodo guardado en '{output_filename}'")
     except PermissionError:
-        # Si el archivo está abierto, usar un nombre con timestamp
-        from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename_alt = f"resumen_periodo_{timestamp}.csv"
         resumen_final.to_csv(output_filename_alt, index=False, encoding="utf-8-sig")
         print(f"⚠️ El archivo original estaba en uso. Resumen guardado en '{output_filename_alt}'")
-        output_filename = output_filename_alt
-    
-    # Mostrar estadísticas de permisos si están disponibles
-    if 'faltas_justificadas' in resumen_final.columns:
-        total_faltas_justificadas = resumen_final['faltas_justificadas'].sum()
-        total_horas_descontadas = resumen_final['total_horas_descontadas_permiso'].apply(
-            lambda x: pd.to_timedelta(x).total_seconds() / 3600 if x != "00:00:00" else 0
-        ).sum()
-        empleados_con_permisos = (resumen_final['faltas_justificadas'] > 0).sum()
-        
-        print(f"\n📋 Estadísticas de permisos:")
-        print(f"   - Empleados con permisos: {empleados_con_permisos}")
-        print(f"   - Total faltas justificadas: {total_faltas_justificadas}")
-        print(f"   - Total horas descontadas por permisos: {total_horas_descontadas:.2f}")
-    
+
     print("\n**Visualización del Resumen del Periodo:**\n")
     print(resumen_final.to_string())
+    return resumen_final
+
+# ==============================================================================
+# SECCIÓN 4.5: FUNCIÓN PARA GENERAR REPORTE HTML INTERACTIVO (CORREGIDA)
+# ==============================================================================
+def generar_reporte_html(df_detallado: pd.DataFrame, df_resumen: pd.DataFrame, periodo_inicio: str, periodo_fin: str, sucursal: str):
+    """
+    Genera un reporte HTML interactivo del periodo analizado con lógica de JS corregida.
+    """
+    print("\n📊 Generando reporte HTML interactivo...")
+
+    if df_resumen.empty:
+        html_content = f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><title>Sin Datos</title></head>
+<body><h1>Sin datos disponibles</h1><p>No se encontraron datos para el período.</p></body></html>"""
+        with open("dashboard_asistencia.html", 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        return "dashboard_asistencia.html"
+
+    def time_to_decimal(time_str):
+        if pd.isna(time_str) or time_str in ["00:00:00", "---"]: return 0.0
+        try:
+            parts = str(time_str).split(':')
+            h = float(parts[0]) if len(parts) > 0 else 0
+            m = float(parts[1]) if len(parts) > 1 else 0
+            s = float(parts[2]) if len(parts) > 2 else 0
+            return h + m/60 + s/3600
+        except: return 0.0
+
+    employee_data_js = []
+    for _, row in df_resumen.iterrows():
+        employee_data_js.append({
+            'employee': str(row['employee']),
+            'name': str(row['Nombre']),
+            'workedHours': str(row['total_horas_trabajadas']),
+            'expectedHours': str(row['total_horas_esperadas']),
+            'permitHours': str(row.get('total_horas_descontadas_permiso', '00:00:00')),
+            'netHours': str(row['total_horas']),
+            'delays': int(row.get('total_retardos', 0)),
+            'absences': int(row.get('faltas_del_periodo', 0)),
+            'justifiedAbsences': int(row.get('faltas_justificadas', 0)),
+            'totalAbsences': int(row.get('total_faltas', 0)),
+            'difference': str(row.get('diferencia_HHMMSS', '00:00:00')),
+            'workedDecimal': time_to_decimal(row['total_horas_trabajadas']),
+            'expectedDecimal': time_to_decimal(row['total_horas_esperadas']),
+            'expectedDecimalAdjusted': time_to_decimal(row['total_horas']),
+            'permitDecimal': time_to_decimal(row.get('total_horas_descontadas_permiso', '00:00:00'))
+        })
+
+    daily_data_js = []
+    if not df_detallado.empty and 'dia' in df_detallado.columns:
+        df_laborables = df_detallado[df_detallado['hora_entrada_programada'].notna()].copy()
+        if not df_laborables.empty:
+            daily_summary = df_laborables.groupby(['dia', 'dia_semana']).agg(
+                total_empleados=('employee', 'nunique'),
+                faltas_injustificadas=('tipo_falta_ajustada', lambda x: x.isin(['Falta', 'Falta Injustificada']).sum()),
+                permisos=('falta_justificada', lambda x: (x == True).sum())
+            ).reset_index()
+            for _, row in daily_summary.iterrows():
+                asistencias = row['total_empleados'] - row['faltas_injustificadas'] - row['permisos']
+                daily_data_js.append({
+                    'date': row['dia'].strftime('%d %b'),
+                    'day': str(row['dia_semana']),
+                    'attendance': max(0, asistencias),
+                    'absences': int(row['faltas_injustificadas']),
+                    'permits': int(row['permisos']),
+                    'total': int(row['total_empleados'])
+                })
+
+    start_dt = datetime.strptime(periodo_inicio, "%Y-%m-%d")
+    end_dt = datetime.strptime(periodo_fin, "%Y-%m-%d")
+    dias_laborales = sum(1 for d in pd.date_range(start=start_dt, end=end_dt) if d.weekday() < 5)
+
+    total_employees = len(employee_data_js)
+    total_absences = sum(e.get('totalAbsences', 0) for e in employee_data_js)
+    total_possible_days = total_employees * dias_laborales
+    lost_days_percent = (total_absences / total_possible_days * 100) if total_possible_days > 0 else 0
+    
+    # KPIs calculados en Python para asegurar consistencia
+    total_worked_py = sum(e['workedDecimal'] for e in employee_data_js)
+    total_expected_py = sum(e['expectedDecimal'] for e in employee_data_js)
+    attendance_rate = (total_worked_py / total_expected_py * 100) if total_expected_py > 0 else 0
+    
+    punctual_employees = sum(1 for e in employee_data_js if e['delays'] == 0 and e['workedDecimal'] > 0)
+    active_employees = sum(1 for e in employee_data_js if e['workedDecimal'] > 0)
+    punctuality_rate = (punctual_employees / active_employees * 100) if active_employees > 0 else 0
+    
+    lost_days = sum(e.get('totalAbsences', 0) for e in employee_data_js)
+
+    employee_json = json.dumps(employee_data_js, ensure_ascii=False)
+    daily_json = json.dumps(daily_data_js, ensure_ascii=False)
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Ejecutivo de Asistencia - {sucursal}</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {{ font-family: 'Segoe UI', system-ui, sans-serif; background: #f8f9fa; color: #212529; }}
+        .header {{ background: white; padding: 2rem; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 2rem; border-bottom: 3px solid #0066cc; }}
+        .header h1 {{ color: #0066cc; font-size: 2.2rem; margin-bottom: 0.5rem; }}
+        .header p {{ color: #6c757d; font-size: 1.1rem; }}
+        .container {{ max-width: 1400px; margin: 0 auto; padding: 0 1rem; }}
+        .tabs {{ display: flex; justify-content: center; margin-bottom: 2rem; gap: 1rem; }}
+        .tab-button {{ padding: 1rem 2rem; font-size: 1rem; font-weight: 600; cursor: pointer; border: 2px solid #0066cc; background: white; color: #0066cc; border-radius: 8px; transition: all 0.2s ease; }}
+        .tab-button.active {{ background: #0066cc; color: white; }}
+        .tab-content {{ display: none; }}
+        .tab-content.active {{ display: block; }}
+        .metrics-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 3rem; }}
+        .metric-card {{ background: white; border-radius: 12px; padding: 2rem; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-left: 4px solid; }}
+        .metric-card h3 {{ color: #495057; font-size: 0.9rem; margin-bottom: 1rem; text-transform: uppercase; }}
+        .metric-value {{ font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem; }}
+        .metric-subtitle {{ font-size: 0.8rem; color: #6c757d; }}
+        .metric-card.attendance {{ border-left-color: #28a745; }} .metric-card.attendance .metric-value {{ color: #28a745; }}
+        .metric-card.deviation {{ border-left-color: #ff6b35; }} .metric-card.deviation .metric-value {{ color: #ff6b35; }}
+        .metric-card.punctuality {{ border-left-color: #ffc107; }} .metric-card.punctuality .metric-value {{ color: #ffc107; }}
+        .metric-card.absences {{ border-left-color: #dc3545; }} .metric-card.absences .metric-value {{ color: #dc3545; }}
+        .chart-container {{ background: white; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }}
+        .chart-title {{ font-size: 1.4rem; font-weight: 700; margin-bottom: 1.5rem; }}
+        .chart svg {{ width: 100%; height: auto; }}
+        .axis path, .axis .domain {{ stroke: #dee2e6; }}
+        .axis .tick text {{ fill: #6c757d; }}
+        .grid line {{ stroke: #f1f3f4; stroke-dasharray: 2,2; }}
+        .tooltip {{ position: absolute; padding: 12px; background: rgba(33,37,41,0.95); color: white; border-radius: 6px; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 1000; }}
+        .table-section {{ background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }}
+        .controls {{ display: flex; gap: 1rem; margin-bottom: 2rem; }}
+        .search-box input, .filter-select {{ width: 100%; padding: 12px 16px; border: 2px solid #e9ecef; border-radius: 8px; }}
+        .employee-table {{ width: 100%; border-collapse: collapse; }}
+        .employee-table th {{ background: #f8f9fa; padding: 1rem; text-align: left; }}
+        .employee-table td {{ padding: 1rem; border-bottom: 1px solid #e9ecef; }}
+        .positive {{ color: #28a745; }} .negative {{ color: #dc3545; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Dashboard Ejecutivo de Asistencia</h1>
+        <p>Sucursal: {sucursal.upper()} | Período: {periodo_inicio} - {periodo_fin}</p>
+    </div>
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab(event, 'dashboard')">Resumen Ejecutivo</button>
+            <button class="tab-button" onclick="openTab(event, 'employee-table')">Detalle por Empleado</button>
+        </div>
+        <div id="dashboard" class="tab-content active">
+            <div class="metrics-grid">
+                <div class="metric-card attendance">
+                    <h3>Tasa de Asistencia</h3>
+                    <div class="metric-value" id="attendanceRate">{attendance_rate:.1f}%</div>
+                    <div class="metric-subtitle">Horas trabajadas vs planificadas</div>
+                </div>
+                <div class="metric-card deviation">
+                    <h3>Desviación Media Horaria</h3>
+                    <div class="metric-value" id="avgDeviationHours">±0.0 h</div>
+                    <div class="metric-subtitle">Promedio de dif. de horas</div>
+                </div>
+                <div class="metric-card punctuality">
+                    <h3>Índice de Puntualidad</h3>
+                    <div class="metric-value" id="punctualityRate">{punctuality_rate:.0f}%</div>
+                    <div class="metric-subtitle">Empleados puntuales</div>
+                </div>
+                <div class="metric-card absences">
+                    <h3>Días Perdidos</h3>
+                    <div class="metric-value" id="totalLostDays">{lost_days}</div>
+                    <div class="metric-subtitle">{lost_days_percent:.1f}% de capacidad perdida</div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">Tendencia de Asistencia del Período</div>
+                <div id="dailyTrendChart" class="chart"></div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">Eficiencia de Recursos Humanos</div>
+                <div id="efficiencyChart" class="chart"></div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">Análisis de Impacto por Ausencias</div>
+                <div id="absenceImpactChart" class="chart"></div>
+            </div>
+        </div>
+        <div id="employee-table" class="tab-content">
+            <div class="table-section">
+                <div class="chart-title">Análisis Individual</div>
+                 <div class="controls">
+                    <input type="text" id="searchInput" placeholder="Buscar empleado..." onkeyup="filterTable()" style="padding: 10px; width: 300px;">
+                </div>
+                <table class="employee-table">
+                    <thead><tr><th>ID</th><th>Empleado</th><th>Hrs. Trabajadas</th><th>Hrs. Planificadas</th><th>Variación</th><th>Retardos</th><th>Ausencias</th></tr></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="tooltip"></div>
+
+    <script>
+        const employeeData = {employee_json};
+        const dailyData = {daily_json};
+        const tooltip = d3.select(".tooltip");
+
+        // --- UTILS ---
+        function hhmmssToDecimal(hhmmss) {{
+            if (!hhmmss || typeof hhmmss !== 'string') return 0;
+            const [h, m, s] = hhmmss.split(':').map(Number);
+            return (h || 0) + (m || 0) / 60 + (s || 0) / 3600;
+        }}
+        function safeDiv(numerator, denominator) {{
+            return denominator > 0 ? numerator / denominator : 0;
+        }}
+        function truncateName(name, max = 20) {{
+            return name.length > max ? name.slice(0, max) + "…" : name;
+        }}
+
+        // --- PESTAÑAS ---
+        function openTab(evt, tabName) {{
+            document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
+            document.querySelectorAll('.tab-button').forEach(tb => tb.classList.remove('active'));
+            document.getElementById(tabName).style.display = 'block';
+            evt.currentTarget.classList.add('active');
+        }}
+
+        // --- CÁLCULO DE KPIs ---
+        function calculateAndDisplayKPIs() {{
+            if (!employeeData || employeeData.length === 0) return;
+
+            // Desviación Media Horaria
+            const employeesWithPlannedHours = employeeData.filter(e => e.expectedDecimalAdjusted > 0);
+            let avgDeviation = 0;
+            if (employeesWithPlannedHours.length > 0) {{
+                const totalDeviation = employeesWithPlannedHours.reduce((sum, e) => {{
+                    return sum + Math.abs(e.workedDecimal - e.expectedDecimalAdjusted);
+                }}, 0);
+                avgDeviation = safeDiv(totalDeviation, employeesWithPlannedHours.length);
+            }}
+            document.getElementById('avgDeviationHours').textContent = `±${{avgDeviation.toFixed(1)}} h`;
+        }}
+
+        // --- GRÁFICAS ---
+        function createDailyTrendChart() {{
+            const container = d3.select("#dailyTrendChart");
+            if (dailyData.length === 0) {{ container.text("No hay datos de tendencia diaria."); return; }}
+            container.html("");
+            const margin = {{ top: 20, right: 100, bottom: 50, left: 40 }};
+            const width = container.node().getBoundingClientRect().width - margin.left - margin.right;
+            const height = 300 - margin.top - margin.bottom;
+            const svg = container.append("svg").attr("viewBox", `0 0 ${{width + margin.left + margin.right}} ${{height + margin.top + margin.bottom}}`)
+                .append("g").attr("transform", `translate(${{margin.left}},${{margin.top}})`);
+            
+            const series = [
+                {{ key: "attendance", label: "Asistencias", color: "#28a745" }},
+                {{ key: "absences", label: "Faltas", color: "#dc3545" }},
+                {{ key: "permits", label: "Permisos", color: "#ffc107" }}
+            ];
+            const x = d3.scaleBand().domain(dailyData.map(d => d.date)).range([0, width]).padding(0.1);
+            const y = d3.scaleLinear().domain([0, d3.max(dailyData, d => d.total) || 1]).nice().range([height, 0]);
+
+            svg.append("g").attr("transform", `translate(0,${{height}})`).call(d3.axisBottom(x)).selectAll("text").attr("transform", "rotate(-45)").style("text-anchor", "end");
+            svg.append("g").call(d3.axisLeft(y));
+            svg.append("g").attr("class", "grid").call(d3.axisLeft(y).tickSize(-width).tickFormat("")).selectAll("line").attr("stroke", "#f1f3f4");
+
+            const lineGen = key => d3.line().x(d => x(d.date) + x.bandwidth() / 2).y(d => y(d[key])).curve(d3.curveMonotoneX);
+
+            series.forEach(s => {{
+                svg.append("path").datum(dailyData).attr("fill", "none").attr("stroke", s.color).attr("stroke-width", 2.5).attr("d", lineGen(s.key));
+                svg.selectAll(`.dot-${{s.key}}`).data(dailyData).enter().append("circle")
+                    .attr("cx", d => x(d.date) + x.bandwidth() / 2).attr("cy", d => y(d[s.key])).attr("r", 4).attr("fill", s.color)
+                    .on("mouseover", (event, d) => tooltip.style("opacity", 1).html(`<strong>${{d.date}}</strong><br>${{s.label}}: ${{d[s.key]}}`))
+                    .on("mousemove", e => tooltip.style("left", (e.pageX + 10) + "px").style("top", (e.pageY - 10) + "px"))
+                    .on("mouseout", () => tooltip.style("opacity", 0));
+            }});
+        }}
+
+        function createEfficiencyChart() {{
+            const container = d3.select("#efficiencyChart");
+            container.html("");
+            
+            const data = employeeData
+                .map(d => ({{
+                    name: truncateName(d.name),
+                    fullName: d.name,
+                    efficiency: safeDiv(d.workedDecimal, d.expectedDecimalAdjusted) * 100,
+                    worked: d.workedDecimal,
+                    planned: d.expectedDecimalAdjusted
+                }}))
+                .filter(d => d.planned > 0)
+                .sort((a, b) => b.efficiency - a.efficiency)
+                .slice(0, 15);
+
+            if (data.length === 0) {{ container.text("No hay datos de eficiencia para mostrar (sin horas planificadas)."); return; }}
+
+            const margin = {{ top: 20, right: 30, bottom: 40, left: 150 }};
+            const width = container.node().getBoundingClientRect().width - margin.left - margin.right;
+            const height = data.length * 28;
+            const svg = container.append("svg").attr("viewBox", `0 0 ${{width + margin.left + margin.right}} ${{height + margin.top + margin.bottom}}`)
+                .append("g").attr("transform", `translate(${{margin.left}},${{margin.top}})`);
+
+            const x = d3.scaleLinear().domain([0, Math.max(100, d3.max(data, d => d.efficiency) || 0)]).nice().range([0, width]);
+            const y = d3.scaleBand().domain(data.map(d => d.name)).range([0, height]).padding(0.1);
+
+            svg.append("g").call(d3.axisLeft(y).tickSize(0)).select(".domain").remove();
+            svg.append("g").attr("transform", `translate(0,${{height}})`).call(d3.axisBottom(x).ticks(5).tickFormat(d => d + "%"));
+            
+            svg.append("line").attr("x1", x(100)).attr("x2", x(100)).attr("y1", 0).attr("y2", height).attr("stroke", "#dc3545").attr("stroke-dasharray", "4,4");
+
+            svg.selectAll(".bar").data(data).enter().append("rect")
+                .attr("y", d => y(d.name)).attr("width", d => x(d.efficiency)).attr("height", y.bandwidth())
+                .attr("fill", d => d.efficiency >= 98 ? "#28a745" : d.efficiency >= 85 ? "#ffc107" : "#dc3545")
+                .on("mouseover", (event, d) => tooltip.style("opacity", 1).html(`<strong>${{d.fullName}}</strong><br>Eficiencia: ${{d.efficiency.toFixed(1)}}%<br>Trabajadas: ${{d.worked.toFixed(1)}}h<br>Planificadas: ${{d.planned.toFixed(1)}}h`))
+                .on("mousemove", e => tooltip.style("left", (e.pageX + 10) + "px").style("top", (e.pageY - 10) + "px"))
+                .on("mouseout", () => tooltip.style("opacity", 0));
+        }}
+        
+        function createAbsenceImpactChart() {{
+            const container = d3.select("#absenceImpactChart");
+            container.html("");
+            
+            const unjustified = d3.sum(employeeData, d => d.absences);
+            const justified = d3.sum(employeeData, d => d.justifiedAbsences);
+            const delays = d3.sum(employeeData, d => d.delays);
+            
+            const data = [
+                {{ type: "Faltas Injustificadas", count: unjustified, color: "#dc3545" }},
+                {{ type: "Faltas Justificadas", count: justified, color: "#ffc107" }},
+                {{ type: "Retardos", count: delays, color: "#17a2b8" }}
+            ].filter(d => d.count > 0);
+
+            if (data.length === 0) {{ container.text("¡Sin ausencias ni retardos en el período!"); return; }}
+
+            const margin = {{ top: 20, right: 20, bottom: 30, left: 40 }};
+            const width = container.node().getBoundingClientRect().width - margin.left - margin.right;
+            const height = 300 - margin.top - margin.bottom;
+            const svg = container.append("svg").attr("viewBox", `0 0 ${{width + margin.left + margin.right}} ${{height + margin.top + margin.bottom}}`)
+                .append("g").attr("transform", `translate(${{margin.left}},${{margin.top}})`);
+
+            const x = d3.scaleBand().domain(data.map(d => d.type)).range([0, width]).padding(0.4);
+            const y = d3.scaleLinear().domain([0, d3.max(data, d => d.count) || 1]).nice().range([height, 0]);
+
+            svg.append("g").attr("transform", `translate(0,${{height}})`).call(d3.axisBottom(x));
+            svg.append("g").call(d3.axisLeft(y));
+
+            svg.selectAll(".bar").data(data).enter().append("rect")
+                .attr("x", d => x(d.type)).attr("y", d => y(d.count))
+                .attr("width", x.bandwidth()).attr("height", d => height - y(d.count))
+                .attr("fill", d => d.color)
+                .on("mouseover", (event, d) => tooltip.style("opacity", 1).html(`<strong>${{d.type}}</strong><br>Total: ${{d.count}}`))
+                .on("mousemove", e => tooltip.style("left", (e.pageX + 10) + "px").style("top", (e.pageY - 10) + "px"))
+                .on("mouseout", () => tooltip.style("opacity", 0));
+        }}
+
+        // --- TABLA ---
+        function renderTable(data) {{
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = data.map(emp => `
+                <tr>
+                    <td>${{emp.employee}}</td>
+                    <td>${{emp.name}}</td>
+                    <td>${{emp.workedHours}}</td>
+                    <td>${{emp.netHours}}</td>
+                    <td class="${{emp.difference.startsWith('+') ? 'positive' : 'negative'}}">${{emp.difference}}</td>
+                    <td>${{emp.delays}}</td>
+                    <td>${{emp.totalAbsences}}</td>
+                </tr>
+            `).join('');
+        }}
+
+        function filterTable() {{
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filteredData = employeeData.filter(e => 
+                e.name.toLowerCase().includes(searchTerm) || 
+                e.employee.toLowerCase().includes(searchTerm)
+            );
+            renderTable(filteredData);
+        }}
+
+        // --- INICIALIZACIÓN ---
+        document.addEventListener('DOMContentLoaded', () => {{
+            calculateAndDisplayKPIs();
+            createDailyTrendChart();
+            createEfficiencyChart();
+            createAbsenceImpactChart();
+            renderTable(employeeData);
+            
+            window.addEventListener('resize', () => {{
+                createDailyTrendChart();
+                createEfficiencyChart();
+                createAbsenceImpactChart();
+            }});
+        }});
+    </script>
+</body>
+</html>""";
+
+    html_filename = "dashboard_asistencia.html"
+    try:
+        with open(html_filename, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        print(f"✅ Dashboard HTML generado exitosamente: '{html_filename}'")
+    except PermissionError:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        html_filename_alt = f"dashboard_asistencia_{timestamp}.html"
+        with open(html_filename_alt, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        print(f"⚠️ El archivo original estaba en uso. Dashboard guardado en '{html_filename_alt}'")
+        html_filename = html_filename_alt
+    
+    return html_filename
+
 # ==============================================================================
 # SECCIÓN 5: EJECUCIÓN PRINCIPAL DEL SCRIPT
 # ==============================================================================
 if __name__ == "__main__":
-    # Define aquí el rango de fechas y el dispositivo que quieres analizar
-    start_date = "2025-07-16"
-    end_date = "2025-07-23"
+    start_date = "2025-07-01"
+    end_date = "2025-07-28"
     sucursal = "31pte"
     device_filter = "%31%"
     
-    # Determinar si es primera quincena según la fecha de inicio
     fecha_inicio_dt = datetime.strptime(start_date, "%Y-%m-%d")
-    es_primera_quincena = fecha_inicio_dt.day <= 15
-
-    print(f"\n🚀 Iniciando generación de reporte para {sucursal} - {'Primera' if es_primera_quincena else 'Segunda'} quincena")
+    fecha_fin_dt = datetime.strptime(end_date, "%Y-%m-%d")
     
-    # 1. Obtener datos de la API para las checadas primero
-    print("\n📡 Paso 1: Obteniendo checadas de la API...")
+    incluye_primera = any(d.day <= 15 for d in pd.date_range(start=fecha_inicio_dt, end=fecha_fin_dt))
+    incluye_segunda = any(d.day > 15 for d in pd.date_range(start=fecha_inicio_dt, end=fecha_fin_dt))
+    
+    print(f"\n🚀 Iniciando reporte para {sucursal}...")
+    
+    print("\n📡 Paso 1: Obteniendo checadas...")
     checkin_records = fetch_checkins(start_date, end_date, device_filter)
-
     if not checkin_records:
-        print("❌ Error: No se obtuvieron registros de checadas de la API.")
+        print("❌ No se obtuvieron checadas. Saliendo.")
         exit(1)
     
-    # 2. Extraer los códigos de empleados de la API
     codigos_empleados_api = obtener_codigos_empleados_api(checkin_records)
-    print(f"📑 Se obtuvieron {len(codigos_empleados_api)} códigos de empleados únicos de la API.")
     
-    # 2.5. Obtener permisos aprobados de la API para el mismo período
-    print("\n📄 Paso 2.5: Obteniendo permisos aprobados de la API...")
+    print("\n📄 Paso 2: Obteniendo permisos...")
     leave_records = fetch_leave_applications(start_date, end_date)
-    
-    # Procesar permisos por empleado y fecha
     permisos_dict = procesar_permisos_empleados(leave_records)
     
-    # 3. Conectar a PostgreSQL y obtener horarios filtrados por los códigos de la API
-    print("\n📋 Paso 3: Obteniendo horarios programados desde la base de datos...")
+    print("\n📋 Paso 3: Obteniendo horarios...")
     conn_pg = connect_db()
-    
-    if conn_pg is None:
-        print("❌ Error: No se pudo conectar a la base de datos PostgreSQL. Verificar configuración.")
+    if conn_pg is None: exit(1)
+
+    cache_horarios = {}
+    horarios_por_quincena = obtener_horarios_multi_quincena(
+        sucursal, conn_pg, codigos_empleados_api, 
+        incluye_primera=incluye_primera, incluye_segunda=incluye_segunda
+    )
+    if not any(horarios_por_quincena.values()):
+        print(f"❌ No se encontraron horarios para la sucursal {sucursal}.")
+        conn_pg.close()
         exit(1)
     
-    # Debug: Verificar sucursales disponibles
-    try:
-        cursor = conn_pg.cursor()
-        cursor.execute("SELECT sucursal_id, nombre_sucursal FROM Sucursales ORDER BY sucursal_id")
-        sucursales_disponibles = cursor.fetchall()
-        print("\nSucursales disponibles en la base de datos:")
-        for suc in sucursales_disponibles:
-            print(f"ID: {suc[0]}, Nombre: {suc[1]}")
-        cursor.close()
-    except Exception as e:
-        print(f"Error al consultar sucursales: {e}")
-
-    print(f"\nConsultando horarios para sucursal: '{sucursal}', primera quincena: {es_primera_quincena}")
-    print(f"Filtrando por {len(codigos_empleados_api)} códigos frappe de la API")
-    
-    # Obtener horarios programados filtrados por los códigos frappe de la API
-    horarios_programados = obtener_tabla_horarios(sucursal, es_primera_quincena, conn_pg, codigos_empleados_api)
+    cache_horarios = mapear_horarios_por_empleado_multi(horarios_por_quincena)
     conn_pg.close()
     
-    if not horarios_programados:
-        print(f"❌ Error: No se encontraron horarios programados para la sucursal {sucursal} con los códigos de empleados de la API.")
-        print("Códigos de empleados de la API:", codigos_empleados_api[:10], "..." if len(codigos_empleados_api) > 10 else "")
-        exit(1)
-    
-    # Verificar que los horarios corresponden a la sucursal correcta
-    print(f"✅ Se obtuvieron horarios para {len(horarios_programados)} empleados.")
-    if horarios_programados and len(horarios_programados) > 0:
-        print(f"Verificando sucursal de los datos obtenidos: '{horarios_programados[0]['nombre_sucursal']}'")
-        if horarios_programados[0]['nombre_sucursal'] != sucursal:
-            print(f"⚠️ ADVERTENCIA: Se solicitó la sucursal '{sucursal}' pero los datos son de '{horarios_programados[0]['nombre_sucursal']}'")
-    
-    # 4. Mapear los horarios obtenidos por empleado y día usando los códigos frappe
-    print("\n📅 Paso 4: Preparando caché de horarios por empleado y día...")
-    cache_horarios = mapear_horarios_por_empleado(horarios_programados, set(codigos_empleados_api))
-    print(f"✅ Caché de horarios creada para {len(cache_horarios)} empleados.")
-    
-    # Mostrar algunos empleados mapeados para verificación
-    print("\nEmpleados con horarios mapeados:")
-    for i, codigo in enumerate(list(cache_horarios.keys())[:5]):
-        dias_con_horario = len([dia for dia in cache_horarios[codigo] if cache_horarios[codigo][dia]])
-        print(f"  - Código {codigo}: {dias_con_horario} días programados")
-    
-    # 5. Crear el DataFrame base con las checadas
-    print("\n📊 Paso 5: Procesando checadas y creando DataFrame base...")
+    print("\n📊 Paso 4: Procesando datos...")
     df_base = process_checkins_to_dataframe(checkin_records, start_date, end_date)
-    
-    # 6. Procesar los turnos que cruzan la medianoche
-    print("\n🔄 Paso 6: Procesando turnos que cruzan medianoche...")
     df_procesado = procesar_horarios_con_medianoche(df_base, cache_horarios)
-    
-    # 7. Aplicar el análisis de asistencia usando el caché de horarios
-    print("\n📈 Paso 7: Analizando asistencia con horarios programados...")
     df_analizado = analizar_asistencia_con_horarios_cache(df_procesado, cache_horarios)
-    
-    # 8. Ajustar horas esperadas considerando permisos aprobados
-    print("\n🏖️ Paso 8: Ajustando horas esperadas con permisos aprobados...")
     df_con_permisos = ajustar_horas_esperadas_con_permisos(df_analizado, permisos_dict, cache_horarios)
-    
-    # 9. Reclasificar faltas considerando permisos
-    print("\n📋 Paso 9: Reclasificando faltas con permisos...")
     df_final_permisos = clasificar_faltas_con_permisos(df_con_permisos)
 
-    # 10. Organizar y guardar el reporte detallado
-    print("\n💾 Paso 10: Generando reporte detallado...")
-    checado_cols = sorted(
-        [c for c in df_final_permisos.columns if "checado_" in c and c != "checado_1"]
-    )
+    print("\n💾 Paso 5: Generando reportes...")
+    checado_cols = sorted([c for c in df_final_permisos.columns if "checado_" in c and c != "checado_1"])
     column_order = [
-        "employee",
-        "Nombre",
-        "dia",
-        "dia_semana",
-        "hora_entrada_programada",
-        "checado_1",
-        "minutos_tarde",
-        "tipo_retardo",
-        "tipo_falta_ajustada",
-        "tiene_permiso",
-        "tipo_permiso",
-        "falta_justificada",
-        "hora_salida_programada",
-        "cruza_medianoche",
-        "horas_esperadas_originales",
-        "horas_esperadas",
-        "horas_descontadas_permiso",
-        "horas_trabajadas",
-        "retardos_acumulados",
-        "descuento_por_3_retardos",
+        "employee", "Nombre", "dia", "dia_semana", "hora_entrada_programada", "checado_1",
+        "minutos_tarde", "tipo_retardo", "tipo_falta_ajustada", "tiene_permiso", "tipo_permiso",
+        "falta_justificada", "hora_salida_programada", "horas_esperadas", "horas_trabajadas"
     ] + checado_cols
-
     final_columns = [col for col in column_order if col in df_final_permisos.columns]
-    df_final = df_final_permisos[final_columns].fillna("---")
+    df_final_detallado = df_final_permisos[final_columns].fillna("---")
 
     output_filename_detallado = "reporte_asistencia_analizado.csv"
-    
-    # Intentar guardar el archivo, usando un nombre alternativo si hay conflictos
     try:
-        df_final.to_csv(output_filename_detallado, index=False, encoding="utf-8-sig")
-        print(f"\n\n🎉 ¡Reporte detallado finalizado! Los datos se han guardado en '{output_filename_detallado}'")
+        df_final_detallado.to_csv(output_filename_detallado, index=False, encoding="utf-8-sig")
+        print(f"✅ Reporte detallado guardado en '{output_filename_detallado}'")
     except PermissionError:
-        # Si el archivo está abierto, usar un nombre con timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_filename_detallado_alt = f"reporte_asistencia_analizado_{timestamp}.csv"
-        df_final.to_csv(output_filename_detallado_alt, index=False, encoding="utf-8-sig")
-        print(f"\n\n🎉 ¡Reporte detallado finalizado! El archivo original estaba en uso. Los datos se han guardado en '{output_filename_detallado_alt}'")
-        output_filename_detallado = output_filename_detallado_alt
-    print("\n**Visualización de las primeras 15 filas del reporte detallado:**\n")
-    print(df_final.head(15).to_string())
+        print(f"⚠️ No se pudo guardar '{output_filename_detallado}'. El archivo podría estar en uso.")
 
-    # 11. Generar y guardar el reporte de resumen
-    print("\n📋 Paso 11: Generando reporte de resumen...")
-    generar_resumen_periodo(df_final_permisos)
+    df_resumen = generar_resumen_periodo(df_final_permisos)
+    
+    print("\n🌐 Paso 6: Generando dashboard HTML...")
+    if not df_resumen.empty:
+        generar_reporte_html(df_final_permisos, df_resumen, start_date, end_date, sucursal)
+    else:
+        print("⚠️ No se generó el resumen, omitiendo creación de dashboard HTML.")
+
+    print("\n🎉 ¡Proceso completado!")
