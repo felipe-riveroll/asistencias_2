@@ -272,15 +272,20 @@ def obtener_horario_empleado(codigo_frappe, dia_semana, es_primera_quincena, cac
     if codigo_frappe not in cache_horarios:
         return None
     
-    # Detectamos si estamos usando el formato multi-quincena o el formato legacy
-    if es_primera_quincena in cache_horarios[codigo_frappe]:
+    codigo_cache = cache_horarios[codigo_frappe]
+    
+    # Detectar si estamos usando el formato multi-quincena
+    # En el formato multi-quincena, el valor en codigo_cache[True/False] es un dict de días
+    keys_bool = [k for k in codigo_cache.keys() if isinstance(k, bool)]
+    
+    if keys_bool:
         # Formato multi-quincena: cache[codigo][es_primera_quincena][dia_semana]
-        if es_primera_quincena not in cache_horarios[codigo_frappe]:
+        if es_primera_quincena not in codigo_cache:
             return None
-        return cache_horarios[codigo_frappe][es_primera_quincena].get(dia_semana)
+        return codigo_cache[es_primera_quincena].get(dia_semana)
     else:
         # Formato legacy: cache[codigo][dia_semana]
-        return cache_horarios[codigo_frappe].get(dia_semana)
+        return codigo_cache.get(dia_semana)
 
 
 # Función auxiliar para pruebas
