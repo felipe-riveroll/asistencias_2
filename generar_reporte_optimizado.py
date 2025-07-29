@@ -5,11 +5,15 @@ import requests
 import pandas as pd
 from itertools import product
 from datetime import datetime, timedelta
+import pytz
 import re
 from dotenv import load_dotenv
 
 # Importamos la nueva conexión a PostgreSQL
-from db_postgres_connection import connect_db, obtener_tabla_horarios, mapear_horarios_por_empleado, obtener_horario_empleado
+from db_postgres_connection import (
+    connect_db, obtener_tabla_horarios, mapear_horarios_por_empleado, obtener_horario_empleado, 
+    obtener_horarios_multi_quincena, mapear_horarios_por_empleado_multi
+)
 
 # ==============================================================================
 # SECCIÓN 1: CONFIGURACIÓN Y VARIABLES DE ENTORNO
@@ -60,6 +64,17 @@ def fetch_checkins(start_date: str, end_date: str, device_filter: str):
             data = response.json().get("data", [])
             if not data:
                 break
+                
+            # Normalizar la zona horaria de los registros de la API a America/Mexico_City
+            for record in data:
+                # Convertir el string ISO a datetime UTC
+                time_utc = datetime.fromisoformat(record['time'].replace('Z', '+00:00'))
+                # Convertir de UTC a America/Mexico_City
+                mexico_tz = pytz.timezone('America/Mexico_City')
+                time_mexico = time_utc.astimezone(mexico_tz)
+                # Actualizar el valor en el registro
+                record['time'] = time_mexico.isoformat()
+                
             all_records.extend(data)
             if len(data) < page_length:
                 break
@@ -2395,11 +2410,34 @@ if __name__ == "__main__":
     sucursal = "31pte"
     device_filter = "%31%"
     
-    # Determinar si es primera quincena según la fecha de inicio
+    # Determinar qué quincenas incluye el rango de fechas
     fecha_inicio_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    fecha_fin_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    
+    # Verificar si el rango incluye días de la primera quincena (1-15)
+    incluye_primera = False
+    incluye_segunda = False
+    
+    # Crear un rango de fechas entre inicio y fin
+    fecha_actual = fecha_inicio_dt
+    while fecha_actual <= fecha_fin_dt:
+        if fecha_actual.day <= 15:
+            incluye_primera = True
+        else:
+            incluye_segunda = True
+        fecha_actual += timedelta(days=1)
+    
+    # Para compatibilidad con código existente que asume una sola quincena
     es_primera_quincena = fecha_inicio_dt.day <= 15
-
-    print(f"\n🚀 Iniciando generación de reporte para {sucursal} - {'Primera' if es_primera_quincena else 'Segunda'} quincena")
+    
+    # Mensaje informativo sobre el rango de fechas
+    quincenas_msg = []
+    if incluye_primera:
+        quincenas_msg.append("Primera")
+    if incluye_segunda:
+        quincenas_msg.append("Segunda")
+        
+    print(f"\n🚀 Iniciando generación de reporte para {sucursal} - {' y '.join(quincenas_msg)} quincena{'s' if len(quincenas_msg) > 1 else ''}")
     
     # 1. Obtener datos de la API para las checadas primero
     print("\n📡 Paso 1: Obteniendo checadas de la API...")
@@ -2440,29 +2478,84 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error al consultar sucursales: {e}")
 
-    print(f"\nConsultando horarios para sucursal: '{sucursal}', primera quincena: {es_primera_quincena}")
+    print(f"\nConsultando horarios para sucursal: '{sucursal}'")
     print(f"Filtrando por {len(codigos_empleados_api)} códigos frappe de la API")
+    print(f"Rango de fechas: {start_date} a {end_date}")
+    print(f"Quincenas incluidas: {'Primera' if incluye_primera else ''}{' y ' if incluye_primera and incluye_segunda else ''}{'Segunda' if incluye_segunda else ''}")
     
-    # Obtener horarios programados filtrados por los códigos frappe de la API
-    horarios_programados = obtener_tabla_horarios(sucursal, es_primera_quincena, conn_pg, codigos_empleados_api)
+    # Obtener horarios programados según las quincenas incluidas
+    cache_horarios = {}
+    
+    if incluye_primera and incluye_segunda:
+        # Caso multi-quincena: obtener y mapear horarios de ambas quincenas
+        print("🔄 Obteniendo horarios para ambas quincenas...")
+        horarios_por_quincena = obtener_horarios_multi_quincena(
+            sucursal, conn_pg, codigos_empleados_api, 
+            incluye_primera=incluye_primera, 
+            incluye_segunda=incluye_segunda
+        )
+        
+        # Verificar si se obtuvieron datos
+        quincenas_con_datos = []
+        for quincena, datos in horarios_por_quincena.items():
+            if datos:
+                quincenas_con_datos.append("Primera" if quincena else "Segunda")
+        
+        if not quincenas_con_datos:
+            print(f"❌ Error: No se encontraron horarios programados para la sucursal {sucursal} en ninguna quincena.")
+            print("Códigos de empleados de la API:", codigos_empleados_api[:10], "..." if len(codigos_empleados_api) > 10 else "")
+            conn_pg.close()
+            exit(1)
+            
+        print(f"✅ Se obtuvieron horarios para quincenas: {', '.join(quincenas_con_datos)}")
+        
+        # Verificar que los horarios corresponden a la sucursal correcta
+        for quincena, datos in horarios_por_quincena.items():
+            if datos and len(datos) > 0:
+                print(f"Verificando sucursal de los datos obtenidos para {'primera' if quincena else 'segunda'} quincena: '{datos[0]['nombre_sucursal']}'")
+                if datos[0]['nombre_sucursal'] != sucursal:
+                    print(f"⚠️ ADVERTENCIA: Se solicitó la sucursal '{sucursal}' pero los datos son de '{datos[0]['nombre_sucursal']}'")
+        
+        # 4. Mapear los horarios multi-quincena
+        print("\n📅 Paso 4: Preparando caché de horarios multi-quincena...")
+        cache_horarios = mapear_horarios_por_empleado_multi(horarios_por_quincena)
+        print(f"✅ Caché de horarios multi-quincena creada para {len(cache_horarios)} empleados.")
+    else:
+        # Caso quincena única: mantener compatibilidad con flujo existente
+        print(f"🔄 Obteniendo horarios para {'primera' if incluye_primera else 'segunda'} quincena...")
+        horarios_programados = obtener_tabla_horarios(
+            sucursal,
+            incluye_primera,  # equivale a es_primera_quincena
+            conn_pg,
+            codigos_empleados_api
+        )
+        
+        if not horarios_programados:
+            print(f"❌ Error: No se encontraron horarios programados para la sucursal {sucursal} con los códigos de empleados de la API.")
+            print("Códigos de empleados de la API:", codigos_empleados_api[:10], "..." if len(codigos_empleados_api) > 10 else "")
+            conn_pg.close()
+            exit(1)
+        
+        # Verificar que los horarios corresponden a la sucursal correcta
+        print(f"✅ Se obtuvieron horarios para {len(horarios_programados)} empleados.")
+        if horarios_programados and len(horarios_programados) > 0:
+            print(f"Verificando sucursal de los datos obtenidos: '{horarios_programados[0]['nombre_sucursal']}'")
+            if horarios_programados[0]['nombre_sucursal'] != sucursal:
+                print(f"⚠️ ADVERTENCIA: Se solicitó la sucursal '{sucursal}' pero los datos son de '{horarios_programados[0]['nombre_sucursal']}'")
+        
+        # 4. Convertir el formato tradicional a formato multi-quincena
+        print("\n📅 Paso 4: Preparando caché de horarios en formato compatible...")
+        # Mapear horarios tradicionales primero
+        horarios_tradicionales = mapear_horarios_por_empleado(horarios_programados, set(codigos_empleados_api))
+        
+        # Convertir a formato multi-quincena para compatibilidad
+        quincena_bool = incluye_primera  # True si es primera, False si es segunda
+        for codigo, horarios_dias in horarios_tradicionales.items():
+            cache_horarios[codigo] = {quincena_bool: horarios_dias}
+            
+        print(f"✅ Caché de horarios creada para {len(cache_horarios)} empleados en formato compatible.")
+    
     conn_pg.close()
-    
-    if not horarios_programados:
-        print(f"❌ Error: No se encontraron horarios programados para la sucursal {sucursal} con los códigos de empleados de la API.")
-        print("Códigos de empleados de la API:", codigos_empleados_api[:10], "..." if len(codigos_empleados_api) > 10 else "")
-        exit(1)
-    
-    # Verificar que los horarios corresponden a la sucursal correcta
-    print(f"✅ Se obtuvieron horarios para {len(horarios_programados)} empleados.")
-    if horarios_programados and len(horarios_programados) > 0:
-        print(f"Verificando sucursal de los datos obtenidos: '{horarios_programados[0]['nombre_sucursal']}'")
-        if horarios_programados[0]['nombre_sucursal'] != sucursal:
-            print(f"⚠️ ADVERTENCIA: Se solicitó la sucursal '{sucursal}' pero los datos son de '{horarios_programados[0]['nombre_sucursal']}'")
-    
-    # 4. Mapear los horarios obtenidos por empleado y día usando los códigos frappe
-    print("\n📅 Paso 4: Preparando caché de horarios por empleado y día...")
-    cache_horarios = mapear_horarios_por_empleado(horarios_programados, set(codigos_empleados_api))
-    print(f"✅ Caché de horarios creada para {len(cache_horarios)} empleados.")
     
     # Mostrar algunos empleados mapeados para verificación
     print("\nEmpleados con horarios mapeados:")
