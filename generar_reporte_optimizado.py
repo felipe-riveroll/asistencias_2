@@ -45,6 +45,9 @@ POLITICA_PERMISOS = {
     # "permiso médico": "prorratear",
 }
 
+# Configuración para regla de perdón de retardos
+PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA = False
+
 
 def _strip_accents(text):
     """Helper function to remove accents from a string."""
@@ -691,6 +694,93 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
     return df
 
 
+def aplicar_regla_perdon_retardos(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Aplica la regla de perdón de retardos cuando un empleado cumple con las horas de su turno.
+    
+    Si un empleado trabajó las horas correspondientes de su turno o más, ese día NO debe 
+    contarse como retardo, incluso si llegó tarde.
+    """
+    if df.empty:
+        return df
+
+    print("🔄 Aplicando regla de perdón de retardos por cumplimiento de horas...")
+
+    # Convertir horas_trabajadas y horas_esperadas a Timedelta
+    def safe_timedelta(time_str):
+        if pd.isna(time_str) or time_str in ["00:00:00", "---", None]:
+            return pd.Timedelta(0)
+        try:
+            return pd.to_timedelta(time_str)
+        except (ValueError, TypeError):
+            return pd.Timedelta(0)
+
+    df["horas_trabajadas_td"] = df["horas_trabajadas"].apply(safe_timedelta)
+    df["horas_esperadas_td"] = df["horas_esperadas"].apply(safe_timedelta)
+    
+    # Calcular si cumplió las horas del turno
+    df["cumplio_horas_turno"] = df["horas_trabajadas_td"] >= df["horas_esperadas_td"]
+    
+    # Guardar valores originales antes de aplicar perdón
+    df["tipo_retardo_original"] = df["tipo_retardo"].copy()
+    df["minutos_tarde_original"] = df["minutos_tarde"].copy()
+    df["retardo_perdonado"] = False
+    
+    # Aplicar perdón a retardos
+    mask_retardo_perdonable = (
+        (df["tipo_retardo"] == "Retardo") & 
+        (df["cumplio_horas_turno"] == True)
+    )
+    
+    if mask_retardo_perdonable.any():
+        df.loc[mask_retardo_perdonable, "retardo_perdonado"] = True
+        df.loc[mask_retardo_perdonable, "tipo_retardo"] = "A Tiempo (Cumplió Horas)"
+        df.loc[mask_retardo_perdonable, "minutos_tarde"] = 0
+        retardos_perdonados = mask_retardo_perdonable.sum()
+        print(f"   - {retardos_perdonados} retardos perdonados por cumplir horas")
+    
+    # Aplicar perdón a faltas injustificadas (opcional)
+    if PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA:
+        mask_falta_perdonable = (
+            (df["tipo_retardo"] == "Falta Injustificada") & 
+            (df["cumplio_horas_turno"] == True)
+        )
+        
+        if mask_falta_perdonable.any():
+            df.loc[mask_falta_perdonable, "retardo_perdonado"] = True
+            df.loc[mask_falta_perdonable, "tipo_retardo"] = "A Tiempo (Cumplió Horas)"
+            df.loc[mask_falta_perdonable, "minutos_tarde"] = 0
+            faltas_perdonadas = mask_falta_perdonable.sum()
+            print(f"   - {faltas_perdonadas} faltas injustificadas perdonadas por cumplir horas")
+    
+    # Recalcular columnas derivadas
+    df["es_retardo_acumulable"] = (df["tipo_retardo"] == "Retardo").astype(int)
+    df["es_falta"] = (df["tipo_retardo"].isin(["Falta", "Falta Injustificada"])).astype(int)
+    
+    # Recalcular retardos acumulados por empleado
+    df["retardos_acumulados"] = df.groupby("employee")["es_retardo_acumulable"].cumsum()
+    
+    # Recalcular descuento por 3 retardos
+    df["descuento_por_3_retardos"] = df.apply(
+        lambda row: (
+            "Sí (3er retardo)"
+            if row["es_retardo_acumulable"]
+            and row["retardos_acumulados"] > 0
+            and row["retardos_acumulados"] % 3 == 0
+            else "No"
+        ),
+        axis=1,
+    )
+    
+    total_perdonados = df["retardo_perdonado"].sum()
+    if total_perdonados > 0:
+        print(f"✅ Se aplicó perdón a {total_perdonados} días por cumplimiento de horas")
+    else:
+        print("✅ No se encontraron días elegibles para perdón")
+    
+    return df
+
+
 # ==============================================================================
 # SECCIÓN 4: FUNCIÓN PARA GENERAR RESUMEN
 # ==============================================================================
@@ -1324,7 +1414,8 @@ if __name__ == "__main__":
     df_con_permisos = ajustar_horas_esperadas_con_permisos(
         df_analizado, permisos_dict, cache_horarios
     )
-    df_final_permisos = clasificar_faltas_con_permisos(df_con_permisos)
+    df_con_perdon = aplicar_regla_perdon_retardos(df_con_permisos)
+    df_final_permisos = clasificar_faltas_con_permisos(df_con_perdon)
 
     print("\n💾 Paso 5: Generando reportes...")
     checado_cols = sorted(
@@ -1339,6 +1430,9 @@ if __name__ == "__main__":
         "checado_1",
         "minutos_tarde",
         "tipo_retardo",
+        "retardo_perdonado",
+        "tipo_retardo_original",
+        "minutos_tarde_original",
         "tipo_falta_ajustada",
         "tiene_permiso",
         "tipo_permiso",
