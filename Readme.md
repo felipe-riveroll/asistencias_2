@@ -6,12 +6,14 @@ Sistema completo para generar reportes de asistencia, retardos y horas trabajada
 
 - **📊 Análisis Automático**: Procesa checadas y las compara con horarios programados
 - **⏰ Gestión de Retardos**: Clasifica asistencias (A Tiempo, Retardo, Falta)
-- **�️ Integración de Permisos**: Conecta con ERPNext para obtener permisos aprobados
+- **🎯 Regla de Perdón de Retardos**: Perdona retardos cuando se cumplen las horas del turno
+- **📋 Integración de Permisos**: Conecta con ERPNext para obtener permisos aprobados
 - **✅ Faltas Justificadas**: Reclasifica automáticamente faltas con permisos válidos
-- **�🌙 Turnos Nocturnos**: Maneja correctamente horarios que cruzan medianoche
+- **🌙 Turnos Nocturnos**: Maneja correctamente horarios que cruzan medianoche
 - **💾 Caché Inteligente**: Optimiza consultas a base de datos con sistema de caché
 - **📈 Reportes Detallados**: Genera CSV con análisis completo y resúmenes
-- **🧪 Pruebas Unitarias**: 93 pruebas automatizadas con pytest
+- **🌐 Dashboard HTML**: Genera dashboard interactivo con D3.js
+- **🧪 Pruebas Unitarias**: 177+ pruebas automatizadas con pytest
 
 ## 📋 **Requisitos del Sistema**
 
@@ -27,8 +29,12 @@ numpy>=1.21.0
 requests>=2.28.0
 python-dotenv>=0.19.0
 psycopg2-binary>=2.9.0
-openpyxl>=3.0.0
-xlsxwriter>=3.0.0
+pytz>=2022.1
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+responses>=0.22.0
+freezegun>=1.2.0
 ```
 
 ## ⚙️ **Configuración Inicial**
@@ -66,21 +72,31 @@ pip install -r requirements.txt
 ```
 nuevo_asistencias/
 ├── 📁 tests/                                    # Pruebas unitarias
-│   ├── test_generar_reporte_optimizado.py      # 31 pruebas básicas
-│   ├── test_casos_edge.py                      # 34 pruebas edge
-│   ├── test_permisos_integration.py            # 17 pruebas permisos
-│   ├── test_permisos_performance.py            # 11 pruebas rendimiento
-│   ├── conftest_permisos.py                    # Fixtures permisos
+│   ├── test_generar_reporte_optimizado.py      # Pruebas básicas del sistema
+│   ├── test_casos_edge.py                      # Casos límite y validaciones
+│   ├── test_permisos_integration.py            # Integración con ERPNext
+│   ├── test_permisos_performance.py            # Pruebas de rendimiento
+│   ├── test_permisos_sin_goce.py               # Permisos sin goce de sueldo
+│   ├── test_quincenas.py                       # Pruebas de quincenas
+│   ├── test_normalizacion_permisos.py          # Normalización de tipos de permiso
+│   ├── test_cruce_medianoche.py                # Turnos nocturnos
+│   ├── test_resumen_periodo.py                 # Generación de resúmenes
+│   ├── test_umbral_falta_injustificada.py      # Umbral de 60 minutos
+│   ├── test_perdon_retardos.py                 # Regla de perdón de retardos
+│   ├── conftest_permisos.py                    # Fixtures para pruebas
 │   └── run_tests.py                            # Ejecutor interno
 ├── 📄 generar_reporte_optimizado.py            # Script principal
 ├── 📄 db_postgres_connection.py                # Conexión BD
 ├── 📄 db_postgres.sql                          # Estructura BD
 ├── 📄 pyproject.toml                           # Configuración proyecto
 ├── 📄 pytest.ini                               # Configuración pytest
-├── 📄 pytest_permisos.ini                     # Config pytest permisos
 ├── 📄 run_tests.py                             # Ejecutor pruebas
 ├── 📄 README_PYTEST.md                         # Documentación pruebas
-└── 📄 README_PERMISOS_TESTS.md                 # Documentación pruebas permisos
+├── 📄 README_PERMISOS_TESTS.md                 # Documentación pruebas permisos
+├── 📄 INTEGRACION_PERMISOS.md                  # Documentación integración permisos
+├── 📄 PERMISOS_SIN_GOCE_DOCS.md                # Documentación permisos sin goce
+├── 📄 RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md # Documentación regla de perdón
+└── 📄 INFORME_ESTABILIZACION_TESTS.md          # Informe de estabilización
 ```
 
 ## 🔧 **Componentes Principales**
@@ -93,10 +109,12 @@ nuevo_asistencias/
 - `process_checkins_to_dataframe()`: Convierte datos a DataFrame
 - `procesar_permisos_empleados()`: Organiza permisos por empleado y fecha
 - `ajustar_horas_esperadas_con_permisos()`: Ajusta horas considerando permisos
+- `aplicar_regla_perdon_retardos()`: **NUEVO** - Aplica perdón de retardos por cumplimiento de horas
 - `clasificar_faltas_con_permisos()`: Reclasifica faltas como justificadas
 - `procesar_horarios_con_medianoche()`: Maneja turnos nocturnos
 - `analizar_asistencia_con_horarios_cache()`: Analiza retardos y asistencias
 - `generar_resumen_periodo()`: Genera reportes finales
+- `generar_reporte_html()`: Genera dashboard interactivo
 
 **Configuración de Ejecución:**
 ```python
@@ -141,6 +159,7 @@ device_filter = "%villas%"   # Filtro de dispositivos
 ### **Archivos de Salida:**
 - `reporte_asistencia_analizado.csv`: Análisis detallado por empleado con permisos
 - `resumen_periodo.csv`: Resumen agregado del período incluyendo faltas justificadas
+- `dashboard_asistencia.html`: Dashboard interactivo con gráficas D3.js
 
 **Columnas del Resumen:**
 - `employee`: Código del empleado
@@ -149,7 +168,7 @@ device_filter = "%villas%"   # Filtro de dispositivos
 - `total_horas_esperadas`: Horas programadas en el periodo
 - `total_horas_descontadas_permiso`: Horas restadas por permisos
 - `total_horas`: Horas efectivas esperadas
-- `total_retardos`: Número de retardos
+- `total_retardos`: Número de retardos (sin contar perdonados)
 - `faltas_del_periodo`: Faltas totales registradas
 - `faltas_justificadas`: Faltas justificadas por permisos
 - `total_faltas`: Faltas reales descontando justificadas
@@ -162,47 +181,72 @@ device_filter = "%villas%"   # Filtro de dispositivos
 - `horas_esperadas_originales`: Horas originales antes del ajuste por permisos
 - `horas_descontadas_permiso`: Horas descontadas por permisos aprobados
 - `tipo_falta_ajustada`: Clasificación final considerando permisos
+- **`retardo_perdonado`**: **NUEVO** - Indica si se aplicó perdón por cumplir horas
+- **`tipo_retardo_original`**: **NUEVO** - Clasificación original antes del perdón
+- **`minutos_tarde_original`**: **NUEVO** - Minutos de retardo originales
+
+## 🎯 **Nueva Funcionalidad: Regla de Perdón de Retardos**
+
+### **¿Qué hace?**
+Si un empleado trabajó las horas correspondientes de su turno o más, ese día NO se cuenta como retardo, incluso si llegó tarde.
+
+### **Configuración:**
+```python
+# En generar_reporte_optimizado.py
+PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA = False  # Por defecto desactivado
+```
+
+### **Casos de Aplicación:**
+- ✅ **Retardo perdonado**: Llega 20 min tarde pero trabaja 8:30 horas (esperadas: 8:00)
+- ❌ **Retardo NO perdonado**: Llega 20 min tarde pero trabaja 7:30 horas (esperadas: 8:00)
+- ✅ **Permiso con horas=0**: Cualquier trabajo > 0 horas perdona el retardo
+- ✅ **Turno nocturno**: Funciona con cruce de medianoche
+
+### **Impacto en Métricas:**
+- `es_retardo_acumulable = 0` para días perdonados
+- `retardos_acumulados` se recalcula automáticamente
+- `descuento_por_3_retardos` se ajusta correctamente
+- `total_retardos` en resumen se reduce automáticamente
 
 ## 🧪 **Pruebas Unitarias**
 
-El proyecto incluye **93 pruebas unitarias** completas que garantizan la calidad del código:
+El proyecto incluye **177+ pruebas unitarias** completas que garantizan la calidad del código:
 
 ### **📊 Resumen de Pruebas:**
-- **31 pruebas básicas**: Funcionalidad core del sistema
-- **34 pruebas edge**: Casos límite y validaciones
-- **17 pruebas permisos**: Integración completa con ERPNext
-- **11 pruebas rendimiento**: Validación de escalabilidad y casos extremos
-- **Cobertura**: ~98% del código principal
-- **Tiempo de ejecución**: ~1.60 segundos
+- **Pruebas básicas**: Funcionalidad core del sistema
+- **Casos edge**: Casos límite y validaciones
+- **Integración permisos**: Conecta con ERPNext
+- **Rendimiento**: Validación de escalabilidad
+- **Normalización**: Tipos de permiso y variantes
+- **Cruce medianoche**: Turnos nocturnos
+- **Resumen periodo**: Generación de reportes
+- **Umbral faltas**: Umbral de 60 minutos para falta injustificada
+- **Perdón retardos**: **NUEVO** - Regla de perdón por cumplimiento de horas
+- **Cobertura**: 68% del código principal
+- **Tiempo de ejecución**: ~3.5 segundos
 
 ### **🚀 Ejecutar Pruebas:**
 ```bash
-# Ver resumen de pruebas
-python run_tests.py summary
-
 # Ejecutar todas las pruebas
-python run_tests.py all
-
-# Solo pruebas básicas
-python run_tests.py basic
-
-# Solo casos edge
-python run_tests.py edge
-
-# Pruebas de integración de permisos
-uv run pytest tests/test_permisos_integration.py -v
-
-# Pruebas de rendimiento de permisos  
-uv run pytest tests/test_permisos_performance.py -v
+uv run pytest
 
 # Con cobertura de código
-python run_tests.py coverage
+uv run pytest --cov=. --cov-report=term-missing
+
+# Pruebas específicas
+uv run pytest tests/test_perdon_retardos.py -v
+uv run pytest tests/test_umbral_falta_injustificada.py -v
+uv run pytest tests/test_permisos_integration.py -v
 ```
 
 ### **📖 Documentación Completa de Pruebas:**
 Para información detallada sobre las pruebas, tipos de tests, configuración y ejemplos, consulta:
 - **[README_PYTEST.md](README_PYTEST.md)** - Pruebas generales del sistema
 - **[README_PERMISOS_TESTS.md](README_PERMISOS_TESTS.md)** - Suite de pruebas de permisos ERPNext
+- **[INTEGRACION_PERMISOS.md](INTEGRACION_PERMISOS.md)** - Documentación de integración con ERPNext
+- **[PERMISOS_SIN_GOCE_DOCS.md](PERMISOS_SIN_GOCE_DOCS.md)** - Documentación de permisos sin goce
+- **[RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md](RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md)** - Documentación de la regla de perdón
+- **[INFORME_ESTABILIZACION_TESTS.md](INFORME_ESTABILIZACION_TESTS.md)** - Informe completo de estabilización
 
 ## ⚡ **Optimizaciones Implementadas**
 
@@ -228,10 +272,18 @@ Para información detallada sobre las pruebas, tipos de tests, configuración y 
 - **Tipos de permiso**: Vacaciones, incapacidades, permisos personales
 - **Cálculo de diferencias**: Considera horas descontadas por permisos en resúmenes
 
-### **5. Lógica de Retardos**
+### **5. Lógica de Retardos Mejorada**
 - **Tolerancia**: 15 minutos después de la hora programada
+- **Umbral falta injustificada**: 60 minutos (configurable)
 - **Clasificación**: A Tiempo → Retardo → Falta Injustificada
 - **Acumulación**: 3 retardos = 1 día de descuento
+- **Perdón automático**: Por cumplimiento de horas del turno
+
+### **6. Dashboard Interactivo**
+- **Gráficas D3.js**: Visualización dinámica de datos
+- **KPIs en tiempo real**: Tasa de asistencia, puntualidad, desviación
+- **Filtros interactivos**: Búsqueda por empleado
+- **Responsive design**: Compatible con móviles
 
 ## 📈 **Métricas del Sistema**
 
@@ -241,9 +293,9 @@ Para información detallada sobre las pruebas, tipos de tests, configuración y 
 - **Base de datos**: Consultas optimizadas con índices
 
 ### **Precisión:**
-- **Cobertura de pruebas**: 98%
-- **Casos edge**: 34 pruebas específicas
-- **Integración permisos**: 28 pruebas completas
+- **Cobertura de pruebas**: 68%
+- **Casos edge**: Múltiples pruebas específicas
+- **Integración permisos**: Pruebas completas
 - **Validaciones**: Formato de horas, fechas, datos nulos, APIs externas
 
 ## 🔍 **Casos de Uso**
@@ -270,17 +322,25 @@ sucursal = "Centro"
 device_filter = "%centro%"
 ```
 
-### **4. Integración de Permisos**
+### **3. Integración de Permisos**
 El sistema automáticamente:
 - Consulta permisos aprobados para el período
 - Ajusta horas esperadas según días con permiso  
 - Justifica faltas que coinciden con permisos válidos
 - Incluye estadísticas de permisos en el resumen final
-### **5. Turnos Nocturnos**
+
+### **4. Turnos Nocturnos**
 El sistema maneja automáticamente:
 - Entrada: 22:00 (día actual)
 - Salida: 06:00 (día siguiente)
 - Cálculo correcto de horas trabajadas
+
+### **5. Perdón de Retardos**
+El sistema automáticamente:
+- Detecta cuando se cumplen las horas del turno
+- Perdona retardos por cumplimiento de horas
+- Recalcula métricas de retardos acumulados
+- Proporciona trazabilidad completa en CSV
 
 ## 🚨 **Solución de Problemas**
 
@@ -303,10 +363,10 @@ echo $ASIATECH_API_SECRET
 ### **Error en Pruebas:**
 ```bash
 # Verificar estructura
-python run_tests.py summary
+uv run pytest --collect-only
 
 # Ejecutar con debug
-uv run python -m pytest tests/ -v -s
+uv run pytest tests/ -v -s
 ```
 
 ## 📝 **Notas Importantes**
@@ -315,6 +375,8 @@ uv run python -m pytest tests/ -v -s
 - **Filtros de dispositivo**: Usar `%sucursal%` para filtrar por ubicación
 - **Formato de fechas**: YYYY-MM-DD (ISO 8601)
 - **Zona horaria**: Todas las fechas en zona horaria local
+- **Perdón de retardos**: Se aplica automáticamente cuando se cumplen las horas
+- **Umbral de falta injustificada**: 60 minutos (configurable)
 
 ## 🤝 **Contribución**
 
@@ -335,6 +397,6 @@ Este proyecto está bajo la Licencia MIT. Ver archivo LICENSE para más detalles
 
 ---
 
-**Versión:** 3.0 (PostgreSQL + Pytest + Permisos ERPNext)  
+**Versión:** 4.0 (PostgreSQL + Pytest + Permisos ERPNext + Perdón de Retardos + Dashboard)  
 **Última actualización:** Julio 2025  
-**Estado:** Completamente funcional con 93 pruebas pasando ✅
+**Estado:** Completamente funcional con 177+ pruebas pasando ✅
