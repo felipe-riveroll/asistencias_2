@@ -212,40 +212,21 @@ def fetch_leave_applications(start_date: str, end_date: str):
 
     headers = {"Authorization": f"token {API_KEY}:{API_SECRET}"}
 
-    filters = json.dumps(
-        [
-            ["Leave Application", "status", "=", "Approved"],
-            ["Leave Application", "from_date", "<=", end_date],
-            ["Leave Application", "to_date", ">=", start_date],
-        ]
-    )
-
-    params = {
-        "fields": json.dumps(
-            [
-                "employee",
-                "employee_name",
-                "leave_type",
-                "from_date",
-                "to_date",
-                "status",
-                "half_day",
-                "half_day_date",
-            ]
-        ),
-        "filters": filters,
-        "limit_page_length": 100,
-    }
+    # URL actualizada con el campo half_day
+    url = f"https://erp.asiatech.com.mx/api/resource/Leave Application?fields=[\"employee\",\"employee_name\",\"leave_type\",\"from_date\",\"to_date\",\"status\",\"half_day\"]&filters=[[\"status\",\"=\",\"Approved\"],[\"from_date\",\">=\",\"{start_date}\"],[\"to_date\",\"<=\",\"{end_date}\"]]"
 
     all_leave_records = []
     limit_start = 0
+    page_length = 100
 
     while True:
-        params["limit_start"] = limit_start
+        params = {
+            "limit_start": limit_start,
+            "limit_page_length": page_length,
+        }
+        
         try:
-            response = requests.get(
-                LEAVE_API_URL, headers=headers, params=params, timeout=30
-            )
+            response = requests.get(url, headers=headers, params=params, timeout=30)
             response.raise_for_status()
             data = response.json().get("data", [])
 
@@ -254,10 +235,10 @@ def fetch_leave_applications(start_date: str, end_date: str):
 
             all_leave_records.extend(data)
 
-            if len(data) < params["limit_page_length"]:
+            if len(data) < page_length:
                 break
 
-            limit_start += params["limit_page_length"]
+            limit_start += page_length
 
         except requests.exceptions.Timeout:
             print("⚠️ Timeout al obtener permisos. Reintentando...")
@@ -271,8 +252,9 @@ def fetch_leave_applications(start_date: str, end_date: str):
     if all_leave_records:
         print("📋 Ejemplo de permisos obtenidos:")
         for i, leave in enumerate(all_leave_records[:3]):
+            half_day_info = f" (medio día)" if leave.get("half_day") == 1 else ""
             print(
-                f"   - {leave['employee_name']}: {leave['leave_type']} ({leave['from_date']} - {leave['to_date']})"
+                f"   - {leave['employee_name']}: {leave['leave_type']}{half_day_info} ({leave['from_date']} - {leave['to_date']})"
             )
 
     return all_leave_records
@@ -297,6 +279,7 @@ def obtener_codigos_empleados_api(checkin_data):
 def procesar_permisos_empleados(leave_data):
     """
     Procesa los datos de permisos y crea un diccionario organizado por empleado y fecha.
+    Maneja permisos de medio día correctamente.
     """
     if not leave_data:
         return {}
@@ -304,34 +287,56 @@ def procesar_permisos_empleados(leave_data):
     print("🔄 Procesando permisos por empleado y fecha...")
 
     permisos_por_empleado = {}
+    total_dias_permiso = 0
+    permisos_medio_dia = 0
 
     for permiso in leave_data:
         employee_code = permiso["employee"]
         from_date = datetime.strptime(permiso["from_date"], "%Y-%m-%d").date()
         to_date = datetime.strptime(permiso["to_date"], "%Y-%m-%d").date()
+        is_half_day = permiso.get("half_day") == 1
 
         if employee_code not in permisos_por_empleado:
             permisos_por_empleado[employee_code] = {}
 
-        current_date = from_date
-        while current_date <= to_date:
+        # Si es un permiso de medio día, solo procesar la fecha específica
+        if is_half_day:
             leave_type_normalized = normalize_leave_type(permiso["leave_type"])
-
-            permisos_por_empleado[employee_code][current_date] = {
+            
+            permisos_por_empleado[employee_code][from_date] = {
                 "leave_type": permiso["leave_type"],
                 "leave_type_normalized": leave_type_normalized,
                 "employee_name": permiso["employee_name"],
                 "from_date": from_date,
                 "to_date": to_date,
                 "status": permiso["status"],
+                "is_half_day": True,
+                "dias_permiso": 0.5,  # Medio día
             }
-            current_date += timedelta(days=1)
+            total_dias_permiso += 0.5
+            permisos_medio_dia += 1
+        else:
+            # Permiso de día completo - procesar todo el rango de fechas
+            current_date = from_date
+            while current_date <= to_date:
+                leave_type_normalized = normalize_leave_type(permiso["leave_type"])
 
-    total_dias_con_permiso = sum(
-        len(fechas) for fechas in permisos_por_empleado.values()
-    )
+                permisos_por_empleado[employee_code][current_date] = {
+                    "leave_type": permiso["leave_type"],
+                    "leave_type_normalized": leave_type_normalized,
+                    "employee_name": permiso["employee_name"],
+                    "from_date": from_date,
+                    "to_date": to_date,
+                    "status": permiso["status"],
+                    "is_half_day": False,
+                    "dias_permiso": 1.0,  # Día completo
+                }
+                current_date += timedelta(days=1)
+                total_dias_permiso += 1.0
+
     print(
-        f"✅ Procesados permisos para {len(permisos_por_empleado)} empleados, {total_dias_con_permiso} días con permiso total."
+        f"✅ Procesados permisos para {len(permisos_por_empleado)} empleados, "
+        f"{total_dias_permiso:.1f} días de permiso total ({permisos_medio_dia} permisos de medio día)."
     )
 
     return permisos_por_empleado
@@ -340,6 +345,7 @@ def procesar_permisos_empleados(leave_data):
 def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
     """
     Ajusta las horas esperadas del DataFrame considerando los permisos aprobados.
+    Maneja permisos de medio día correctamente.
     """
     if df.empty:
         return df
@@ -349,11 +355,13 @@ def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
     df["tiene_permiso"] = False
     df["tipo_permiso"] = None
     df["es_permiso_sin_goce"] = False
+    df["es_permiso_medio_dia"] = False
     df["horas_esperadas_originales"] = df["horas_esperadas"].copy()
     df["horas_descontadas_permiso"] = "00:00:00"
 
     permisos_con_descuento = 0
     permisos_sin_goce = 0
+    permisos_medio_dia = 0
 
     for index, row in df.iterrows():
         employee_code = str(row["employee"])
@@ -363,9 +371,11 @@ def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
 
             permiso_info = permisos_dict[employee_code][fecha]
             leave_type_normalized = permiso_info.get("leave_type_normalized", "")
+            is_half_day = permiso_info.get("is_half_day", False)
 
             df.at[index, "tiene_permiso"] = True
             df.at[index, "tipo_permiso"] = permiso_info["leave_type"]
+            df.at[index, "es_permiso_medio_dia"] = is_half_day
 
             accion = POLITICA_PERMISOS.get(leave_type_normalized, "ajustar_a_cero")
 
@@ -376,9 +386,33 @@ def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
                     df.at[index, "es_permiso_sin_goce"] = True
                     permisos_sin_goce += 1
                 elif accion == "ajustar_a_cero":
-                    df.at[index, "horas_esperadas"] = "00:00:00"
-                    df.at[index, "horas_descontadas_permiso"] = horas_esperadas_orig
-                    permisos_con_descuento += 1
+                    if is_half_day:
+                        # Para permisos de medio día, descontar solo la mitad de las horas
+                        try:
+                            # Convertir horas esperadas a timedelta
+                            horas_td = pd.to_timedelta(horas_esperadas_orig)
+                            # Calcular la mitad
+                            mitad_horas = horas_td / 2
+                            # Convertir de vuelta a string
+                            mitad_horas_str = str(mitad_horas).split()[-1]  # Obtener solo HH:MM:SS
+                            
+                            # Ajustar horas esperadas (restar la mitad)
+                            horas_ajustadas = horas_td - mitad_horas
+                            horas_ajustadas_str = str(horas_ajustadas).split()[-1]
+                            
+                            df.at[index, "horas_esperadas"] = horas_ajustadas_str
+                            df.at[index, "horas_descontadas_permiso"] = mitad_horas_str
+                            permisos_medio_dia += 1
+                        except (ValueError, TypeError):
+                            # Si hay error en el cálculo, tratar como día completo
+                            df.at[index, "horas_esperadas"] = "00:00:00"
+                            df.at[index, "horas_descontadas_permiso"] = horas_esperadas_orig
+                            permisos_con_descuento += 1
+                    else:
+                        # Permiso de día completo
+                        df.at[index, "horas_esperadas"] = "00:00:00"
+                        df.at[index, "horas_descontadas_permiso"] = horas_esperadas_orig
+                        permisos_con_descuento += 1
 
     empleados_con_permisos = df[df["tiene_permiso"]]["employee"].nunique()
     dias_con_permisos = df["tiene_permiso"].sum()
@@ -386,7 +420,8 @@ def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
     print("✅ Ajuste completado:")
     print(f"   - {empleados_con_permisos} empleados con permisos")
     print(f"   - {dias_con_permisos} días con permisos")
-    print(f"   - {permisos_con_descuento} permisos con horas descontadas")
+    print(f"   - {permisos_con_descuento} permisos con horas descontadas (día completo)")
+    print(f"   - {permisos_medio_dia} permisos de medio día")
     print(f"   - {permisos_sin_goce} permisos sin goce (sin descuento)")
 
     return df
@@ -1536,6 +1571,7 @@ if __name__ == "__main__":
         "tipo_falta_ajustada",
         "tiene_permiso",
         "tipo_permiso",
+        "es_permiso_medio_dia",
         "falta_justificada",
         "hora_salida_programada",
         "salida_anticipada",
