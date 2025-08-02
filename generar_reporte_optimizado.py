@@ -1102,6 +1102,7 @@ def generar_reporte_html(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Ejecutivo de Asistencia - {sucursal}</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.dataTables.min.css">
     <style>
         body {{ font-family: 'Segoe UI', system-ui, sans-serif; background: #f8f9fa; color: #212529; }}
         .header {{ background: white; padding: 2rem; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 2rem; border-bottom: 3px solid #0066cc; }}
@@ -1187,17 +1188,28 @@ def generar_reporte_html(
         <div id="employee-table" class="tab-content">
             <div class="table-section">
                 <div class="chart-title">Análisis Individual</div>
-                 <div class="controls">
-                    <input type="text" id="searchInput" placeholder="Buscar empleado..." onkeyup="filterTable()" style="padding: 10px; width: 300px;">
-                </div>
-                <table class="employee-table">
-                    <thead><tr><th>ID</th><th>Empleado</th><th>Hrs. Trabajadas</th><th>Hrs. Planificadas</th><th>Variación</th><th>Retardos</th><th>Ausencias</th></tr></thead>
-                    <tbody id="tableBody"></tbody>
+                <table id="tablaDetalleEmpleado" class="employee-table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Empleado</th>
+                            <th>Hrs. Trabajadas</th>
+                            <th>Hrs. Planificadas</th>
+                            <th>Variación</th>
+                            <th>Retardos</th>
+                            <th>Ausencias</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
                 </table>
             </div>
         </div>
     </div>
     <div class="tooltip"></div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/2.3.2/js/dataTables.min.js"></script>
 
     <script>
         const employeeData = {employee_json};
@@ -1354,29 +1366,7 @@ def generar_reporte_html(
         }}
 
         // --- TABLA ---
-        function renderTable(data) {{
-            const tableBody = document.getElementById('tableBody');
-            tableBody.innerHTML = data.map(emp => `
-                <tr>
-                    <td>${{emp.employee}}</td>
-                    <td>${{emp.name}}</td>
-                    <td>${{emp.workedHours}}</td>
-                    <td>${{emp.netHours}}</td>
-                    <td class="${{emp.difference.startsWith('+') ? 'positive' : 'negative'}}">${{emp.difference}}</td>
-                    <td>${{emp.delays}}</td>
-                    <td>${{emp.totalAbsences}}</td>
-                </tr>
-            `).join('');
-        }}
-
-        function filterTable() {{
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const filteredData = employeeData.filter(e => 
-                e.name.toLowerCase().includes(searchTerm) || 
-                e.employee.toLowerCase().includes(searchTerm)
-            );
-            renderTable(filteredData);
-        }}
+        // Las funciones renderTable y filterTable han sido reemplazadas por DataTables
 
         // --- INICIALIZACIÓN ---
         document.addEventListener('DOMContentLoaded', () => {{
@@ -1384,7 +1374,34 @@ def generar_reporte_html(
             createDailyTrendChart();
             createEfficiencyChart();
             createAbsenceImpactChart();
-            renderTable(employeeData);
+            
+            // Inicializar DataTables para la tabla de empleados
+            $('#tablaDetalleEmpleado').DataTable({{
+                data: employeeData,
+                columns: [
+                    {{ data: 'employee' }},
+                    {{ data: 'name' }},
+                    {{ data: 'workedHours' }},
+                    {{ data: 'netHours' }},
+                    {{
+                        data: 'difference',
+                        createdCell: function (td, cellData, rowData, row, col) {{
+                            if (cellData.startsWith('+')) {{
+                                $(td).addClass('positive');
+                            }} else if (cellData.startsWith('-')) {{
+                                $(td).addClass('negative');
+                            }}
+                        }}
+                    }},
+                    {{ data: 'delays' }},
+                    {{ data: 'totalAbsences' }}
+                ],
+                language: {{
+                    url: '//cdn.datatables.net/plug-ins/2.0.3/i18n/es-MX.json',
+                }},
+                pageLength: 10,
+                responsive: true
+            }});
             
             window.addEventListener('resize', () => {{
                 createDailyTrendChart();
