@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Ejecutivo de Asistencia - 31pte</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.3.2/css/dataTables.dataTables.min.css">
     <style>
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f8f9fa; color: #212529; }
         .header { background: white; padding: 2rem; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 2rem; border-bottom: 3px solid #0066cc; }
@@ -90,17 +91,28 @@
         <div id="employee-table" class="tab-content">
             <div class="table-section">
                 <div class="chart-title">Análisis Individual</div>
-                 <div class="controls">
-                    <input type="text" id="searchInput" placeholder="Buscar empleado..." onkeyup="filterTable()" style="padding: 10px; width: 300px;">
-                </div>
-                <table class="employee-table">
-                    <thead><tr><th>ID</th><th>Empleado</th><th>Hrs. Trabajadas</th><th>Hrs. Planificadas</th><th>Variación</th><th>Retardos</th><th>Ausencias</th></tr></thead>
-                    <tbody id="tableBody"></tbody>
+                <table id="tablaDetalleEmpleado" class="employee-table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Empleado</th>
+                            <th>Hrs. Trabajadas</th>
+                            <th>Hrs. Planificadas</th>
+                            <th>Variación</th>
+                            <th>Retardos</th>
+                            <th>Ausencias</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
                 </table>
             </div>
         </div>
     </div>
     <div class="tooltip"></div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/2.3.2/js/dataTables.min.js"></script>
 
     <script>
         const employeeData = [{"employee": "1", "name": "Beatriz Pérez Reyes", "workedHours": "191:05:43", "expectedHours": "207:00:00", "permitHours": "18:00:00", "netHours": "189:00:00", "delays": 0, "absences": 1, "justifiedAbsences": 2, "totalAbsences": 1, "difference": "+02:05:43", "workedDecimal": 191.0952777777778, "expectedDecimal": 207.0, "expectedDecimalAdjusted": 189.0, "permitDecimal": 18.0}, {"employee": "10", "name": "Jose Juan Guillermo Avila Chavez", "workedHours": "130:11:57", "expectedHours": "126:00:00", "permitHours": "00:00:00", "netHours": "126:00:00", "delays": 0, "absences": 2, "justifiedAbsences": 0, "totalAbsences": 2, "difference": "+04:11:57", "workedDecimal": 130.19916666666668, "expectedDecimal": 126.0, "expectedDecimalAdjusted": 126.0, "permitDecimal": 0.0}, {"employee": "12", "name": "Esmeralda Hernández Lara", "workedHours": "171:16:11", "expectedHours": "184:00:00", "permitHours": "00:00:00", "netHours": "184:00:00", "delays": 0, "absences": 0, "justifiedAbsences": 0, "totalAbsences": 0, "difference": "-12:43:49", "workedDecimal": 171.26972222222224, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 184.0, "permitDecimal": 0.0}, {"employee": "13", "name": "José Omar Villalva Pastrana", "workedHours": "168:18:55", "expectedHours": "184:00:00", "permitHours": "08:00:00", "netHours": "176:00:00", "delays": 4, "absences": 1, "justifiedAbsences": 1, "totalAbsences": 1, "difference": "-07:41:05", "workedDecimal": 168.3152777777778, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 176.0, "permitDecimal": 8.0}, {"employee": "14", "name": "Ivanna Reyes Santamaria", "workedHours": "147:40:48", "expectedHours": "184:00:00", "permitHours": "24:00:00", "netHours": "160:00:00", "delays": 0, "absences": 1, "justifiedAbsences": 3, "totalAbsences": 1, "difference": "-12:19:12", "workedDecimal": 147.67999999999998, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 160.0, "permitDecimal": 24.0}, {"employee": "16", "name": "Odalys Castillo Santamaría", "workedHours": "163:15:07", "expectedHours": "184:00:00", "permitHours": "08:00:00", "netHours": "176:00:00", "delays": 4, "absences": 0, "justifiedAbsences": 1, "totalAbsences": 0, "difference": "-12:44:53", "workedDecimal": 163.25194444444443, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 176.0, "permitDecimal": 8.0}, {"employee": "17", "name": "Rodrigo Cabrera Márquez", "workedHours": "172:03:20", "expectedHours": "184:00:00", "permitHours": "00:00:00", "netHours": "184:00:00", "delays": 0, "absences": 1, "justifiedAbsences": 0, "totalAbsences": 1, "difference": "-11:56:40", "workedDecimal": 172.05555555555557, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 184.0, "permitDecimal": 0.0}, {"employee": "2", "name": "Rocío Eufracia García Zamudio", "workedHours": "54:22:38", "expectedHours": "100:00:00", "permitHours": "50:00:00", "netHours": "50:00:00", "delays": 0, "absences": 0, "justifiedAbsences": 7, "totalAbsences": 0, "difference": "+04:22:38", "workedDecimal": 54.37722222222222, "expectedDecimal": 100.0, "expectedDecimalAdjusted": 50.0, "permitDecimal": 50.0}, {"employee": "25", "name": "Karla Ivette Chimal Moreno", "workedHours": "171:20:33", "expectedHours": "184:00:00", "permitHours": "08:00:00", "netHours": "176:00:00", "delays": 0, "absences": 0, "justifiedAbsences": 1, "totalAbsences": 0, "difference": "-04:39:27", "workedDecimal": 171.3425, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 176.0, "permitDecimal": 8.0}, {"employee": "26", "name": "Tanya Maribel Morales Hernandez", "workedHours": "177:21:40", "expectedHours": "184:00:00", "permitHours": "00:00:00", "netHours": "184:00:00", "delays": 1, "absences": 0, "justifiedAbsences": 0, "totalAbsences": 0, "difference": "-06:38:20", "workedDecimal": 177.36111111111111, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 184.0, "permitDecimal": 0.0}, {"employee": "27", "name": "Erick Tadeo Ortega Melendez", "workedHours": "175:44:18", "expectedHours": "184:00:00", "permitHours": "08:00:00", "netHours": "176:00:00", "delays": 1, "absences": 1, "justifiedAbsences": 0, "totalAbsences": 1, "difference": "-00:15:42", "workedDecimal": 175.73833333333332, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 176.0, "permitDecimal": 8.0}, {"employee": "28", "name": "Daniela Zarate Castillo", "workedHours": "158:20:46", "expectedHours": "184:00:00", "permitHours": "16:00:00", "netHours": "168:00:00", "delays": 3, "absences": 2, "justifiedAbsences": 1, "totalAbsences": 2, "difference": "-09:39:14", "workedDecimal": 158.34611111111113, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 168.0, "permitDecimal": 16.0}, {"employee": "4", "name": "Antonio Rojas", "workedHours": "19:55:52", "expectedHours": "00:00:00", "permitHours": "00:00:00", "netHours": "00:00:00", "delays": 0, "absences": 0, "justifiedAbsences": 0, "totalAbsences": 0, "difference": "+19:55:52", "workedDecimal": 19.93111111111111, "expectedDecimal": 0.0, "expectedDecimalAdjusted": 0.0, "permitDecimal": 0.0}, {"employee": "46", "name": "Mónica Graciela Jiménez López", "workedHours": "144:38:57", "expectedHours": "175:00:00", "permitHours": "00:00:00", "netHours": "175:00:00", "delays": 0, "absences": 3, "justifiedAbsences": 0, "totalAbsences": 3, "difference": "-30:21:03", "workedDecimal": 144.64916666666667, "expectedDecimal": 175.0, "expectedDecimalAdjusted": 175.0, "permitDecimal": 0.0}, {"employee": "47", "name": "Maria Brenda Bautista Zavala", "workedHours": "125:06:12", "expectedHours": "139:00:00", "permitHours": "23:30:00", "netHours": "115:30:00", "delays": 1, "absences": 0, "justifiedAbsences": 5, "totalAbsences": 0, "difference": "+09:36:12", "workedDecimal": 125.10333333333332, "expectedDecimal": 139.0, "expectedDecimalAdjusted": 115.5, "permitDecimal": 23.5}, {"employee": "5", "name": "Marlene Durán Zamudio", "workedHours": "201:53:48", "expectedHours": "207:00:00", "permitHours": "00:00:00", "netHours": "207:00:00", "delays": 0, "absences": 0, "justifiedAbsences": 0, "totalAbsences": 0, "difference": "-05:06:12", "workedDecimal": 201.89666666666665, "expectedDecimal": 207.0, "expectedDecimalAdjusted": 207.0, "permitDecimal": 0.0}, {"employee": "6", "name": "Rebeca Miranda Vergara", "workedHours": "189:12:58", "expectedHours": "207:00:00", "permitHours": "09:00:00", "netHours": "198:00:00", "delays": 10, "absences": 0, "justifiedAbsences": 1, "totalAbsences": 0, "difference": "-08:47:02", "workedDecimal": 189.2161111111111, "expectedDecimal": 207.0, "expectedDecimalAdjusted": 198.0, "permitDecimal": 9.0}, {"employee": "7", "name": "Ana Paola Machorro Buenrostro", "workedHours": "153:07:35", "expectedHours": "184:00:00", "permitHours": "00:00:00", "netHours": "184:00:00", "delays": 0, "absences": 2, "justifiedAbsences": 0, "totalAbsences": 2, "difference": "-30:52:25", "workedDecimal": 153.1263888888889, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 184.0, "permitDecimal": 0.0}, {"employee": "76", "name": "Maximiliano Cuapa Ruiz", "workedHours": "188:16:33", "expectedHours": "184:00:00", "permitHours": "08:00:00", "netHours": "176:00:00", "delays": 0, "absences": 0, "justifiedAbsences": 0, "totalAbsences": 0, "difference": "+12:16:33", "workedDecimal": 188.27583333333334, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 176.0, "permitDecimal": 8.0}, {"employee": "78", "name": "Lizbeth Torres Vazquez", "workedHours": "198:33:17", "expectedHours": "207:00:00", "permitHours": "00:00:00", "netHours": "207:00:00", "delays": 0, "absences": 0, "justifiedAbsences": 0, "totalAbsences": 0, "difference": "-08:26:43", "workedDecimal": 198.55472222222224, "expectedDecimal": 207.0, "expectedDecimalAdjusted": 207.0, "permitDecimal": 0.0}, {"employee": "79", "name": "Juan Jesús Mendoza Muñoz", "workedHours": "207:45:16", "expectedHours": "207:00:00", "permitHours": "00:00:00", "netHours": "207:00:00", "delays": 0, "absences": 1, "justifiedAbsences": 0, "totalAbsences": 1, "difference": "+00:45:16", "workedDecimal": 207.75444444444443, "expectedDecimal": 207.0, "expectedDecimalAdjusted": 207.0, "permitDecimal": 0.0}, {"employee": "8", "name": "Quetzalli López Becerra", "workedHours": "161:42:16", "expectedHours": "184:00:00", "permitHours": "16:00:00", "netHours": "168:00:00", "delays": 0, "absences": 0, "justifiedAbsences": 2, "totalAbsences": 0, "difference": "-06:17:44", "workedDecimal": 161.70444444444442, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 168.0, "permitDecimal": 16.0}, {"employee": "82", "name": "Antonio Alejandro Barbosa Carrillo", "workedHours": "169:18:49", "expectedHours": "184:00:00", "permitHours": "08:00:00", "netHours": "176:00:00", "delays": 7, "absences": 1, "justifiedAbsences": 0, "totalAbsences": 1, "difference": "-06:41:11", "workedDecimal": 169.31361111111113, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 176.0, "permitDecimal": 8.0}, {"employee": "84", "name": "Stephany Morales Hernández", "workedHours": "178:27:54", "expectedHours": "184:00:00", "permitHours": "00:00:00", "netHours": "184:00:00", "delays": 0, "absences": 0, "justifiedAbsences": 0, "totalAbsences": 0, "difference": "-05:32:06", "workedDecimal": 178.46499999999997, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 184.0, "permitDecimal": 0.0}, {"employee": "85", "name": "Brenda Coyotl Tlaxcalteca", "workedHours": "177:17:46", "expectedHours": "184:00:00", "permitHours": "00:00:00", "netHours": "184:00:00", "delays": 0, "absences": 1, "justifiedAbsences": 0, "totalAbsences": 1, "difference": "-06:42:14", "workedDecimal": 177.29611111111112, "expectedDecimal": 184.0, "expectedDecimalAdjusted": 184.0, "permitDecimal": 0.0}, {"employee": "86", "name": "Lorenzo Rojas García", "workedHours": "71:33:39", "expectedHours": "138:00:00", "permitHours": "06:00:00", "netHours": "132:00:00", "delays": 0, "absences": 11, "justifiedAbsences": 1, "totalAbsences": 11, "difference": "-60:26:21", "workedDecimal": 71.56083333333333, "expectedDecimal": 138.0, "expectedDecimalAdjusted": 132.0, "permitDecimal": 6.0}];
@@ -257,29 +269,7 @@
         }
 
         // --- TABLA ---
-        function renderTable(data) {
-            const tableBody = document.getElementById('tableBody');
-            tableBody.innerHTML = data.map(emp => `
-                <tr>
-                    <td>${emp.employee}</td>
-                    <td>${emp.name}</td>
-                    <td>${emp.workedHours}</td>
-                    <td>${emp.netHours}</td>
-                    <td class="${emp.difference.startsWith('+') ? 'positive' : 'negative'}">${emp.difference}</td>
-                    <td>${emp.delays}</td>
-                    <td>${emp.totalAbsences}</td>
-                </tr>
-            `).join('');
-        }
-
-        function filterTable() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const filteredData = employeeData.filter(e => 
-                e.name.toLowerCase().includes(searchTerm) || 
-                e.employee.toLowerCase().includes(searchTerm)
-            );
-            renderTable(filteredData);
-        }
+        // Las funciones renderTable y filterTable han sido reemplazadas por DataTables
 
         // --- INICIALIZACIÓN ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -287,7 +277,34 @@
             createDailyTrendChart();
             createEfficiencyChart();
             createAbsenceImpactChart();
-            renderTable(employeeData);
+            
+            // Inicializar DataTables para la tabla de empleados
+            $('#tablaDetalleEmpleado').DataTable({
+                data: employeeData,
+                columns: [
+                    { data: 'employee' },
+                    { data: 'name' },
+                    { data: 'workedHours' },
+                    { data: 'netHours' },
+                    {
+                        data: 'difference',
+                        createdCell: function (td, cellData, rowData, row, col) {
+                            if (cellData.startsWith('+')) {
+                                $(td).addClass('positive');
+                            } else if (cellData.startsWith('-')) {
+                                $(td).addClass('negative');
+                            }
+                        }
+                    },
+                    { data: 'delays' },
+                    { data: 'totalAbsences' }
+                ],
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/2.0.3/i18n/es-MX.json',
+                },
+                pageLength: 10,
+                responsive: true
+            });
             
             window.addEventListener('resize', () => {
                 createDailyTrendChart();
