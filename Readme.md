@@ -6,13 +6,14 @@ Sistema completo para generar reportes de asistencia, retardos y horas trabajada
 
 - **📊 Análisis Automático**: Procesa checadas y las compara con horarios programados
 - **⏰ Gestión de Retardos**: Clasifica asistencias (A Tiempo, Retardo, Falta)
+- **🚪 Detección de Salidas Anticipadas**: **NUEVO** - Detecta cuando empleados se retiran antes del horario programado
 - **🎯 Regla de Perdón de Retardos**: Perdona retardos cuando se cumplen las horas del turno
 - **📋 Integración de Permisos**: Conecta con ERPNext para obtener permisos aprobados
 - **✅ Faltas Justificadas**: Reclasifica automáticamente faltas con permisos válidos
 - **🌙 Turnos Nocturnos**: Maneja correctamente horarios que cruzan medianoche
 - **💾 Caché Inteligente**: Optimiza consultas a base de datos con sistema de caché
 - **📈 Reportes Detallados**: Genera CSV con análisis completo y resúmenes
-- **🌐 Dashboard HTML**: Genera dashboard interactivo con D3.js
+- **🌐 Dashboard HTML Interactivo**: **MEJORADO** - Dashboard con DataTables.net para tabla profesional
 - **🧪 Pruebas Unitarias**: 177+ pruebas automatizadas con pytest
 
 ## 📋 **Requisitos del Sistema**
@@ -109,12 +110,13 @@ nuevo_asistencias/
 - `process_checkins_to_dataframe()`: Convierte datos a DataFrame
 - `procesar_permisos_empleados()`: Organiza permisos por empleado y fecha
 - `ajustar_horas_esperadas_con_permisos()`: Ajusta horas considerando permisos
-- `aplicar_regla_perdon_retardos()`: **NUEVO** - Aplica perdón de retardos por cumplimiento de horas
+- `aplicar_regla_perdon_retardos()`: Aplica perdón de retardos por cumplimiento de horas
+- `detectar_salida_anticipada()`: **NUEVO** - Detecta salidas anticipadas con tolerancia configurable
 - `clasificar_faltas_con_permisos()`: Reclasifica faltas como justificadas
 - `procesar_horarios_con_medianoche()`: Maneja turnos nocturnos
-- `analizar_asistencia_con_horarios_cache()`: Analiza retardos y asistencias
-- `generar_resumen_periodo()`: Genera reportes finales
-- `generar_reporte_html()`: Genera dashboard interactivo
+- `analizar_asistencia_con_horarios_cache()`: Analiza retardos, asistencias y salidas anticipadas
+- `generar_resumen_periodo()`: Genera reportes finales incluyendo salidas anticipadas
+- `generar_reporte_html()`: **MEJORADO** - Genera dashboard interactivo con DataTables.net
 
 **Configuración de Ejecución:**
 ```python
@@ -172,6 +174,7 @@ device_filter = "%villas%"   # Filtro de dispositivos
 - `faltas_del_periodo`: Faltas totales registradas
 - `faltas_justificadas`: Faltas justificadas por permisos
 - `total_faltas`: Faltas reales descontando justificadas
+- **`total_salidas_anticipadas`**: **NUEVO** - Total de salidas anticipadas en el período
 - `diferencia_HHMMSS`: Diferencia entre horas esperadas y trabajadas
 
 **Nuevas Columnas en el Reporte:**
@@ -181,11 +184,40 @@ device_filter = "%villas%"   # Filtro de dispositivos
 - `horas_esperadas_originales`: Horas originales antes del ajuste por permisos
 - `horas_descontadas_permiso`: Horas descontadas por permisos aprobados
 - `tipo_falta_ajustada`: Clasificación final considerando permisos
-- **`retardo_perdonado`**: **NUEVO** - Indica si se aplicó perdón por cumplir horas
-- **`tipo_retardo_original`**: **NUEVO** - Clasificación original antes del perdón
-- **`minutos_tarde_original`**: **NUEVO** - Minutos de retardo originales
+- **`retardo_perdonado`**: Indica si se aplicó perdón por cumplir horas
+- **`tipo_retardo_original`**: Clasificación original antes del perdón
+- **`minutos_tarde_original`**: Minutos de retardo originales
+- **`salida_anticipada`**: **NUEVO** - Indica si el empleado se retiró antes del horario programado
 
-## 🎯 **Nueva Funcionalidad: Regla de Perdón de Retardos**
+## 🚪 **Nueva Funcionalidad: Detección de Salidas Anticipadas**
+
+### **¿Qué hace?**
+Detecta cuando un empleado se retira antes de que finalice su turno programado, proporcionando un control de asistencia más completo.
+
+### **Configuración:**
+```python
+# En generar_reporte_optimizado.py
+TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS = 15  # Margen de tolerancia
+```
+
+### **Lógica de Detección:**
+- **Compara** la última checada del día con la `hora_salida_programada`
+- **Se considera salida anticipada** si la última checada es anterior a la hora de salida programada menos 15 minutos
+- **Maneja turnos nocturnos** correctamente para horarios que cruzan medianoche
+- **Requiere múltiples checadas** - No se considera salida anticipada si solo hay una checada
+
+### **Casos de Aplicación:**
+- ✅ **Salida anticipada**: Última checada 17:30, salida programada 18:00 (30 min antes)
+- ❌ **Salida normal**: Última checada 17:50, salida programada 18:00 (10 min antes, dentro de tolerancia)
+- ✅ **Turno nocturno**: Entrada 22:00, salida programada 06:00 del día siguiente
+- ❌ **Una sola checada**: No se considera salida anticipada
+
+### **Impacto en Métricas:**
+- `salida_anticipada = True/False` en reporte detallado
+- `total_salidas_anticipadas` en resumen del período
+- Integración completa en CSV y dashboard
+
+## 🎯 **Funcionalidad: Regla de Perdón de Retardos**
 
 ### **¿Qué hace?**
 Si un empleado trabajó las horas correspondientes de su turno o más, ese día NO se cuenta como retardo, incluso si llegó tarde.
@@ -279,11 +311,15 @@ Para información detallada sobre las pruebas, tipos de tests, configuración y 
 - **Acumulación**: 3 retardos = 1 día de descuento
 - **Perdón automático**: Por cumplimiento de horas del turno
 
-### **6. Dashboard Interactivo**
+### **6. Dashboard Interactivo con DataTables.net**
 - **Gráficas D3.js**: Visualización dinámica de datos
+- **Tabla Profesional**: **MEJORADO** - DataTables.net con funcionalidades avanzadas
+- **Búsqueda Inteligente**: Filtrado en tiempo real por empleado o ID
+- **Paginación Automática**: 10 registros por página con navegación
+- **Ordenamiento**: Click en encabezados para ordenar por cualquier columna
+- **Localización**: Interfaz completamente en español
+- **Responsive Design**: Compatible con móviles y tablets
 - **KPIs en tiempo real**: Tasa de asistencia, puntualidad, desviación
-- **Filtros interactivos**: Búsqueda por empleado
-- **Responsive design**: Compatible con móviles
 
 ## 📈 **Métricas del Sistema**
 
@@ -342,6 +378,14 @@ El sistema automáticamente:
 - Recalcula métricas de retardos acumulados
 - Proporciona trazabilidad completa en CSV
 
+### **6. Detección de Salidas Anticipadas**
+El sistema automáticamente:
+- **NUEVO** - Detecta cuando empleados se retiran antes del horario programado
+- Aplica tolerancia configurable (15 minutos por defecto)
+- Maneja correctamente turnos que cruzan medianoche
+- Incluye métricas en reportes detallados y resúmenes
+- Integra con dashboard interactivo para análisis visual
+
 ## 🚨 **Solución de Problemas**
 
 ### **Error de Conexión a BD:**
@@ -397,6 +441,6 @@ Este proyecto está bajo la Licencia MIT. Ver archivo LICENSE para más detalles
 
 ---
 
-**Versión:** 4.0 (PostgreSQL + Pytest + Permisos ERPNext + Perdón de Retardos + Dashboard)  
+**Versión:** 5.0 (PostgreSQL + Pytest + Permisos ERPNext + Perdón de Retardos + Salidas Anticipadas + DataTables.net)  
 **Última actualización:** Julio 2025  
 **Estado:** Completamente funcional con 177+ pruebas pasando ✅
