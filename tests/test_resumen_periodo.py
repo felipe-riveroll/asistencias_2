@@ -60,6 +60,7 @@ class TestResumenPeriodo:
             'horas_descontadas_permiso': ['00:00:00', '08:00:00', '00:00:00', '00:00:00'],
             'es_retardo_acumulable': [0, 0, 0, 0],
             'es_falta_ajustada': [0, 0, 0, 0],
+            'es_falta': [0, 0, 0, 0],
             'falta_justificada': [0, 1, 0, 0],
         })
 
@@ -91,6 +92,7 @@ class TestResumenPeriodo:
             'horas_descontadas_permiso': ['00:00:00', '00:00:00', '00:00:00', '00:00:00', '00:00:00', '00:00:00'],
             'es_retardo_acumulable': [0, 0, 0, 0, 0, 0],
             'es_falta_ajustada': [0, 0, 0, 0, 0, 0],
+            'es_falta': [0, 0, 0, 0, 0, 0],
             'falta_justificada': [0, 0, 0, 0, 0, 0],
         })
 
@@ -123,6 +125,7 @@ class TestResumenPeriodo:
             'horas_trabajadas': ['08:00:00', '08:00:00'],
             'horas_esperadas': ['08:00:00', '08:00:00'],
             'es_retardo_acumulable': [0, 0],
+            'es_falta_ajustada': [0, 0],
             'es_falta': [0, 0],
         })
 
@@ -147,6 +150,7 @@ class TestResumenPeriodo:
             'horas_descontadas_permiso': ['00:00:00', '00:00:00', '00:00:00', '00:00:00', '00:00:00'],
             'es_retardo_acumulable': [0, 0, 1, 0, 0],
             'es_falta_ajustada': [0, 1, 0, 0, 1],
+            'es_falta': [0, 1, 0, 0, 1],
             'falta_justificada': [0, 0, 0, 0, 0],
         })
 
@@ -175,6 +179,7 @@ class TestResumenPeriodo:
             'horas_descontadas_permiso': ['00:00:00', '00:00:00'],
             'es_retardo_acumulable': [0, 0],
             'es_falta_ajustada': [0, 0],
+            'es_falta': [0, 0],
             'falta_justificada': [0, 0],
         })
 
@@ -194,6 +199,7 @@ class TestResumenPeriodo:
             'horas_descontadas_permiso': ['00:00:00', '00:00:00'],
             'es_retardo_acumulable': [0, 0],
             'es_falta_ajustada': [0, 0],
+            'es_falta': [0, 0],
             'falta_justificada': [0, 0],
         })
 
@@ -213,6 +219,7 @@ class TestResumenPeriodo:
             'horas_descontadas_permiso': ['00:00:00'],
             'es_retardo_acumulable': [0],
             'es_falta_ajustada': [0],
+            'es_falta': [0],
             'falta_justificada': [0],
         })
 
