@@ -15,7 +15,7 @@ Sistema completo para generar reportes de asistencia, retardos y horas trabajada
 - **💾 Caché Inteligente**: Optimiza consultas a base de datos con sistema de caché
 - **📈 Reportes Detallados**: Genera CSV con análisis completo y resúmenes
 - **🌐 Dashboard HTML Interactivo**: **MEJORADO** - Dashboard con DataTables.net para tabla profesional
-- **🧪 Pruebas Unitarias**: 199+ pruebas automatizadas con pytest
+- **🧪 Pruebas Unitarias**: 209+ pruebas automatizadas con pytest
 
 ## 📋 **Requisitos del Sistema**
 
@@ -167,7 +167,7 @@ device_filter = "%villas%"   # Filtro de dispositivos
 **Columnas del Resumen:**
 - `employee`: Código del empleado
 - `Nombre`: Nombre completo
-- `total_horas_trabajadas`: Horas trabajadas sin descuentos
+- `total_horas_trabajadas`: **CORREGIDO** - Horas trabajadas netas (después de descontar horas de descanso)
 - `total_horas_esperadas`: Horas programadas en el periodo
 - `total_horas_descontadas_permiso`: Horas restadas por permisos
 - `total_horas`: Horas efectivas esperadas
@@ -176,7 +176,7 @@ device_filter = "%villas%"   # Filtro de dispositivos
 - `faltas_justificadas`: Faltas justificadas por permisos
 - `total_faltas`: Faltas reales descontando justificadas
 - **`total_salidas_anticipadas`**: **NUEVO** - Total de salidas anticipadas en el período
-- `diferencia_HHMMSS`: Diferencia entre horas esperadas y trabajadas
+- `diferencia_HHMMSS`: **CORREGIDO** - Diferencia entre horas esperadas y trabajadas netas (después de descanso)
 
 **Nuevas Columnas en el Reporte:**
 - `tiene_permiso`: Indica si el empleado tiene permiso aprobado para el día
@@ -244,7 +244,7 @@ PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA = False  # Por defecto desactivado
 
 ## 🧪 **Pruebas Unitarias**
 
-El proyecto incluye **199+ pruebas unitarias** completas que garantizan la calidad del código:
+El proyecto incluye **209+ pruebas unitarias** completas que garantizan la calidad del código:
 
 ### **📊 Resumen de Pruebas:**
 - **Pruebas básicas**: Funcionalidad core del sistema
@@ -253,12 +253,12 @@ El proyecto incluye **199+ pruebas unitarias** completas que garantizan la calid
 - **Rendimiento**: Validación de escalabilidad
 - **Normalización**: Tipos de permiso y variantes
 - **Cruce medianoche**: Turnos nocturnos
-- **Resumen periodo**: Generación de reportes
+- **Resumen periodo**: **MEJORADO** - Generación de reportes con cálculo corregido de horas netas
 - **Umbral faltas**: Umbral de 60 minutos para falta injustificada
 - **Perdón retardos**: **NUEVO** - Regla de perdón por cumplimiento de horas
 - **🆕 Permisos de medio día**: **NUEVO** - Tests completos para permisos de medio día vs día completo
 - **Cobertura**: 68% del código principal
-- **Tiempo de ejecución**: ~2.1 segundos
+- **Tiempo de ejecución**: ~2.6 segundos
 
 ### **🚀 Ejecutar Pruebas:**
 ```bash
@@ -272,7 +272,25 @@ uv run pytest --cov=. --cov-report=term-missing
 uv run pytest tests/test_perdon_retardos.py -v
 uv run pytest tests/test_umbral_falta_injustificada.py -v
 uv run pytest tests/test_permisos_integration.py -v
+uv run pytest tests/test_resumen_periodo.py -v
 ```
+
+### **🔧 Corrección del Cálculo del Resumen del Periodo**
+
+**Problema Resuelto:**
+El resumen del periodo (`resumen_periodo.csv`) calculaba incorrectamente las horas extra usando horas trabajadas **brutas** en lugar de **netas** (después de descontar las horas de descanso).
+
+**Solución Implementada:**
+- **Sincronización de `duration_td`**: Se actualiza correctamente cuando se aplican ajustes de descanso
+- **Plan B robusto**: El resumen recalcula siempre desde `horas_trabajadas` (ya ajustada) en lugar de `duration_td`
+- **Cálculo preciso**: `diferencia_HHMMSS` ahora refleja la diferencia real entre horas esperadas y trabajadas netas
+- **Tests específicos**: 2 nuevos tests verifican el uso correcto de horas netas
+
+**Impacto:**
+- ✅ `total_horas_trabajadas` = suma de horas **netas** (después de descanso)
+- ✅ `diferencia_HHMMSS` = diferencia **neta** (puede ser cero, positiva o negativa)
+- ✅ Compatibilidad total con funcionalidad existente
+- ✅ Verificación automática: `sum(detalle.horas_trabajadas) == resumen.total_horas_trabajadas`
 
 ### **📖 Documentación Completa de Pruebas:**
 Para información detallada sobre las pruebas, tipos de tests, configuración y ejemplos, consulta:
@@ -402,6 +420,15 @@ El sistema automáticamente:
 - **NUEVO** - Incluye la columna `es_permiso_medio_dia` en reportes detallados
 - **NUEVO** - Mantiene estadísticas separadas para permisos de día completo vs medio día
 
+### **8. 🔧 Cálculo Corregido del Resumen del Periodo**
+El sistema automáticamente:
+- **CORREGIDO** - Calcula `total_horas_trabajadas` usando horas netas (después de descanso)
+- **CORREGIDO** - Calcula `diferencia_HHMMSS` usando la diferencia real entre horas esperadas y trabajadas netas
+- **CORREGIDO** - Sincroniza `duration_td` con ajustes de descanso para consistencia
+- **CORREGIDO** - Implementa Plan B robusto que recalcula desde `horas_trabajadas` ya ajustada
+- **CORREGIDO** - Verifica automáticamente que la suma de horas en detalle coincida con el resumen
+- **CORREGIDO** - Mantiene compatibilidad total con funcionalidad existente
+
 **Ejemplo de datos de la API:**
 ```json
 {
@@ -454,6 +481,7 @@ uv run pytest tests/ -v -s
 - **Zona horaria**: Todas las fechas en zona horaria local
 - **Perdón de retardos**: Se aplica automáticamente cuando se cumplen las horas
 - **Umbral de falta injustificada**: 60 minutos (configurable)
+- **Cálculo de resumen**: **CORREGIDO** - Usa horas trabajadas netas (después de descanso) para cálculos precisos
 
 ## 🤝 **Contribución**
 
@@ -474,6 +502,6 @@ Este proyecto está bajo la Licencia MIT. Ver archivo LICENSE para más detalles
 
 ---
 
-**Versión:** 5.0 (PostgreSQL + Pytest + Permisos ERPNext + Perdón de Retardos + Salidas Anticipadas + DataTables.net)  
+**Versión:** 5.1 (PostgreSQL + Pytest + Permisos ERPNext + Perdón de Retardos + Salidas Anticipadas + DataTables.net + Cálculo Corregido de Resumen)  
 **Última actualización:** Julio 2025  
-**Estado:** Completamente funcional con 177+ pruebas pasando ✅
+**Estado:** Completamente funcional con 209+ pruebas pasando ✅
