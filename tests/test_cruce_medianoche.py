@@ -101,7 +101,7 @@ class TestCruceMedianoche:
         assert fila_dia_2['checado_2'] == '01:10:00'  # Segunda checada del día siguiente
 
         # Verificar que se calculó correctamente las horas trabajadas
-        assert fila_dia_1['horas_trabajadas'] == '2:35:00'  # 23:10 a 01:45
+        assert fila_dia_1['horas_trabajadas'] == '02:35:00'  # 23:10 a 01:45
 
     def test_cruce_medianoche_solo_entrada_salida(self, cache_horarios_nocturno):
         """Prueba el caso donde solo hay entrada y salida."""
@@ -136,7 +136,7 @@ class TestCruceMedianoche:
         assert pd.isna(fila_dia_2['checado_2'])
 
         # Verificar cálculo de horas
-        assert fila_dia_1['horas_trabajadas'] == '1:55:00'  # 23:10 a 01:05
+        assert fila_dia_1['horas_trabajadas'] == '01:55:00'  # 23:10 a 01:05
 
     def test_cruce_medianoche_sin_dia_siguiente(self, cache_horarios_nocturno):
         """Prueba el caso donde no hay día siguiente (último día del periodo)."""
@@ -260,4 +260,4 @@ class TestCruceMedianoche:
         fila_dia1 = resultado[resultado['dia'] == date(2025, 7, 15)].iloc[0]
         
         # Debe calcular 8 horas exactas (23:00 a 07:00)
-        assert fila_dia1['horas_trabajadas'] == '8:00:00' 
+        assert fila_dia1['horas_trabajadas'] == '08:00:00' 
