@@ -1397,7 +1397,7 @@ def generar_reporte_html(
                     {{ data: 'totalAbsences' }}
                 ],
                 language: {{
-                    url: '//cdn.datatables.net/plug-ins/2.0.3/i18n/es-MX.json',
+                    url: 'https://cdn.datatables.net/plug-ins/2.0.3/i18n/es-MX.json',
                 }},
                 pageLength: 10,
                 responsive: true
