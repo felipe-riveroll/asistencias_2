@@ -190,6 +190,9 @@ device_filter = "%villas%"   # Filtro de dispositivos
 - **`tipo_retardo_original`**: Clasificación original antes del perdón
 - **`minutos_tarde_original`**: Minutos de retardo originales
 - **`salida_anticipada`**: **NUEVO** - Indica si el empleado se retiró antes del horario programado
+- **`horas_descanso`**: **NUEVO** - Horas de descanso calculadas automáticamente (formato HH:MM:SS)
+- **`horas_descanso_td`**: **NUEVO** - Horas de descanso en formato Timedelta
+- **`horas_trabajadas_originales`**: **NUEVO** - Horas trabajadas antes del ajuste por descanso
 
 ## 🚪 **Nueva Funcionalidad: Detección de Salidas Anticipadas**
 
@@ -218,6 +221,44 @@ TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS = 15  # Margen de tolerancia
 - `salida_anticipada = True/False` en reporte detallado
 - `total_salidas_anticipadas` en resumen del período
 - Integración completa en CSV y dashboard
+
+## ☕ **Funcionalidad: Cálculo Automático de Horas de Descanso**
+
+### **¿Qué hace?**
+Calcula automáticamente las horas de descanso basándose en los checados del día, permitiendo múltiples intervalos de descanso y ajustando las horas trabajadas y esperadas en consecuencia.
+
+### **Lógica de Cálculo:**
+- **Requisito mínimo**: Al menos 4 checadas para considerar descanso
+- **Múltiples intervalos**: Calcula descansos entre pares de checadas (1-2, 3-4, etc.)
+- **Ordenamiento cronológico**: Ordena las checadas por hora antes del cálculo
+- **Suma total**: Acumula todos los intervalos de descanso válidos
+
+### **Ajustes Automáticos:**
+- **Horas trabajadas**: Se restan las horas de descanso calculadas
+- **Horas esperadas**: Se restan 1 hora por cada día con descanso
+- **Sincronización**: Se actualiza `duration_td` para consistencia con el resumen
+
+### **Casos de Aplicación:**
+- ✅ **Descanso simple**: 4 checadas → descanso entre 2ª y 3ª checada
+- ✅ **Múltiples descansos**: 6 checadas → descansos entre 2ª-3ª y 4ª-5ª checadas
+- ✅ **Sin descanso**: Menos de 4 checadas → 0 horas de descanso
+- ✅ **Intervalos negativos**: Si la diferencia es negativa, no se considera descanso
+
+### **Ejemplo de Cálculo:**
+```
+Checadas: 08:00, 12:00, 13:00, 17:00
+- Descanso 1: 13:00 - 12:00 = 1:00 hora
+- Total descanso: 1:00 hora
+- Horas trabajadas ajustadas: 8:00 - 1:00 = 7:00 horas
+- Horas esperadas ajustadas: 8:00 - 1:00 = 7:00 horas
+```
+
+### **Impacto en Métricas:**
+- `horas_descanso` en reporte detallado (formato HH:MM:SS)
+- `horas_descanso_td` en reporte detallado (formato Timedelta)
+- `total_horas_descanso` en resumen del período
+- `total_horas_trabajadas` usa horas netas (después de descanso)
+- `diferencia_HHMMSS` refleja diferencia real entre horas esperadas y trabajadas netas
 
 ## 🎯 **Funcionalidad: Regla de Perdón de Retardos**
 
@@ -336,7 +377,14 @@ Para información detallada sobre las pruebas, tipos de tests, configuración y 
 - **Acumulación**: 3 retardos = 1 día de descuento
 - **Perdón automático**: Por cumplimiento de horas del turno
 
-### **6. Dashboard Interactivo con DataTables.net**
+### **6. Cálculo Automático de Horas de Descanso**
+- **Detección automática**: Basada en múltiples checadas del día
+- **Múltiples intervalos**: Calcula descansos entre pares de checadas
+- **Ajuste de horas**: Resta descanso de horas trabajadas y 1 hora de horas esperadas
+- **Sincronización**: Actualiza `duration_td` para consistencia con resumen
+- **Validación**: Requiere mínimo 4 checadas para considerar descanso válido
+
+### **7. Dashboard Interactivo con DataTables.net**
 - **Gráficas D3.js**: Visualización dinámica de datos
 - **Tabla Profesional**: **MEJORADO** - DataTables.net con funcionalidades avanzadas
 - **Búsqueda Inteligente**: Filtrado en tiempo real por empleado o ID
@@ -411,7 +459,18 @@ El sistema automáticamente:
 - Incluye métricas en reportes detallados y resúmenes
 - Integra con dashboard interactivo para análisis visual
 
-### **7. 🆕 Permisos de Medio Día**
+### **7. ☕ Cálculo Automático de Horas de Descanso**
+El sistema automáticamente:
+- **Calcula descansos** basándose en múltiples checadas del día
+- **Permite múltiples intervalos** de descanso (pares 1-2, 3-4, etc.)
+- **Ajusta horas trabajadas** restando las horas de descanso calculadas
+- **Ajusta horas esperadas** restando 1 hora por cada día con descanso
+- **Sincroniza duration_td** para consistencia con el resumen del periodo
+- **Requiere mínimo 4 checadas** para considerar descanso válido
+- **Ordena cronológicamente** las checadas antes del cálculo
+- **Acumula todos los intervalos** de descanso válidos
+
+### **8. 🆕 Permisos de Medio Día**
 El sistema automáticamente:
 - **NUEVO** - Procesa el campo `half_day` de la API de ERPNext
 - **NUEVO** - Distingue entre permisos de día completo (`half_day: 0`) y medio día (`half_day: 1`)
@@ -420,7 +479,7 @@ El sistema automáticamente:
 - **NUEVO** - Incluye la columna `es_permiso_medio_dia` en reportes detallados
 - **NUEVO** - Mantiene estadísticas separadas para permisos de día completo vs medio día
 
-### **8. 🔧 Cálculo Corregido del Resumen del Periodo**
+### **9. 🔧 Cálculo Corregido del Resumen del Periodo**
 El sistema automáticamente:
 - **CORREGIDO** - Calcula `total_horas_trabajadas` usando horas netas (después de descanso)
 - **CORREGIDO** - Calcula `diferencia_HHMMSS` usando la diferencia real entre horas esperadas y trabajadas netas
@@ -482,6 +541,7 @@ uv run pytest tests/ -v -s
 - **Perdón de retardos**: Se aplica automáticamente cuando se cumplen las horas
 - **Umbral de falta injustificada**: 60 minutos (configurable)
 - **Cálculo de resumen**: **CORREGIDO** - Usa horas trabajadas netas (después de descanso) para cálculos precisos
+- **Horas de descanso**: Se calculan automáticamente con mínimo 4 checadas, ajustando horas trabajadas y esperadas
 
 ## 🤝 **Contribución**
 
