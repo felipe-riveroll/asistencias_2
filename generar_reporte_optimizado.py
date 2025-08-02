@@ -48,6 +48,9 @@ POLITICA_PERMISOS = {
 # Configuración para regla de perdón de retardos
 PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA = False
 
+# Configuración para detección de salidas anticipadas
+TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS = 15
+
 
 def _strip_accents(text):
     """Helper function to remove accents from a string."""
@@ -690,6 +693,58 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
         axis=1,
     )
 
+    print("   - Detectando salidas anticipadas...")
+    
+    # Función para detectar salidas anticipadas
+    def detectar_salida_anticipada(row):
+        # Solo aplicar si existe hora_salida_programada y al menos una checada
+        if pd.isna(row.get("hora_salida_programada")) or pd.isna(row.get("checado_1")):
+            return False
+        
+        # Obtener la última checada del día (la que tenga el valor más alto)
+        checadas_dia = []
+        for i in range(1, 10):  # Buscar hasta checado_9
+            col_checado = f"checado_{i}"
+            if col_checado in row and pd.notna(row[col_checado]):
+                checadas_dia.append(row[col_checado])
+        
+        # Si solo hay una checada, no considerar salida anticipada
+        if len(checadas_dia) <= 1:
+            return False
+        
+        # Obtener la última checada
+        ultima_checada = max(checadas_dia)
+        
+        try:
+            # Parsear la hora de salida programada
+            hora_salida_prog = datetime.strptime(row["hora_salida_programada"] + ":00", "%H:%M:%S")
+            hora_ultima_checada = datetime.strptime(ultima_checada, "%H:%M:%S")
+            
+            # Manejar turnos que cruzan la medianoche
+            if row.get("cruza_medianoche", False):
+                # Para turnos que cruzan medianoche, la hora_salida_programada es del día siguiente
+                # No necesitamos ajustar nada aquí ya que estamos comparando solo las horas
+                pass
+            
+            # Calcular diferencia en minutos
+            diferencia = (hora_salida_prog - hora_ultima_checada).total_seconds() / 60
+            
+            # Manejar casos de medianoche
+            if diferencia < -12 * 60:  # Más de 12 horas antes
+                diferencia += 24 * 60
+            elif diferencia > 12 * 60:  # Más de 12 horas después
+                diferencia -= 24 * 60
+            
+            # Se considera salida anticipada si la última checada es anterior a la hora_salida_programada
+            # menos el margen de tolerancia
+            return diferencia > TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS
+            
+        except (ValueError, TypeError):
+            return False
+    
+    # Aplicar detección de salidas anticipadas
+    df["salida_anticipada"] = df.apply(detectar_salida_anticipada, axis=1)
+
     print("✅ Análisis completado.")
     return df
 
@@ -830,6 +885,11 @@ def generar_resumen_periodo(df: pd.DataFrame):
                 if "falta_justificada" in df.columns
                 else ("es_falta", lambda x: 0)
             ),
+            total_salidas_anticipadas=(
+                ("salida_anticipada", "sum")
+                if "salida_anticipada" in df.columns
+                else ("es_falta", lambda x: 0)
+            ),
         )
         .reset_index()
     )
@@ -884,6 +944,7 @@ def generar_resumen_periodo(df: pd.DataFrame):
         "faltas_del_periodo",
         "faltas_justificadas",
         "total_faltas",
+        "total_salidas_anticipadas",
         "diferencia_HHMMSS",
     ]
     resumen_final = resumen_final[base_columns]
@@ -1358,7 +1419,7 @@ def generar_reporte_html(
 # ==============================================================================
 if __name__ == "__main__":
     start_date = "2025-07-01"
-    end_date = "2025-07-28"
+    end_date = "2025-07-31"
     sucursal = "31pte"
     device_filter = "%31%"
 
@@ -1438,6 +1499,7 @@ if __name__ == "__main__":
         "tipo_permiso",
         "falta_justificada",
         "hora_salida_programada",
+        "salida_anticipada",
         "horas_esperadas",
         "horas_trabajadas",
     ] + checado_cols

@@ -95,3 +95,6 @@ uv.lock
 *.temp
 
 *.html
+
+.aider.conf.yml
+.aider*
