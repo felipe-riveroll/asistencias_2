@@ -10,11 +10,12 @@ Sistema completo para generar reportes de asistencia, retardos y horas trabajada
 - **🎯 Regla de Perdón de Retardos**: Perdona retardos cuando se cumplen las horas del turno
 - **📋 Integración de Permisos**: Conecta con ERPNext para obtener permisos aprobados
 - **✅ Faltas Justificadas**: Reclasifica automáticamente faltas con permisos válidos
+- **🆕 Permisos de Medio Día**: **NUEVO** - Maneja permisos de medio día (0.5 días) con cálculo proporcional de horas
 - **🌙 Turnos Nocturnos**: Maneja correctamente horarios que cruzan medianoche
 - **💾 Caché Inteligente**: Optimiza consultas a base de datos con sistema de caché
 - **📈 Reportes Detallados**: Genera CSV con análisis completo y resúmenes
 - **🌐 Dashboard HTML Interactivo**: **MEJORADO** - Dashboard con DataTables.net para tabla profesional
-- **🧪 Pruebas Unitarias**: 177+ pruebas automatizadas con pytest
+- **🧪 Pruebas Unitarias**: 199+ pruebas automatizadas con pytest
 
 ## 📋 **Requisitos del Sistema**
 
@@ -180,6 +181,7 @@ device_filter = "%villas%"   # Filtro de dispositivos
 **Nuevas Columnas en el Reporte:**
 - `tiene_permiso`: Indica si el empleado tiene permiso aprobado para el día
 - `tipo_permiso`: Tipo de permiso (Vacaciones, Incapacidad, etc.)
+- **🆕 `es_permiso_medio_dia`**: **NUEVO** - Indica si el permiso es de medio día (0.5 días)
 - `falta_justificada`: Indica si una falta fue justificada por permiso
 - `horas_esperadas_originales`: Horas originales antes del ajuste por permisos
 - `horas_descontadas_permiso`: Horas descontadas por permisos aprobados
@@ -242,7 +244,7 @@ PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA = False  # Por defecto desactivado
 
 ## 🧪 **Pruebas Unitarias**
 
-El proyecto incluye **177+ pruebas unitarias** completas que garantizan la calidad del código:
+El proyecto incluye **199+ pruebas unitarias** completas que garantizan la calidad del código:
 
 ### **📊 Resumen de Pruebas:**
 - **Pruebas básicas**: Funcionalidad core del sistema
@@ -254,8 +256,9 @@ El proyecto incluye **177+ pruebas unitarias** completas que garantizan la calid
 - **Resumen periodo**: Generación de reportes
 - **Umbral faltas**: Umbral de 60 minutos para falta injustificada
 - **Perdón retardos**: **NUEVO** - Regla de perdón por cumplimiento de horas
+- **🆕 Permisos de medio día**: **NUEVO** - Tests completos para permisos de medio día vs día completo
 - **Cobertura**: 68% del código principal
-- **Tiempo de ejecución**: ~3.5 segundos
+- **Tiempo de ejecución**: ~2.1 segundos
 
 ### **🚀 Ejecutar Pruebas:**
 ```bash
@@ -278,6 +281,7 @@ Para información detallada sobre las pruebas, tipos de tests, configuración y 
 - **[INTEGRACION_PERMISOS.md](INTEGRACION_PERMISOS.md)** - Documentación de integración con ERPNext
 - **[PERMISOS_SIN_GOCE_DOCS.md](PERMISOS_SIN_GOCE_DOCS.md)** - Documentación de permisos sin goce
 - **[RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md](RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md)** - Documentación de la regla de perdón
+- **[🆕 RESUMEN_CAMBIOS_PERMISOS_MEDIO_DIA.md](RESUMEN_CAMBIOS_PERMISOS_MEDIO_DIA.md)** - **NUEVO** - Documentación completa de implementación de permisos de medio día
 - **[INFORME_ESTABILIZACION_TESTS.md](INFORME_ESTABILIZACION_TESTS.md)** - Informe completo de estabilización
 
 ## ⚡ **Optimizaciones Implementadas**
@@ -303,6 +307,9 @@ Para información detallada sobre las pruebas, tipos de tests, configuración y 
 - **Faltas justificadas**: Reclasifica automáticamente faltas con permisos válidos
 - **Tipos de permiso**: Vacaciones, incapacidades, permisos personales
 - **Cálculo de diferencias**: Considera horas descontadas por permisos en resúmenes
+- **🆕 Permisos de Medio Día**: **NUEVO** - Maneja permisos de medio día (0.5 días) correctamente
+- **🆕 Campo half_day**: **NUEVO** - Procesa el campo `half_day` de la API para distinguir entre día completo y medio día
+- **🆕 Cálculo proporcional**: **NUEVO** - Para permisos de medio día, descuenta solo la mitad de las horas esperadas
 
 ### **5. Lógica de Retardos Mejorada**
 - **Tolerancia**: 15 minutos después de la hora programada
@@ -385,6 +392,32 @@ El sistema automáticamente:
 - Maneja correctamente turnos que cruzan medianoche
 - Incluye métricas en reportes detallados y resúmenes
 - Integra con dashboard interactivo para análisis visual
+
+### **7. 🆕 Permisos de Medio Día**
+El sistema automáticamente:
+- **NUEVO** - Procesa el campo `half_day` de la API de ERPNext
+- **NUEVO** - Distingue entre permisos de día completo (`half_day: 0`) y medio día (`half_day: 1`)
+- **NUEVO** - Para permisos de medio día, descuenta solo la mitad de las horas esperadas
+- **NUEVO** - Calcula correctamente 0.5 días de ausencia para permisos de medio día
+- **NUEVO** - Incluye la columna `es_permiso_medio_dia` en reportes detallados
+- **NUEVO** - Mantiene estadísticas separadas para permisos de día completo vs medio día
+
+**Ejemplo de datos de la API:**
+```json
+{
+    "employee": "34",
+    "employee_name": "Liliana Pérez Medina",
+    "leave_type": "Compensación de tiempo por tiempo",
+    "from_date": "2025-07-04",
+    "to_date": "2025-07-04",
+    "status": "Approved",
+    "half_day": 1  // 1 = medio día, 0 = día completo
+}
+```
+
+**Comportamiento del sistema:**
+- **`half_day: 0`**: Permiso de día completo → descuento total de horas (8:00 → 0:00)
+- **`half_day: 1`**: Permiso de medio día → descuento de la mitad (8:00 → 4:00)
 
 ## 🚨 **Solución de Problemas**
 
