@@ -712,8 +712,30 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
         if len(checadas_dia) <= 1:
             return False
         
-        # Obtener la última checada
-        ultima_checada = max(checadas_dia)
+        # Obtener la última checada (convertir a datetime para comparar correctamente)
+        try:
+            checadas_datetime = [datetime.strptime(checada, "%H:%M:%S") for checada in checadas_dia]
+            
+            # Para turnos que cruzan medianoche, necesitamos ajustar las horas
+            if row.get("cruza_medianoche", False):
+                # En turnos nocturnos, necesitamos comparar cronológicamente
+                # Las horas después de medianoche (00:00-11:59) son "más altas" que las de la noche anterior
+                checadas_ajustadas = []
+                for dt in checadas_datetime:
+                    if dt.hour < 12:  # Si es antes de mediodía (00:00-11:59), añadir 24 horas
+                        # Usar timedelta para manejar horas > 23
+                        from datetime import timedelta
+                        dt_ajustado = dt + timedelta(hours=24)
+                        checadas_ajustadas.append(dt_ajustado)
+                    else:
+                        checadas_ajustadas.append(dt)
+                ultima_checada_dt = max(checadas_ajustadas)
+                # Convertir de vuelta a formato original
+                ultima_checada = ultima_checada_dt.strftime("%H:%M:%S")
+            else:
+                ultima_checada = max(checadas_datetime).strftime("%H:%M:%S")
+        except (ValueError, TypeError):
+            return False
         
         try:
             # Parsear la hora de salida programada
