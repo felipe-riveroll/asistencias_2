@@ -4,8 +4,8 @@ Tests para la funcionalidad de permisos sin goce de sueldo.
 Este módulo contiene tests que verifican:
 1. Que los permisos sin goce no descuenten horas esperadas
 2. Que los permisos normales sí descuenten horas
-3. Que se capturen permisos que traslapan el periodo
-4. Preparación para soporte de medio día (marcado como xfail)
+3. Que se capturen permisos que traslapan el period
+4. Funcionalidad completa de permisos de medio día
 """
 
 import pytest
@@ -235,15 +235,11 @@ class TestColumnasSeguimiento:
         assert fila["horas_esperadas_originales"] == "08:00:00"
 
 
-@pytest.mark.xfail(reason="Soporte de medio día no implementado aún")
 class TestMedioDia:
-    """Tests preparatorios para soporte de medio día (marcados como xfail)."""
+    """Tests para la funcionalidad de permisos de medio día."""
 
     def test_permiso_medio_dia_pendiente(self):
-        """Test marcado como fallo esperado para funcionalidad de medio día."""
-        # TODO: Implementar lógica de prorrateo para medios días
-        # Este test debe fallar hasta que se implemente la funcionalidad
-
+        """Test para verificar que los permisos de medio día funcionan correctamente."""
         df = pd.DataFrame(
             {
                 "employee": ["EMP001"],
@@ -259,21 +255,116 @@ class TestMedioDia:
                     "leave_type": "Permiso Médico",
                     "leave_type_normalized": "permiso médico",
                     "employee_name": "Juan Pérez",
-                    "half_day": True,
-                    "half_day_date": "2025-07-15",
+                    "from_date": date(2025, 7, 15),
+                    "to_date": date(2025, 7, 15),
+                    "status": "Approved",
+                    "is_half_day": True,
+                    "dias_permiso": 0.5,
                 }
             }
         }
 
-        # Cuando se implemente, esto debería resultar en 4 horas esperadas
+        # Ahora que está implementado, esto debería resultar en 4 horas esperadas
         resultado = ajustar_horas_esperadas_con_permisos(df, permisos_dict, {})
         fila = resultado.iloc[0]
 
-        # Este assertion fallará hasta que se implemente prorrateo
+        # Verificar que el permiso de medio día funciona correctamente
+        assert fila["tiene_permiso"] == True
+        assert fila["es_permiso_medio_dia"] == True
+        assert fila["tipo_permiso"] == "Permiso Médico"
         assert fila["horas_esperadas"] == "04:00:00"  # Medio día
-        assert (
-            fila["horas_descontadas_permiso"] == "04:00:00"
-        )  # Solo medio día descontado
+        assert fila["horas_descontadas_permiso"] == "04:00:00"  # Solo medio día descontado
+        assert fila["horas_esperadas_originales"] == "08:00:00"  # Horas originales preservadas
+
+    def test_permiso_medio_dia_con_datos_reales_api(self):
+        """Test que simula datos reales de la API con campo half_day."""
+        df = pd.DataFrame(
+            {
+                "employee": ["EMP002"],
+                "dia": [date(2025, 7, 16)],
+                "horas_esperadas": ["08:00:00"],
+                "horas_trabajadas": ["06:00:00"],
+            }
+        )
+
+        # Simular datos de la API con half_day
+        leave_data = [
+            {
+                "employee": "EMP002",
+                "employee_name": "María García",
+                "leave_type": "Compensación de tiempo por tiempo",
+                "from_date": "2025-07-16",
+                "to_date": "2025-07-16",
+                "status": "Approved",
+                "half_day": 1  # Campo de la API
+            }
+        ]
+
+        # Procesar permisos usando la función actualizada
+        permisos_dict = procesar_permisos_empleados(leave_data)
+        
+        # Aplicar ajuste de horas
+        resultado = ajustar_horas_esperadas_con_permisos(df, permisos_dict, {})
+        fila = resultado.iloc[0]
+
+        # Verificar que se procesó correctamente como medio día
+        assert fila["tiene_permiso"] == True
+        assert fila["es_permiso_medio_dia"] == True
+        assert fila["tipo_permiso"] == "Compensación de tiempo por tiempo"
+        assert fila["horas_esperadas"] == "04:00:00"  # Medio día
+        assert fila["horas_descontadas_permiso"] == "04:00:00"  # Solo medio día descontado
+
+    def test_permiso_dia_completo_vs_medio_dia(self):
+        """Test para comparar permisos de día completo vs medio día."""
+        df = pd.DataFrame(
+            {
+                "employee": ["EMP003", "EMP004"],
+                "dia": [date(2025, 7, 17), date(2025, 7, 17)],
+                "horas_esperadas": ["08:00:00", "08:00:00"],
+                "horas_trabajadas": ["08:00:00", "04:00:00"],
+            }
+        )
+
+        permisos_dict = {
+            "EMP003": {
+                date(2025, 7, 17): {
+                    "leave_type": "Vacaciones",
+                    "leave_type_normalized": "vacaciones",
+                    "employee_name": "Carlos López",
+                    "from_date": date(2025, 7, 17),
+                    "to_date": date(2025, 7, 17),
+                    "status": "Approved",
+                    "is_half_day": False,
+                    "dias_permiso": 1.0,
+                }
+            },
+            "EMP004": {
+                date(2025, 7, 17): {
+                    "leave_type": "Permiso Médico",
+                    "leave_type_normalized": "permiso médico",
+                    "employee_name": "Ana Martínez",
+                    "from_date": date(2025, 7, 17),
+                    "to_date": date(2025, 7, 17),
+                    "status": "Approved",
+                    "is_half_day": True,
+                    "dias_permiso": 0.5,
+                }
+            }
+        }
+
+        resultado = ajustar_horas_esperadas_con_permisos(df, permisos_dict, {})
+        
+        # Verificar permiso de día completo
+        fila_dia_completo = resultado[resultado["employee"] == "EMP003"].iloc[0]
+        assert fila_dia_completo["es_permiso_medio_dia"] == False
+        assert fila_dia_completo["horas_esperadas"] == "00:00:00"  # Día completo
+        assert fila_dia_completo["horas_descontadas_permiso"] == "08:00:00"  # Todo el día
+
+        # Verificar permiso de medio día
+        fila_medio_dia = resultado[resultado["employee"] == "EMP004"].iloc[0]
+        assert fila_medio_dia["es_permiso_medio_dia"] == True
+        assert fila_medio_dia["horas_esperadas"] == "04:00:00"  # Medio día
+        assert fila_medio_dia["horas_descontadas_permiso"] == "04:00:00"  # Solo medio día
 
 
 if __name__ == "__main__":
