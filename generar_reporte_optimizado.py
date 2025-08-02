@@ -87,56 +87,56 @@ def normalize_leave_type(leave_type):
 def calcular_proximidad_horario(checada: str, hora_prog: str) -> float:
     """
     Calcula la proximidad en minutos entre una checada y una hora programada.
-    
+
     Args:
         checada: Hora de checada en formato "HH:MM:SS"
         hora_prog: Hora programada en formato "HH:MM"
-        
+
     Returns:
         Diferencia en minutos (positiva si llega tarde, negativa si llega temprano)
         float('inf') si hay error en el formato
     """
     if not checada or not hora_prog:
-        return float('inf')
-    
+        return float("inf")
+
     try:
         # Parsear checada
-        if len(checada.split(':')) == 3:
-            hora_checada = datetime.strptime(checada, '%H:%M:%S')
-        elif len(checada.split(':')) == 2:
-            hora_checada = datetime.strptime(checada, '%H:%M')
+        if len(checada.split(":")) == 3:
+            hora_checada = datetime.strptime(checada, "%H:%M:%S")
+        elif len(checada.split(":")) == 2:
+            hora_checada = datetime.strptime(checada, "%H:%M")
         else:
-            return float('inf')
-        
+            return float("inf")
+
         # Parsear hora programada
-        if len(hora_prog.split(':')) == 2:
+        if len(hora_prog.split(":")) == 2:
             # Validar que tenga formato HH:MM estricto
-            if not re.match(r'^\d{2}:\d{2}$', hora_prog):
-                return float('inf')
-            hora_programada = datetime.strptime(hora_prog, '%H:%M')
+            if not re.match(r"^\d{2}:\d{2}$", hora_prog):
+                return float("inf")
+            hora_programada = datetime.strptime(hora_prog, "%H:%M")
         else:
-            return float('inf')
-        
+            return float("inf")
+
         # Calcular diferencia
         diferencia = (hora_checada - hora_programada).total_seconds() / 60
-        
+
         # Manejar casos de medianoche
         if diferencia < -12 * 60:  # Más de 12 horas antes
             diferencia += 24 * 60
         elif diferencia > 12 * 60:  # Más de 12 horas después
             diferencia -= 24 * 60
-        
+
         # Para casos extremos de medianoche, calcular la distancia más corta
         if abs(diferencia) > 12 * 60:  # Si la diferencia es mayor a 12 horas
             if diferencia > 0:
                 diferencia = 24 * 60 - diferencia
             else:
                 diferencia = 24 * 60 + diferencia
-            
+
         return abs(diferencia)  # Retornar valor absoluto para compatibilidad con tests
-        
+
     except (ValueError, TypeError):
-        return float('inf')
+        return float("inf")
 
 
 # ==============================================================================
@@ -213,7 +213,7 @@ def fetch_leave_applications(start_date: str, end_date: str):
     headers = {"Authorization": f"token {API_KEY}:{API_SECRET}"}
 
     # URL actualizada con el campo half_day
-    url = f"https://erp.asiatech.com.mx/api/resource/Leave Application?fields=[\"employee\",\"employee_name\",\"leave_type\",\"from_date\",\"to_date\",\"status\",\"half_day\"]&filters=[[\"status\",\"=\",\"Approved\"],[\"from_date\",\">=\",\"{start_date}\"],[\"to_date\",\"<=\",\"{end_date}\"]]"
+    url = f'https://erp.asiatech.com.mx/api/resource/Leave Application?fields=["employee","employee_name","leave_type","from_date","to_date","status","half_day"]&filters=[["status","=","Approved"],["from_date",">=","{start_date}"],["to_date","<=","{end_date}"]]'
 
     all_leave_records = []
     limit_start = 0
@@ -224,7 +224,7 @@ def fetch_leave_applications(start_date: str, end_date: str):
             "limit_start": limit_start,
             "limit_page_length": page_length,
         }
-        
+
         try:
             response = requests.get(url, headers=headers, params=params, timeout=30)
             response.raise_for_status()
@@ -268,10 +268,10 @@ def fetch_leave_applications(start_date: str, end_date: str):
 def td_to_str(td: pd.Timedelta) -> str:
     """
     Convierte un Timedelta a string HH:MM:SS sin perder días (> 24 h) ni microsegundos.
-    
+
     Args:
         td: Timedelta a convertir
-        
+
     Returns:
         String en formato HH:MM:SS
     """
@@ -286,45 +286,45 @@ def calcular_horas_descanso(df_dia):
     """
     Calcula las horas de descanso basándose en los checados del día.
     Permite múltiples intervalos de descanso (pares 1-2, 3-4, etc.) sumando todos.
-    
+
     Args:
         df_dia: DataFrame o Series con una fila por empleado y día, con columnas checado_1, checado_2, etc.
-        
+
     Returns:
         timedelta: Horas de descanso calculadas. Si no aplica descanso, devuelve timedelta(0).
     """
     # Obtener todas las columnas de checado disponibles
-    if hasattr(df_dia, 'columns'):
+    if hasattr(df_dia, "columns"):
         # Es un DataFrame
-        checado_cols = [col for col in df_dia.columns if col.startswith('checado_')]
+        checado_cols = [col for col in df_dia.columns if col.startswith("checado_")]
     else:
         # Es un Series
-        checado_cols = [col for col in df_dia.index if col.startswith('checado_')]
-    
+        checado_cols = [col for col in df_dia.index if col.startswith("checado_")]
+
     if len(checado_cols) < 4:
         return timedelta(0)
-    
+
     # Obtener los valores de checado para este día/empleado
     checados = []
     for col in checado_cols:
-        if hasattr(df_dia, 'columns'):
+        if hasattr(df_dia, "columns"):
             valor = df_dia.get(col)
         else:
             valor = df_dia.get(col, None)
         if pd.notna(valor) and valor is not None and valor != "---":
             checados.append(valor)
-    
+
     # Filtrar checadas con dropna() y exigir len(checados) >= 4
     checados = [c for c in checados if pd.notna(c)]
     if len(checados) < 4:
         return timedelta(0)
-    
+
     # Ordenar checados cronológicamente
     checados_ordenados = sorted(checados, key=lambda x: str(x))
-    
+
     # Calcular múltiples intervalos de descanso (pares 1-2, 3-4, etc.)
     total_descanso = timedelta(0)
-    
+
     try:
         # Procesar pares de checados para calcular descansos
         for i in range(1, len(checados_ordenados) - 1, 2):
@@ -332,27 +332,27 @@ def calcular_horas_descanso(df_dia):
                 # Tomar segundo y tercer checado del par
                 segundo_checado = checados_ordenados[i]
                 tercer_checado = checados_ordenados[i + 1]
-                
+
                 # Convertir a datetime para calcular la diferencia
                 if isinstance(segundo_checado, time):
                     segundo_dt = datetime.combine(datetime.today(), segundo_checado)
                 else:
                     segundo_dt = datetime.strptime(str(segundo_checado), "%H:%M:%S")
-                    
+
                 if isinstance(tercer_checado, time):
                     tercer_dt = datetime.combine(datetime.today(), tercer_checado)
                 else:
                     tercer_dt = datetime.strptime(str(tercer_checado), "%H:%M:%S")
-                
+
                 # Calcular diferencia
                 descanso_intervalo = tercer_dt - segundo_dt
-                
+
                 # Solo sumar si la diferencia es positiva
                 if descanso_intervalo.total_seconds() > 0:
                     total_descanso += descanso_intervalo
-        
+
         return total_descanso
-        
+
     except (ValueError, TypeError):
         return timedelta(0)
 
@@ -361,42 +361,42 @@ def aplicar_calculo_horas_descanso(df):
     """
     Aplica el cálculo de horas de descanso a todo el DataFrame y ajusta las horas trabajadas y esperadas.
     Mantiene las columnas como Timedelta; formatea a texto solo al exportar CSV.
-    
+
     Args:
         df: DataFrame con datos de asistencia
-        
+
     Returns:
         DataFrame: DataFrame con las columnas de horas de descanso agregadas y ajustes aplicados
     """
     if df.empty:
         return df
-    
+
     print("🔄 Calculando horas de descanso...")
-    
+
     # Crear columnas para horas de descanso como Timedelta
     df["horas_descanso_td"] = pd.Timedelta(0)
     df["horas_descanso"] = "00:00:00"  # Para compatibilidad con CSV
-    
+
     # Guardar valores originales
     df["horas_trabajadas_originales"] = df["horas_trabajadas"].copy()
     df["horas_esperadas_originales"] = df["horas_esperadas"].copy()
-    
+
     # Convertir duration a Timedelta si existe
     if "duration" in df.columns:
         df["duration_td"] = df["duration"].fillna(pd.Timedelta(0))
     else:
         df["duration_td"] = pd.Timedelta(0)
-    
+
     total_dias_con_descanso = 0
-    
+
     for index, row in df.iterrows():
         # Calcular horas de descanso para esta fila
         horas_descanso_td = calcular_horas_descanso(row)
-        
+
         if horas_descanso_td > timedelta(0):
             df.at[index, "horas_descanso_td"] = horas_descanso_td
             df.at[index, "horas_descanso"] = td_to_str(horas_descanso_td)
-            
+
             # Ajustar horas trabajadas (restar descanso) usando Timedelta
             if "duration" in df.columns and pd.notna(row.get("duration")):
                 try:
@@ -405,27 +405,35 @@ def aplicar_calculo_horas_descanso(df):
                         duration_td = pd.to_timedelta(row["duration"])
                     else:
                         duration_td = row["duration"]
-                    
+
                     horas_trabajadas_ajustadas = duration_td - horas_descanso_td
                     if horas_trabajadas_ajustadas.total_seconds() >= 0:
                         df.at[index, "duration"] = horas_trabajadas_ajustadas
-                        df.at[index, "horas_trabajadas"] = td_to_str(horas_trabajadas_ajustadas)
+                        df.at[index, "duration_td"] = horas_trabajadas_ajustadas
+                        df.at[index, "horas_trabajadas"] = td_to_str(
+                            horas_trabajadas_ajustadas
+                        )
                 except (ValueError, TypeError):
                     pass  # Mantener valor original si hay error
-            
+
             # Ajustar horas esperadas (restar 1 hora si hay descanso)
-            if pd.notna(row["horas_esperadas"]) and row["horas_esperadas"] != "00:00:00":
+            if (
+                pd.notna(row["horas_esperadas"])
+                and row["horas_esperadas"] != "00:00:00"
+            ):
                 try:
                     horas_esperadas_td = pd.to_timedelta(row["horas_esperadas"])
                     horas_esperadas_ajustadas = horas_esperadas_td - timedelta(hours=1)
-                    
+
                     if horas_esperadas_ajustadas.total_seconds() >= 0:
-                        df.at[index, "horas_esperadas"] = td_to_str(horas_esperadas_ajustadas)
+                        df.at[index, "horas_esperadas"] = td_to_str(
+                            horas_esperadas_ajustadas
+                        )
                 except (ValueError, TypeError):
                     pass  # Mantener valor original si hay error
-            
+
             total_dias_con_descanso += 1
-    
+
     print(f"✅ Se calcularon horas de descanso para {total_dias_con_descanso} días")
     return df
 
@@ -467,7 +475,7 @@ def procesar_permisos_empleados(leave_data):
         # Si es un permiso de medio día, solo procesar la fecha específica
         if is_half_day:
             leave_type_normalized = normalize_leave_type(permiso["leave_type"])
-            
+
             permisos_por_empleado[employee_code][from_date] = {
                 "leave_type": permiso["leave_type"],
                 "leave_type_normalized": leave_type_normalized,
@@ -559,19 +567,23 @@ def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
                             # Calcular la mitad
                             mitad_horas = horas_td / 2
                             # Convertir de vuelta a string
-                            mitad_horas_str = str(mitad_horas).split()[-1]  # Obtener solo HH:MM:SS
-                            
+                            mitad_horas_str = str(mitad_horas).split()[
+                                -1
+                            ]  # Obtener solo HH:MM:SS
+
                             # Ajustar horas esperadas (restar la mitad)
                             horas_ajustadas = horas_td - mitad_horas
                             horas_ajustadas_str = str(horas_ajustadas).split()[-1]
-                            
+
                             df.at[index, "horas_esperadas"] = horas_ajustadas_str
                             df.at[index, "horas_descontadas_permiso"] = mitad_horas_str
                             permisos_medio_dia += 1
                         except (ValueError, TypeError):
                             # Si hay error en el cálculo, tratar como día completo
                             df.at[index, "horas_esperadas"] = "00:00:00"
-                            df.at[index, "horas_descontadas_permiso"] = horas_esperadas_orig
+                            df.at[index, "horas_descontadas_permiso"] = (
+                                horas_esperadas_orig
+                            )
                             permisos_con_descuento += 1
                     else:
                         # Permiso de día completo
@@ -585,7 +597,9 @@ def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
     print("✅ Ajuste completado:")
     print(f"   - {empleados_con_permisos} empleados con permisos")
     print(f"   - {dias_con_permisos} días con permisos")
-    print(f"   - {permisos_con_descuento} permisos con horas descontadas (día completo)")
+    print(
+        f"   - {permisos_con_descuento} permisos con horas descontadas (día completo)"
+    )
     print(f"   - {permisos_medio_dia} permisos de medio día")
     print(f"   - {permisos_sin_goce} permisos sin goce (sin descuento)")
 
@@ -644,7 +658,7 @@ def process_checkins_to_dataframe(checkin_data, start_date, end_date):
     # Calcular duración como Timedelta y guardar en columna duration
     df_hours = df.groupby(["employee", "dia"])["time"].agg(["min", "max"]).reset_index()
     df_hours["duration"] = df_hours["max"] - df_hours["min"]
-    
+
     # Mantener duration como Timedelta, solo convertir a string para compatibilidad
     df_hours["horas_trabajadas"] = df_hours["duration"].apply(
         lambda x: td_to_str(x) if pd.notna(x) else "00:00:00"
@@ -756,22 +770,28 @@ def procesar_horarios_con_medianoche(df, cache_horarios):
                         df_proc.loc[idx_actual, "checado_2"] = salida_real
 
                         # Usar datetime.combine para combinar fechas correctamente
-                        entrada_time = datetime.strptime(entrada_real, "%H:%M:%S").time()
+                        entrada_time = datetime.strptime(
+                            entrada_real, "%H:%M:%S"
+                        ).time()
                         salida_time = datetime.strptime(salida_real, "%H:%M:%S").time()
-                        
+
                         fecha_actual = fila_actual["dia"]
                         inicio = datetime.combine(fecha_actual, entrada_time)
-                        
+
                         # Para turnos que cruzan medianoche, la salida es del día siguiente
                         if salida_time <= entrada_time:
-                            fin = datetime.combine(fecha_actual + timedelta(days=1), salida_time)
+                            fin = datetime.combine(
+                                fecha_actual + timedelta(days=1), salida_time
+                            )
                         else:
                             fin = datetime.combine(fecha_actual, salida_time)
 
                         # Asignar como Timedelta, NO como string
                         duracion_td = fin - inicio
                         df_proc.loc[idx_actual, "duration"] = duracion_td
-                        df_proc.loc[idx_actual, "horas_trabajadas"] = td_to_str(duracion_td)
+                        df_proc.loc[idx_actual, "horas_trabajadas"] = td_to_str(
+                            duracion_td
+                        )
 
                         if salida_real in checadas_siguiente:
                             for j in range(1, 10):
@@ -798,17 +818,23 @@ def procesar_horarios_con_medianoche(df, cache_horarios):
                                 salida_sig = datetime.strptime(
                                     max(checadas_restantes), "%H:%M:%S"
                                 ).time()
-                                
+
                                 fecha_siguiente = dia_siguiente
-                                inicio_sig = datetime.combine(fecha_siguiente, entrada_sig)
+                                inicio_sig = datetime.combine(
+                                    fecha_siguiente, entrada_sig
+                                )
                                 fin_sig = datetime.combine(fecha_siguiente, salida_sig)
-                                
+
                                 duracion_sig_td = fin_sig - inicio_sig
                                 df_proc.loc[idx_siguiente, "duration"] = duracion_sig_td
-                                df_proc.loc[idx_siguiente, "horas_trabajadas"] = td_to_str(duracion_sig_td)
+                                df_proc.loc[idx_siguiente, "horas_trabajadas"] = (
+                                    td_to_str(duracion_sig_td)
+                                )
                             else:
                                 df_proc.loc[idx_siguiente, "duration"] = pd.Timedelta(0)
-                                df_proc.loc[idx_siguiente, "horas_trabajadas"] = "00:00:00"
+                                df_proc.loc[idx_siguiente, "horas_trabajadas"] = (
+                                    "00:00:00"
+                                )
 
     print("✅ Procesamiento de turnos con medianoche completado")
     return df_proc
@@ -911,37 +937,42 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
     )
 
     print("   - Detectando salidas anticipadas...")
-    
+
     # Función para detectar salidas anticipadas
     def detectar_salida_anticipada(row):
         # Solo aplicar si existe hora_salida_programada y al menos una checada
         if pd.isna(row.get("hora_salida_programada")) or pd.isna(row.get("checado_1")):
             return False
-        
+
         # Obtener la última checada del día (la que tenga el valor más alto)
         checadas_dia = []
         for i in range(1, 10):  # Buscar hasta checado_9
             col_checado = f"checado_{i}"
             if col_checado in row and pd.notna(row[col_checado]):
                 checadas_dia.append(row[col_checado])
-        
+
         # Si solo hay una checada, no considerar salida anticipada
         if len(checadas_dia) <= 1:
             return False
-        
+
         # Obtener la última checada (convertir a datetime para comparar correctamente)
         try:
-            checadas_datetime = [datetime.strptime(checada, "%H:%M:%S") for checada in checadas_dia]
-            
+            checadas_datetime = [
+                datetime.strptime(checada, "%H:%M:%S") for checada in checadas_dia
+            ]
+
             # Para turnos que cruzan medianoche, necesitamos ajustar las horas
             if row.get("cruza_medianoche", False):
                 # En turnos nocturnos, necesitamos comparar cronológicamente
                 # Las horas después de medianoche (00:00-11:59) son "más altas" que las de la noche anterior
                 checadas_ajustadas = []
                 for dt in checadas_datetime:
-                    if dt.hour < 12:  # Si es antes de mediodía (00:00-11:59), añadir 24 horas
+                    if (
+                        dt.hour < 12
+                    ):  # Si es antes de mediodía (00:00-11:59), añadir 24 horas
                         # Usar timedelta para manejar horas > 23
                         from datetime import timedelta
+
                         dt_ajustado = dt + timedelta(hours=24)
                         checadas_ajustadas.append(dt_ajustado)
                     else:
@@ -953,34 +984,36 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
                 ultima_checada = max(checadas_datetime).strftime("%H:%M:%S")
         except (ValueError, TypeError):
             return False
-        
+
         try:
             # Parsear la hora de salida programada
-            hora_salida_prog = datetime.strptime(row["hora_salida_programada"] + ":00", "%H:%M:%S")
+            hora_salida_prog = datetime.strptime(
+                row["hora_salida_programada"] + ":00", "%H:%M:%S"
+            )
             hora_ultima_checada = datetime.strptime(ultima_checada, "%H:%M:%S")
-            
+
             # Manejar turnos que cruzan la medianoche
             if row.get("cruza_medianoche", False):
                 # Para turnos que cruzan medianoche, la hora_salida_programada es del día siguiente
                 # No necesitamos ajustar nada aquí ya que estamos comparando solo las horas
                 pass
-            
+
             # Calcular diferencia en minutos
             diferencia = (hora_salida_prog - hora_ultima_checada).total_seconds() / 60
-            
+
             # Manejar casos de medianoche
             if diferencia < -12 * 60:  # Más de 12 horas antes
                 diferencia += 24 * 60
             elif diferencia > 12 * 60:  # Más de 12 horas después
                 diferencia -= 24 * 60
-            
+
             # Se considera salida anticipada si la última checada es anterior a la hora_salida_programada
             # menos el margen de tolerancia
             return diferencia > TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS
-            
+
         except (ValueError, TypeError):
             return False
-    
+
     # Aplicar detección de salidas anticipadas
     df["salida_anticipada"] = df.apply(detectar_salida_anticipada, axis=1)
 
@@ -991,8 +1024,8 @@ def analizar_asistencia_con_horarios_cache(df: pd.DataFrame, cache_horarios):
 def aplicar_regla_perdon_retardos(df: pd.DataFrame) -> pd.DataFrame:
     """
     Aplica la regla de perdón de retardos cuando un empleado cumple con las horas de su turno.
-    
-    Si un empleado trabajó las horas correspondientes de su turno o más, ese día NO debe 
+
+    Si un empleado trabajó las horas correspondientes de su turno o más, ese día NO debe
     contarse como retardo, incluso si llegó tarde.
     """
     if df.empty:
@@ -1000,63 +1033,67 @@ def aplicar_regla_perdon_retardos(df: pd.DataFrame) -> pd.DataFrame:
 
     print("🔄 Aplicando regla de perdón de retardos por cumplimiento de horas...")
 
+    # Definir función helper para conversión segura de timedelta
+    def safe_timedelta(time_str):
+        if pd.isna(time_str) or time_str in ["00:00:00", "---", None]:
+            return pd.Timedelta(0)
+        try:
+            return pd.to_timedelta(time_str)
+        except (ValueError, TypeError):
+            return pd.Timedelta(0)
+
     # Usar columnas Timedelta si existen, sino convertir desde strings
     if "duration_td" in df.columns:
         df["horas_trabajadas_td"] = df["duration_td"].fillna(pd.Timedelta(0))
     else:
-        def safe_timedelta(time_str):
-            if pd.isna(time_str) or time_str in ["00:00:00", "---", None]:
-                return pd.Timedelta(0)
-            try:
-                return pd.to_timedelta(time_str)
-            except (ValueError, TypeError):
-                return pd.Timedelta(0)
         df["horas_trabajadas_td"] = df["horas_trabajadas"].apply(safe_timedelta)
-    
+
     df["horas_esperadas_td"] = df["horas_esperadas"].apply(safe_timedelta)
-    
+
     # Calcular si cumplió las horas del turno
     df["cumplio_horas_turno"] = df["horas_trabajadas_td"] >= df["horas_esperadas_td"]
-    
+
     # Guardar valores originales antes de aplicar perdón
     df["tipo_retardo_original"] = df["tipo_retardo"].copy()
     df["minutos_tarde_original"] = df["minutos_tarde"].copy()
     df["retardo_perdonado"] = False
-    
+
     # Aplicar perdón a retardos
-    mask_retardo_perdonable = (
-        (df["tipo_retardo"] == "Retardo") & 
-        (df["cumplio_horas_turno"] == True)
+    mask_retardo_perdonable = (df["tipo_retardo"] == "Retardo") & (
+        df["cumplio_horas_turno"] == True
     )
-    
+
     if mask_retardo_perdonable.any():
         df.loc[mask_retardo_perdonable, "retardo_perdonado"] = True
         df.loc[mask_retardo_perdonable, "tipo_retardo"] = "A Tiempo (Cumplió Horas)"
         df.loc[mask_retardo_perdonable, "minutos_tarde"] = 0
         retardos_perdonados = mask_retardo_perdonable.sum()
         print(f"   - {retardos_perdonados} retardos perdonados por cumplir horas")
-    
+
     # Aplicar perdón a faltas injustificadas (opcional)
     if PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA:
-        mask_falta_perdonable = (
-            (df["tipo_retardo"] == "Falta Injustificada") & 
-            (df["cumplio_horas_turno"] == True)
+        mask_falta_perdonable = (df["tipo_retardo"] == "Falta Injustificada") & (
+            df["cumplio_horas_turno"] == True
         )
-        
+
         if mask_falta_perdonable.any():
             df.loc[mask_falta_perdonable, "retardo_perdonado"] = True
             df.loc[mask_falta_perdonable, "tipo_retardo"] = "A Tiempo (Cumplió Horas)"
             df.loc[mask_falta_perdonable, "minutos_tarde"] = 0
             faltas_perdonadas = mask_falta_perdonable.sum()
-            print(f"   - {faltas_perdonadas} faltas injustificadas perdonadas por cumplir horas")
-    
+            print(
+                f"   - {faltas_perdonadas} faltas injustificadas perdonadas por cumplir horas"
+            )
+
     # Recalcular columnas derivadas
     df["es_retardo_acumulable"] = (df["tipo_retardo"] == "Retardo").astype(int)
-    df["es_falta"] = (df["tipo_retardo"].isin(["Falta", "Falta Injustificada"])).astype(int)
-    
+    df["es_falta"] = (df["tipo_retardo"].isin(["Falta", "Falta Injustificada"])).astype(
+        int
+    )
+
     # Recalcular retardos acumulados por empleado
     df["retardos_acumulados"] = df.groupby("employee")["es_retardo_acumulable"].cumsum()
-    
+
     # Recalcular descuento por 3 retardos
     df["descuento_por_3_retardos"] = df.apply(
         lambda row: (
@@ -1068,13 +1105,15 @@ def aplicar_regla_perdon_retardos(df: pd.DataFrame) -> pd.DataFrame:
         ),
         axis=1,
     )
-    
+
     total_perdonados = df["retardo_perdonado"].sum()
     if total_perdonados > 0:
-        print(f"✅ Se aplicó perdón a {total_perdonados} días por cumplimiento de horas")
+        print(
+            f"✅ Se aplicó perdón a {total_perdonados} días por cumplimiento de horas"
+        )
     else:
         print("✅ No se encontraron días elegibles para perdón")
-    
+
     return df
 
 
@@ -1090,13 +1129,10 @@ def generar_resumen_periodo(df: pd.DataFrame):
         print("   - No hay datos para generar el resumen.")
         return pd.DataFrame()
 
-    # Usar columnas Timedelta si existen
-    if "duration_td" in df.columns:
-        df["horas_trabajadas_td"] = df["duration_td"].fillna(pd.Timedelta(0))
-    else:
-        df["horas_trabajadas_td"] = pd.to_timedelta(
-            df["horas_trabajadas"].fillna("00:00:00")
-        )
+    # Recalcular siempre desde la columna de texto ya ajustada (Plan B más robusto)
+    df["horas_trabajadas_td"] = pd.to_timedelta(
+        df["horas_trabajadas"].fillna("00:00:00")
+    )
 
     if "horas_esperadas_originales" in df.columns:
         df["horas_esperadas_originales_td"] = pd.to_timedelta(
@@ -1183,9 +1219,9 @@ def generar_resumen_periodo(df: pd.DataFrame):
     resumen_final["total_horas_descontadas_permiso"] = resumen_final[
         "total_horas_descontadas_permiso"
     ].apply(format_positive_timedelta)
-    resumen_final["total_horas_descanso"] = resumen_final[
-        "total_horas_descanso"
-    ].apply(format_positive_timedelta)
+    resumen_final["total_horas_descanso"] = resumen_final["total_horas_descanso"].apply(
+        format_positive_timedelta
+    )
     resumen_final["total_horas"] = resumen_final["total_horas"].apply(
         format_positive_timedelta
     )
@@ -1800,9 +1836,7 @@ if __name__ == "__main__":
 
     print("\n🌐 Paso 6: Generando dashboard HTML...")
     if not df_resumen.empty:
-        generar_reporte_html(
-            df_detalle, df_resumen, start_date, end_date, sucursal
-        )
+        generar_reporte_html(df_detalle, df_resumen, start_date, end_date, sucursal)
     else:
         print("⚠️ No se generó el resumen, omitiendo creación de dashboard HTML.")
 
