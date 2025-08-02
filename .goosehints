@@ -1,0 +1,69 @@
+# Goose Hints para el Sistema de Reportes de Asistencia
+
+## 1. Resumen del Proyecto
+
+Este es un sistema en Python que genera reportes de asistencia de empleados. Su función principal es procesar las marcaciones (checadas) de una API, compararlas con los horarios programados en una base de datos **PostgreSQL**, y calcular asistencias, retardos, faltas y horas trabajadas.
+
+El script principal y el centro de toda la lógica es `generar_reporte_optimizado.py`.
+
+## 2. Tecnologías Clave
+
+- **Lenguaje**: Python 3.8+
+- **Librerías principales**: pandas, numpy, psycopg2-binary, requests
+- **Base de Datos**: PostgreSQL (para obtener los horarios de los empleados)
+- **APIs Externas**:
+    - API de registros de asistencia (Asiatech)
+    - API de ERPNext para obtener permisos y vacaciones (`/api/resource/Leave Application`)
+- **Testing**: Pytest, con más de 177 pruebas unitarias. Los tests más importantes están en `tests/test_perdon_retardos.py` y `tests/test_permisos_integration.py`.
+
+## 3. Reglas de Negocio Fundamentales
+
+Estas son las reglas más importantes que definen cómo funciona el sistema.
+
+### Regla 1: Clasificación de Asistencia
+- **A Tiempo**: Checada de entrada dentro de los primeros 15 minutos del inicio del turno.
+- **Retardo**: Checada de entrada después de 15 minutos y antes de 60 minutos del inicio del turno.
+- **Falta Injustificada**: Checada de entrada después de 60 minutos del inicio del turno, o sin checada de entrada.
+
+### Regla 2: Perdón de Retardos (Funcionalidad Clave)
+- **Condición**: Si un empleado llega tarde pero al final del día cumple o supera las `horas_esperadas` de su turno, el retardo se **perdona**.
+- **Implementación**: La función `aplicar_regla_perdon_retardos` se encarga de esto.
+- **Impacto**: El día se marca con `retardo_perdonado = True` y no cuenta para el acumulado de retardos. El `tipo_retardo_original` se conserva para trazabilidad.
+- **Fuente**: `RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md`
+
+### Regla 3: Integración con Permisos de ERPNext
+- El sistema se conecta a la API de ERPNext para obtener **permisos aprobados** (`status: "Approved"`).
+- Una falta (`tipo_falta: "Falta"`) en un día con un permiso válido se reclasifica como `falta_justificada = True`.
+- **Fuente**: `INTEGRACION_PERMISOS.md`
+
+### Regla 4: Ajuste de Horas por Tipo de Permiso (Lógica Diferenciada)
+- **Permisos Normales** (Vacaciones, Incapacidad, etc.): Las `horas_esperadas` para ese día se ajustan a `00:00:00`. Las horas se suman en `horas_descontadas_permiso`.
+- **Permiso Sin Goce de Sueldo**: Este es un caso especial. Cuando el `leave_type` es "permiso sin goce de sueldo", el sistema **NO ajusta** las `horas_esperadas`. El empleado aún debe cumplir su horario. Se mantiene trazabilidad con la columna `es_permiso_sin_goce`.
+- **Fuente**: `PERMISOS_SIN_GOCE_DOCS.md`
+
+### Regla 5: Turnos Nocturnos
+- El sistema maneja correctamente los turnos que cruzan la medianoche (ej. entrada a las 22:00, salida a las 06:00 del día siguiente). Asocia la checada de salida del día siguiente con la entrada del día anterior.
+
+## 4. Estructura y Flujo de Datos
+
+1.  **Configuración**: Se definen fechas (`start_date`, `end_date`) y sucursal al final de `generar_reporte_optimizado.py`. Las credenciales están en `.env`.
+2.  **Obtención de Datos**:
+    - Checadas de la API de asistencia.
+    - Horarios de la base de datos PostgreSQL (con un sistema de caché en memoria para optimizar).
+    - Permisos aprobados de la API de ERPNext.
+3.  **Procesamiento en Pandas DataFrame**:
+    - Se analiza cada registro de asistencia.
+    - Se aplica la lógica de turnos nocturnos.
+    - Se aplica la **regla de perdón de retardos**.
+    - Se ajustan las horas esperadas y se justifican las faltas según los permisos obtenidos.
+4.  **Generación de Reportes**:
+    - `reporte_asistencia_analizado.csv`: El reporte detallado por día y empleado, con todas las columnas de trazabilidad (`retardo_perdonado`, `falta_justificada`, `tipo_permiso`, etc.).
+    - `resumen_periodo.csv`: Un resumen agregado por empleado con totales del período.
+    - `dashboard_asistencia.html`: Un dashboard interactivo con gráficas D3.js.
+
+## 5. Puntos Clave para Modificaciones
+
+- Para añadir una nueva regla de negocio, primero crea un archivo de prueba en el directorio `tests/`.
+- La lógica de conexión a la BD está en `db_postgres_connection.py`.
+- La lógica principal de procesamiento y reglas de negocio está concentrada en funciones dentro de `generar_reporte_optimizado.py`, como `aplicar_regla_perdon_retardos` y `ajustar_horas_esperadas_con_permisos`.
+- Para cambiar qué tipos de permiso descuentan horas, modifica la constante `POLITICA_PERMISOS` en `generar_reporte_optimizado.py`.
