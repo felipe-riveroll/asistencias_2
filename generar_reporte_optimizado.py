@@ -17,6 +17,7 @@ from db_postgres_connection import (
     mapear_horarios_por_empleado_multi,
 )
 
+
 # ==============================================================================
 # SECCIÓN 1: CONFIGURACIÓN Y VARIABLES DE ENTORNO
 # ==============================================================================

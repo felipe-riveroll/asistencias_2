@@ -98,3 +98,6 @@ uv.lock
 
 .aider.conf.yml
 .aider*
+
+*.csv
+*.xlsx
