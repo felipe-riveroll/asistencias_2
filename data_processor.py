@@ -6,15 +6,15 @@ Contains all core business logic for processing check-ins, schedules, and genera
 import pandas as pd
 from datetime import datetime, timedelta, time
 from itertools import product
-from typing import Dict, Any, List
+from typing import Dict, List
 
 from config import (
-    POLITICA_PERMISOS, 
+    POLITICA_PERMISOS,
     PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA,
     TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS,
     TOLERANCIA_RETARDO_MINUTOS,
     UMBRAL_FALTA_INJUSTIFICADA_MINUTOS,
-    DIAS_ESPANOL
+    DIAS_ESPANOL,
 )
 from utils import td_to_str, safe_timedelta
 from db_postgres_connection import obtener_horario_empleado
@@ -22,12 +22,14 @@ from db_postgres_connection import obtener_horario_empleado
 
 class AttendanceProcessor:
     """Main class for processing attendance data and applying business rules."""
-    
+
     def __init__(self):
         """Initialize the attendance processor."""
         pass
-    
-    def process_checkins_to_dataframe(self, checkin_data: List[Dict], start_date: str, end_date: str) -> pd.DataFrame:
+
+    def process_checkins_to_dataframe(
+        self, checkin_data: List[Dict], start_date: str, end_date: str
+    ) -> pd.DataFrame:
         """Creates a base DataFrame with one row per employee and day."""
         if not checkin_data:
             return pd.DataFrame()
@@ -44,7 +46,9 @@ class AttendanceProcessor:
         )
 
         # Calculate duration as Timedelta and save in duration column
-        df_hours = df.groupby(["employee", "dia"])["time"].agg(["min", "max"]).reset_index()
+        df_hours = (
+            df.groupby(["employee", "dia"])["time"].agg(["min", "max"]).reset_index()
+        )
         df_hours["duration"] = df_hours["max"] - df_hours["min"]
 
         # Keep duration as Timedelta, only convert to string for compatibility
@@ -60,7 +64,9 @@ class AttendanceProcessor:
             aggfunc="first",
         )
         if not df_pivot.empty:
-            df_pivot.columns = [f"checado_{i}" for i in range(1, len(df_pivot.columns) + 1)]
+            df_pivot.columns = [
+                f"checado_{i}" for i in range(1, len(df_pivot.columns) + 1)
+            ]
 
         all_employees = df["employee"].unique()
         all_dates = pd.to_datetime(pd.date_range(start=start_date, end=end_date)).date
@@ -202,7 +208,9 @@ class AttendanceProcessor:
                         if horas_trabajadas_ajustadas.total_seconds() >= 0:
                             df.at[index, "duration"] = horas_trabajadas_ajustadas
                             df.at[index, "duration_td"] = horas_trabajadas_ajustadas
-                            df.at[index, "horas_trabajadas"] = td_to_str(horas_trabajadas_ajustadas)
+                            df.at[index, "horas_trabajadas"] = td_to_str(
+                                horas_trabajadas_ajustadas
+                            )
                     except (ValueError, TypeError):
                         pass  # Keep original value if there's an error
 
@@ -213,10 +221,14 @@ class AttendanceProcessor:
                 ):
                     try:
                         horas_esperadas_td = pd.to_timedelta(row["horas_esperadas"])
-                        horas_esperadas_ajustadas = horas_esperadas_td - timedelta(hours=1)
+                        horas_esperadas_ajustadas = horas_esperadas_td - timedelta(
+                            hours=1
+                        )
 
                         if horas_esperadas_ajustadas.total_seconds() >= 0:
-                            df.at[index, "horas_esperadas"] = td_to_str(horas_esperadas_ajustadas)
+                            df.at[index, "horas_esperadas"] = td_to_str(
+                                horas_esperadas_ajustadas
+                            )
                     except (ValueError, TypeError):
                         pass  # Keep original value if there's an error
 
@@ -225,7 +237,9 @@ class AttendanceProcessor:
         print(f"✅ Se calcularon horas de descanso para {total_dias_con_descanso} días")
         return df
 
-    def procesar_horarios_con_medianoche(self, df: pd.DataFrame, cache_horarios: Dict) -> pd.DataFrame:
+    def procesar_horarios_con_medianoche(
+        self, df: pd.DataFrame, cache_horarios: Dict
+    ) -> pd.DataFrame:
         """
         Reorganizes check-ins for shifts that cross midnight.
         """
@@ -256,73 +270,113 @@ class AttendanceProcessor:
                         and pd.notna(df_proc.loc[idx_actual, f"checado_{j}"])
                     ]
 
-                    if checadas_dia:
-                        dia_siguiente = fila_actual["dia"] + timedelta(days=1)
-                        mask_siguiente = (df_proc["employee"] == empleado) & (
-                            df_proc["dia"] == dia_siguiente
-                        )
+                    # Buscar también checadas del día siguiente para turnos nocturnos
+                    dia_siguiente = fila_actual["dia"] + timedelta(days=1)
+                    mask_siguiente = (df_proc["employee"] == empleado) & (
+                        df_proc["dia"] == dia_siguiente
+                    )
 
-                        if mask_siguiente.any():
-                            idx_siguiente = df_proc[mask_siguiente].index[0]
-                            checadas_siguiente = [
+                    checadas_siguiente = []
+                    idx_siguiente = None
+                    if mask_siguiente.any():
+                        idx_siguiente = df_proc[mask_siguiente].index[0]
+                        checadas_siguiente = [
+                            df_proc.loc[idx_siguiente, f"checado_{j}"]
+                            for j in range(1, 10)
+                            if f"checado_{j}" in df_proc.columns
+                            and pd.notna(df_proc.loc[idx_siguiente, f"checado_{j}"])
+                        ]
+
+                        # Determinar entrada y salida real
+                        entrada_real = None
+                        salida_real = None
+
+                        # Si hay checadas del día de entrada, usar la más temprana como entrada
+                        if checadas_dia:
+                            entrada_real = min(checadas_dia)
+
+                        # Si hay checadas del día siguiente, usar la más tardía como salida
+                        if checadas_siguiente:
+                            salida_real = max(checadas_siguiente)
+                        # Si no hay checadas del día siguiente pero sí del día de entrada, usar la más tardía
+                        elif checadas_dia:
+                            salida_real = max(checadas_dia)
+
+                        # Si solo hay checadas del día siguiente (sin entrada), no crear primera checada
+                        if not checadas_dia and checadas_siguiente:
+                            # Marcar como ausencia de entrada - esto se manejará en el análisis posterior
+                            entrada_real = None
+                            salida_real = max(checadas_siguiente)
+
+                        # Limpiar todas las checadas del día actual
+                        for j in range(1, 10):
+                            if f"checado_{j}" in df_proc.columns:
+                                df_proc.loc[idx_actual, f"checado_{j}"] = None
+
+                        # Asignar las checadas procesadas
+                        if entrada_real:
+                            df_proc.loc[idx_actual, "checado_1"] = entrada_real
+                        if salida_real:
+                            df_proc.loc[idx_actual, "checado_2"] = salida_real
+
+                        # Calcular duración solo si tenemos tanto entrada como salida
+                        if entrada_real and salida_real:
+                            try:
+                                entrada_time = datetime.strptime(
+                                    entrada_real, "%H:%M:%S"
+                                ).time()
+                                salida_time = datetime.strptime(
+                                    salida_real, "%H:%M:%S"
+                                ).time()
+
+                                fecha_actual = fila_actual["dia"]
+                                inicio = datetime.combine(fecha_actual, entrada_time)
+
+                                # Para turnos que cruzan medianoche, la salida es al día siguiente
+                                if salida_time <= entrada_time:
+                                    fin = datetime.combine(
+                                        fecha_actual + timedelta(days=1), salida_time
+                                    )
+                                else:
+                                    fin = datetime.combine(fecha_actual, salida_time)
+
+                                duracion_td = fin - inicio
+                                df_proc.loc[idx_actual, "duration"] = duracion_td
+                                df_proc.loc[idx_actual, "horas_trabajadas"] = td_to_str(
+                                    duracion_td
+                                )
+                            except (ValueError, TypeError):
+                                df_proc.loc[idx_actual, "duration"] = pd.Timedelta(0)
+                                df_proc.loc[idx_actual, "horas_trabajadas"] = "00:00:00"
+                        else:
+                            # Si no tenemos entrada o salida completa, marcar como sin horas
+                            df_proc.loc[idx_actual, "duration"] = pd.Timedelta(0)
+                            df_proc.loc[idx_actual, "horas_trabajadas"] = "00:00:00"
+
+                        # Limpiar la checada utilizada del día siguiente para evitar duplicación
+                        if (
+                            idx_siguiente is not None
+                            and salida_real
+                            and salida_real in checadas_siguiente
+                        ):
+                            for j in range(1, 10):
+                                if (
+                                    f"checado_{j}" in df_proc.columns
+                                    and df_proc.loc[idx_siguiente, f"checado_{j}"]
+                                    == salida_real
+                                ):
+                                    df_proc.loc[idx_siguiente, f"checado_{j}"] = None
+                                    break
+
+                            # Recalcular horas para el día siguiente con checadas restantes
+                            checadas_restantes = [
                                 df_proc.loc[idx_siguiente, f"checado_{j}"]
                                 for j in range(1, 10)
                                 if f"checado_{j}" in df_proc.columns
                                 and pd.notna(df_proc.loc[idx_siguiente, f"checado_{j}"])
                             ]
-
-                            entrada_real = min(checadas_dia)
-                            salida_real = (
-                                max(checadas_siguiente)
-                                if checadas_siguiente
-                                else max(checadas_dia)
-                            )
-
-                            for j in range(1, 10):
-                                if f"checado_{j}" in df_proc.columns:
-                                    df_proc.loc[idx_actual, f"checado_{j}"] = None
-
-                            df_proc.loc[idx_actual, "checado_1"] = entrada_real
-                            df_proc.loc[idx_actual, "checado_2"] = salida_real
-
-                            # Use datetime.combine to properly combine dates
-                            entrada_time = datetime.strptime(entrada_real, "%H:%M:%S").time()
-                            salida_time = datetime.strptime(salida_real, "%H:%M:%S").time()
-
-                            fecha_actual = fila_actual["dia"]
-                            inicio = datetime.combine(fecha_actual, entrada_time)
-
-                            # For shifts that cross midnight, exit is on the next day
-                            if salida_time <= entrada_time:
-                                fin = datetime.combine(
-                                    fecha_actual + timedelta(days=1), salida_time
-                                )
-                            else:
-                                fin = datetime.combine(fecha_actual, salida_time)
-
-                            # Assign as Timedelta, NOT as string
-                            duracion_td = fin - inicio
-                            df_proc.loc[idx_actual, "duration"] = duracion_td
-                            df_proc.loc[idx_actual, "horas_trabajadas"] = td_to_str(duracion_td)
-
-                            if salida_real in checadas_siguiente:
-                                for j in range(1, 10):
-                                    if (
-                                        f"checado_{j}" in df_proc.columns
-                                        and df_proc.loc[idx_siguiente, f"checado_{j}"] == salida_real
-                                    ):
-                                        df_proc.loc[idx_siguiente, f"checado_{j}"] = None
-                                        break
-
-                                # Recalculate hours for the next day
-                                checadas_restantes = [
-                                    df_proc.loc[idx_siguiente, f"checado_{j}"]
-                                    for j in range(1, 10)
-                                    if f"checado_{j}" in df_proc.columns
-                                    and pd.notna(df_proc.loc[idx_siguiente, f"checado_{j}"])
-                                ]
-                                if len(checadas_restantes) >= 2:
-                                    # Use datetime.combine for the next day
+                            if len(checadas_restantes) >= 2:
+                                try:
                                     entrada_sig = datetime.strptime(
                                         min(checadas_restantes), "%H:%M:%S"
                                     ).time()
@@ -331,20 +385,39 @@ class AttendanceProcessor:
                                     ).time()
 
                                     fecha_siguiente = dia_siguiente
-                                    inicio_sig = datetime.combine(fecha_siguiente, entrada_sig)
-                                    fin_sig = datetime.combine(fecha_siguiente, salida_sig)
+                                    inicio_sig = datetime.combine(
+                                        fecha_siguiente, entrada_sig
+                                    )
+                                    fin_sig = datetime.combine(
+                                        fecha_siguiente, salida_sig
+                                    )
 
                                     duracion_sig_td = fin_sig - inicio_sig
-                                    df_proc.loc[idx_siguiente, "duration"] = duracion_sig_td
-                                    df_proc.loc[idx_siguiente, "horas_trabajadas"] = td_to_str(duracion_sig_td)
-                                else:
-                                    df_proc.loc[idx_siguiente, "duration"] = pd.Timedelta(0)
-                                    df_proc.loc[idx_siguiente, "horas_trabajadas"] = "00:00:00"
+                                    df_proc.loc[idx_siguiente, "duration"] = (
+                                        duracion_sig_td
+                                    )
+                                    df_proc.loc[idx_siguiente, "horas_trabajadas"] = (
+                                        td_to_str(duracion_sig_td)
+                                    )
+                                except (ValueError, TypeError):
+                                    df_proc.loc[idx_siguiente, "duration"] = (
+                                        pd.Timedelta(0)
+                                    )
+                                    df_proc.loc[idx_siguiente, "horas_trabajadas"] = (
+                                        "00:00:00"
+                                    )
+                            else:
+                                df_proc.loc[idx_siguiente, "duration"] = pd.Timedelta(0)
+                                df_proc.loc[idx_siguiente, "horas_trabajadas"] = (
+                                    "00:00:00"
+                                )
 
         print("✅ Procesamiento de turnos con medianoche completado")
         return df_proc
 
-    def analizar_asistencia_con_horarios_cache(self, df: pd.DataFrame, cache_horarios: Dict) -> pd.DataFrame:
+    def analizar_asistencia_con_horarios_cache(
+        self, df: pd.DataFrame, cache_horarios: Dict
+    ) -> pd.DataFrame:
         """
         Enriches the DataFrame with schedule and tardiness analysis using the schedule cache.
         """
@@ -361,20 +434,30 @@ class AttendanceProcessor:
 
         def obtener_horario_fila(row):
             horario = obtener_horario_empleado(
-                row["employee"], row["dia_iso"], row["es_primera_quincena"], cache_horarios
+                row["employee"],
+                row["dia_iso"],
+                row["es_primera_quincena"],
+                cache_horarios,
             )
             if horario:
-                return pd.Series([
-                    horario.get("hora_entrada"),
-                    horario.get("hora_salida"),
-                    horario.get("cruza_medianoche", False),
-                    str(timedelta(hours=float(horario.get("horas_totales", 0)))),
-                ])
+                return pd.Series(
+                    [
+                        horario.get("hora_entrada"),
+                        horario.get("hora_salida"),
+                        horario.get("cruza_medianoche", False),
+                        str(timedelta(hours=float(horario.get("horas_totales", 0)))),
+                    ]
+                )
             return pd.Series([None, None, False, None])
 
-        df[["hora_entrada_programada", "hora_salida_programada", "cruza_medianoche", "horas_esperadas"]] = df.apply(
-            obtener_horario_fila, axis=1, result_type="expand"
-        )
+        df[
+            [
+                "hora_entrada_programada",
+                "hora_salida_programada",
+                "cruza_medianoche",
+                "horas_esperadas",
+            ]
+        ] = df.apply(obtener_horario_fila, axis=1, result_type="expand")
 
         print("   - Calculando retardos y puntualidad...")
 
@@ -382,9 +465,16 @@ class AttendanceProcessor:
             if pd.isna(row.get("hora_entrada_programada")):
                 return pd.Series(["Día no Laborable", 0])
             if pd.isna(row.get("checado_1")):
+                # Para turnos nocturnos sin checada de entrada pero con salida, marcar especialmente
+                if row.get("cruza_medianoche", False) and pd.notna(
+                    row.get("checado_2")
+                ):
+                    return pd.Series(["Falta Entrada Nocturno", 0])
                 return pd.Series(["Falta", 0])
             try:
-                hora_prog = datetime.strptime(row["hora_entrada_programada"] + ":00", "%H:%M:%S")
+                hora_prog = datetime.strptime(
+                    row["hora_entrada_programada"] + ":00", "%H:%M:%S"
+                )
                 hora_checada = datetime.strptime(row["checado_1"], "%H:%M:%S")
 
                 if (
@@ -409,12 +499,18 @@ class AttendanceProcessor:
             except (ValueError, TypeError):
                 return pd.Series(["Falta", 0])
 
-        df[["tipo_retardo", "minutos_tarde"]] = df.apply(analizar_retardo, axis=1, result_type="expand")
+        df[["tipo_retardo", "minutos_tarde"]] = df.apply(
+            analizar_retardo, axis=1, result_type="expand"
+        )
 
         df = df.sort_values(by=["employee", "dia"]).reset_index(drop=True)
         df["es_retardo_acumulable"] = (df["tipo_retardo"] == "Retardo").astype(int)
-        df["es_falta"] = (df["tipo_retardo"].isin(["Falta", "Falta Injustificada"])).astype(int)
-        df["retardos_acumulados"] = df.groupby("employee")["es_retardo_acumulable"].cumsum()
+        df["es_falta"] = (
+            df["tipo_retardo"].isin(["Falta", "Falta Injustificada"])
+        ).astype(int)
+        df["retardos_acumulados"] = df.groupby("employee")[
+            "es_retardo_acumulable"
+        ].cumsum()
 
         df["descuento_por_3_retardos"] = df.apply(
             lambda row: (
@@ -432,7 +528,9 @@ class AttendanceProcessor:
         # Function to detect early departures
         def detectar_salida_anticipada(row):
             # Only apply if scheduled exit time exists and at least one check-in
-            if pd.isna(row.get("hora_salida_programada")) or pd.isna(row.get("checado_1")):
+            if pd.isna(row.get("hora_salida_programada")) or pd.isna(
+                row.get("checado_1")
+            ):
                 return False
 
             # Get the last check-in of the day (the one with the highest value)
@@ -472,7 +570,9 @@ class AttendanceProcessor:
 
             try:
                 # Parse scheduled exit time
-                hora_salida_prog = datetime.strptime(row["hora_salida_programada"] + ":00", "%H:%M:%S")
+                hora_salida_prog = datetime.strptime(
+                    row["hora_salida_programada"] + ":00", "%H:%M:%S"
+                )
                 hora_ultima_checada = datetime.strptime(ultima_checada, "%H:%M:%S")
 
                 # Handle shifts that cross midnight
@@ -482,7 +582,9 @@ class AttendanceProcessor:
                     pass
 
                 # Calculate difference in minutes
-                diferencia = (hora_salida_prog - hora_ultima_checada).total_seconds() / 60
+                diferencia = (
+                    hora_salida_prog - hora_ultima_checada
+                ).total_seconds() / 60
 
                 # Handle midnight cases
                 if diferencia < -12 * 60:  # More than 12 hours before
@@ -503,7 +605,9 @@ class AttendanceProcessor:
         print("✅ Análisis completado.")
         return df
 
-    def ajustar_horas_esperadas_con_permisos(self, df: pd.DataFrame, permisos_dict: Dict, cache_horarios: Dict) -> pd.DataFrame:
+    def ajustar_horas_esperadas_con_permisos(
+        self, df: pd.DataFrame, permisos_dict: Dict, cache_horarios: Dict
+    ) -> pd.DataFrame:
         """
         Adjusts expected hours in the DataFrame considering approved leaves.
         Properly handles half-day leaves.
@@ -529,7 +633,6 @@ class AttendanceProcessor:
             fecha = row["dia"]
 
             if employee_code in permisos_dict and fecha in permisos_dict[employee_code]:
-
                 permiso_info = permisos_dict[employee_code][fecha]
                 leave_type_normalized = permiso_info.get("leave_type_normalized", "")
                 is_half_day = permiso_info.get("is_half_day", False)
@@ -542,7 +645,10 @@ class AttendanceProcessor:
 
                 horas_esperadas_orig = row["horas_esperadas"]
 
-                if pd.notna(horas_esperadas_orig) and horas_esperadas_orig != "00:00:00":
+                if (
+                    pd.notna(horas_esperadas_orig)
+                    and horas_esperadas_orig != "00:00:00"
+                ):
                     if accion == "no_ajustar":
                         df.at[index, "es_permiso_sin_goce"] = True
                         permisos_sin_goce += 1
@@ -555,24 +661,32 @@ class AttendanceProcessor:
                                 # Calculate half
                                 mitad_horas = horas_td / 2
                                 # Convert back to string
-                                mitad_horas_str = str(mitad_horas).split()[-1]  # Get only HH:MM:SS
+                                mitad_horas_str = str(mitad_horas).split()[
+                                    -1
+                                ]  # Get only HH:MM:SS
 
                                 # Adjust expected hours (subtract half)
                                 horas_ajustadas = horas_td - mitad_horas
                                 horas_ajustadas_str = str(horas_ajustadas).split()[-1]
 
                                 df.at[index, "horas_esperadas"] = horas_ajustadas_str
-                                df.at[index, "horas_descontadas_permiso"] = mitad_horas_str
+                                df.at[index, "horas_descontadas_permiso"] = (
+                                    mitad_horas_str
+                                )
                                 permisos_medio_dia += 1
                             except (ValueError, TypeError):
                                 # If there's an error in calculation, treat as full day
                                 df.at[index, "horas_esperadas"] = "00:00:00"
-                                df.at[index, "horas_descontadas_permiso"] = horas_esperadas_orig
+                                df.at[index, "horas_descontadas_permiso"] = (
+                                    horas_esperadas_orig
+                                )
                                 permisos_con_descuento += 1
                         else:
                             # Full day leave
                             df.at[index, "horas_esperadas"] = "00:00:00"
-                            df.at[index, "horas_descontadas_permiso"] = horas_esperadas_orig
+                            df.at[index, "horas_descontadas_permiso"] = (
+                                horas_esperadas_orig
+                            )
                             permisos_con_descuento += 1
 
         empleados_con_permisos = df[df["tiene_permiso"]]["employee"].nunique()
@@ -581,7 +695,9 @@ class AttendanceProcessor:
         print("✅ Ajuste completado:")
         print(f"   - {empleados_con_permisos} empleados con permisos")
         print(f"   - {dias_con_permisos} días con permisos")
-        print(f"   - {permisos_con_descuento} permisos con horas descontadas (día completo)")
+        print(
+            f"   - {permisos_con_descuento} permisos con horas descontadas (día completo)"
+        )
         print(f"   - {permisos_medio_dia} permisos de medio día")
         print(f"   - {permisos_sin_goce} permisos sin goce (sin descuento)")
 
@@ -608,7 +724,9 @@ class AttendanceProcessor:
         df["horas_esperadas_td"] = df["horas_esperadas"].apply(safe_timedelta)
 
         # Calculate if shift hours were fulfilled
-        df["cumplio_horas_turno"] = df["horas_trabajadas_td"] >= df["horas_esperadas_td"]
+        df["cumplio_horas_turno"] = (
+            df["horas_trabajadas_td"] >= df["horas_esperadas_td"]
+        )
 
         # Save original values before applying forgiveness
         df["tipo_retardo_original"] = df["tipo_retardo"].copy()
@@ -616,7 +734,9 @@ class AttendanceProcessor:
         df["retardo_perdonado"] = False
 
         # Apply forgiveness to tardiness
-        mask_retardo_perdonable = (df["tipo_retardo"] == "Retardo") & (df["cumplio_horas_turno"] == True)
+        mask_retardo_perdonable = (df["tipo_retardo"] == "Retardo") & (
+            df["cumplio_horas_turno"]
+        )
 
         if mask_retardo_perdonable.any():
             df.loc[mask_retardo_perdonable, "retardo_perdonado"] = True
@@ -627,21 +747,31 @@ class AttendanceProcessor:
 
         # Apply forgiveness to unjustified absences (optional)
         if PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA:
-            mask_falta_perdonable = (df["tipo_retardo"] == "Falta Injustificada") & (df["cumplio_horas_turno"] == True)
+            mask_falta_perdonable = (df["tipo_retardo"] == "Falta Injustificada") & (
+                df["cumplio_horas_turno"]
+            )
 
             if mask_falta_perdonable.any():
                 df.loc[mask_falta_perdonable, "retardo_perdonado"] = True
-                df.loc[mask_falta_perdonable, "tipo_retardo"] = "A Tiempo (Cumplió Horas)"
+                df.loc[mask_falta_perdonable, "tipo_retardo"] = (
+                    "A Tiempo (Cumplió Horas)"
+                )
                 df.loc[mask_falta_perdonable, "minutos_tarde"] = 0
                 faltas_perdonadas = mask_falta_perdonable.sum()
-                print(f"   - {faltas_perdonadas} unjustified absences forgiven for fulfilling hours")
+                print(
+                    f"   - {faltas_perdonadas} unjustified absences forgiven for fulfilling hours"
+                )
 
         # Recalculate derived columns
         df["es_retardo_acumulable"] = (df["tipo_retardo"] == "Retardo").astype(int)
-        df["es_falta"] = (df["tipo_retardo"].isin(["Falta", "Falta Injustificada"])).astype(int)
+        df["es_falta"] = (
+            df["tipo_retardo"].isin(["Falta", "Falta Injustificada"])
+        ).astype(int)
 
         # Recalculate accumulated tardiness by employee
-        df["retardos_acumulados"] = df.groupby("employee")["es_retardo_acumulable"].cumsum()
+        df["retardos_acumulados"] = df.groupby("employee")[
+            "es_retardo_acumulable"
+        ].cumsum()
 
         # Recalculate discount for 3 tardiness
         df["descuento_por_3_retardos"] = df.apply(
@@ -657,7 +787,9 @@ class AttendanceProcessor:
 
         total_perdonados = df["retardo_perdonado"].sum()
         if total_perdonados > 0:
-            print(f"✅ Forgiveness applied to {total_perdonados} days for hour fulfillment")
+            print(
+                f"✅ Forgiveness applied to {total_perdonados} days for hour fulfillment"
+            )
         else:
             print("✅ No days found eligible for forgiveness")
 
