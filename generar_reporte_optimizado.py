@@ -1731,8 +1731,8 @@ def generar_reporte_html(
 if __name__ == "__main__":
     start_date = "2025-07-01"
     end_date = "2025-07-31"
-    sucursal = "31pte"
-    device_filter = "%31%"
+    sucursal = "Villas"
+    device_filter = "%Villas%"
 
     fecha_inicio_dt = datetime.strptime(start_date, "%Y-%m-%d")
     fecha_fin_dt = datetime.strptime(end_date, "%Y-%m-%d")
