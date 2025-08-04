@@ -170,8 +170,8 @@ def main():
     end_date = "2025-07-31"
     
     # Branch and device filter
-    sucursal = "Villas"
-    device_filter = "villas"
+    sucursal = "31pte"
+    device_filter = "%31%"
     
     # ==========================================================================
     # END CONFIGURATION SECTION
