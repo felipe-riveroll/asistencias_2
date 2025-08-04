@@ -43,8 +43,8 @@ def obtener_tabla_horarios(
 ):
     """
     Obtiene la tabla de horarios completa para una sucursal y quincena específica.
-    Utiliza la función f_tabla_horarios de PostgreSQL que devuelve los horarios
-    de todos los empleados por día de la semana.
+    Utiliza la función f_tabla_horarios_multi_quincena de PostgreSQL que devuelve los horarios
+    de todos los empleados por día de la semana con información de cruza_medianoche.
 
     Args:
         sucursal: Nombre de la sucursal (ej: 'Villas')
@@ -67,9 +67,10 @@ def obtener_tabla_horarios(
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-        # La función f_tabla_horarios ya incluye el codigo_frappe en los resultados
+        # Usar la nueva función f_tabla_horarios_multi_quincena que incluye cruza_medianoche
         sql_horarios = """
-        SELECT * FROM f_tabla_horarios(%s, %s)
+        SELECT * FROM f_tabla_horarios_multi_quincena(%s)
+        WHERE es_primera_quincena = %s
         """
         cursor.execute(sql_horarios, (sucursal, es_primera_quincena))
         horarios_result = cursor.fetchall()
@@ -163,13 +164,8 @@ def mapear_horarios_por_empleado(horarios_tabla, empleados_codigos):
                 hora_entrada = horario[dia].get("horario_entrada")
                 hora_salida = horario[dia].get("horario_salida")
                 horas_totales = horario[dia].get("horas_totales")
-
-                # Detectamos si cruza medianoche cuando la hora de salida es menor que la de entrada
-                hora_entrada_parts = list(map(int, hora_entrada.split(":")))
-                hora_salida_parts = list(map(int, hora_salida.split(":")))
-                entrada_mins = hora_entrada_parts[0] * 60 + hora_entrada_parts[1]
-                salida_mins = hora_salida_parts[0] * 60 + hora_salida_parts[1]
-                cruza_medianoche = salida_mins < entrada_mins
+                # Usar el campo cruza_medianoche de la base de datos
+                cruza_medianoche = horario[dia].get("cruza_medianoche", False)
 
                 horarios_mapeados[codigo_frappe][dias_indices[dia]] = {
                     "hora_entrada": hora_entrada,
@@ -270,13 +266,8 @@ def mapear_horarios_por_empleado_multi(horarios_por_quincena):
                     hora_entrada = horario[dia].get("horario_entrada")
                     hora_salida = horario[dia].get("horario_salida")
                     horas_totales = horario[dia].get("horas_totales")
-
-                    # Detectamos si cruza medianoche cuando la hora de salida es menor que la de entrada
-                    hora_entrada_parts = list(map(int, hora_entrada.split(":")))
-                    hora_salida_parts = list(map(int, hora_salida.split(":")))
-                    entrada_mins = hora_entrada_parts[0] * 60 + hora_entrada_parts[1]
-                    salida_mins = hora_salida_parts[0] * 60 + hora_salida_parts[1]
-                    cruza_medianoche = salida_mins < entrada_mins
+                    # Usar el campo cruza_medianoche de la base de datos
+                    cruza_medianoche = horario[dia].get("cruza_medianoche", False)
 
                     horarios_mapeados[codigo_frappe][es_primera_quincena][
                         dias_indices[dia]

@@ -27,6 +27,11 @@ uv run pytest -n auto
 # Format code with Black
 uv run black .
 
+# Format and lint with Ruff (faster alternative)
+uv run ruff format .
+uv run ruff check .
+uv run ruff check --fix .        # Auto-fix issues
+
 # Lint with flake8
 uv run flake8 .
 

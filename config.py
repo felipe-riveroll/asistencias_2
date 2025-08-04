@@ -48,6 +48,12 @@ TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS = 15
 TOLERANCIA_RETARDO_MINUTOS = 15
 UMBRAL_FALTA_INJUSTIFICADA_MINUTOS = 60
 
+# Midnight crossing shift grace period (in minutes)
+# For shifts that cross midnight (e.g., 18:00 → 02:00), any check-in within this
+# grace period after the scheduled exit time will be assigned to the previous day's shift
+# instead of the next calendar day. Default: 59 minutes (covers the entire hour)
+GRACE_MINUTES = 59
+
 # ==============================================================================
 # REPORT CONFIGURATION
 # ==============================================================================

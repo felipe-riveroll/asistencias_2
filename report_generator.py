@@ -10,6 +10,7 @@ from typing import Dict, Any, List
 
 from config import OUTPUT_DETAILED_REPORT, OUTPUT_SUMMARY_REPORT, OUTPUT_HTML_DASHBOARD
 from utils import format_timedelta_with_sign, format_positive_timedelta, time_to_decimal, calculate_working_days
+from reporte_excel import generar_reporte_excel
 
 
 class ReportGenerator:
@@ -277,6 +278,36 @@ class ReportGenerator:
 
         filename = self._save_html_with_fallback(html_content, OUTPUT_HTML_DASHBOARD)
         return filename
+
+    def generar_reporte_excel(
+        self,
+        df_detallado: pd.DataFrame,
+        df_resumen: pd.DataFrame,
+        sucursal: str,
+        periodo_inicio: str,
+        periodo_fin: str,
+    ) -> str:
+        """
+        Genera un reporte Excel usando el módulo de reporte_excel.
+        
+        Args:
+            df_detallado: DataFrame con datos detallados de asistencia
+            df_resumen: DataFrame con resumen del período
+            sucursal: Nombre de la sucursal
+            periodo_inicio: Fecha de inicio del período
+            periodo_fin: Fecha de fin del período
+            
+        Returns:
+            Nombre del archivo Excel generado
+        """
+        try:
+            archivo_excel = generar_reporte_excel(
+                df_detallado, df_resumen, sucursal, periodo_inicio, periodo_fin
+            )
+            return archivo_excel
+        except Exception as e:
+            print(f"⚠️ Error al generar reporte Excel: {e}")
+            return ""
 
     def _save_csv_with_fallback(self, df: pd.DataFrame, filename: str, description: str) -> str:
         """
