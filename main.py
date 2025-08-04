@@ -171,7 +171,7 @@ def main():
     
     # Branch and device filter
     sucursal = "Villas"
-    device_filter = "%Villas%"
+    device_filter = "villas"
     
     # ==========================================================================
     # END CONFIGURATION SECTION

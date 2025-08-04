@@ -375,8 +375,9 @@ class GeneradorReporteExcel:
         fill_verde_entrada_nocturno,
     ):
         """Aplicar color a las checadas según ICG"""
-        # Para "Falta Entrada Nocturno", aplicar color especial en la primera checada (vacía)
-        if es_entrada and tipo_retardo == "Falta Entrada Nocturno":
+        # Para "Falta Entrada Nocturno" o entrada faltante, aplicar color especial en la primera checada (vacía)
+        if es_entrada and (tipo_retardo == "Falta Entrada Nocturno" or 
+                          (pd.isna(checada_value) and "Falta registro de entrada" in str(cell.parent.cell(cell.row, 14).value or ""))):
             if pd.isna(checada_value) or checada_value == "" or checada_value == "---":
                 cell.fill = fill_verde_entrada_nocturno
                 return
@@ -423,6 +424,10 @@ class GeneradorReporteExcel:
         """Generar observaciones basadas en los datos de la fila"""
         observaciones = []
 
+        # Verificar observaciones existentes en el DataFrame
+        if "observaciones" in row_data and pd.notna(row_data["observaciones"]):
+            observaciones.extend(row_data["observaciones"].split("; "))
+
         # Verificar tipo de retardo
         if "tipo_retardo" in row_data and row_data["tipo_retardo"] not in [
             "A Tiempo",
@@ -440,7 +445,8 @@ class GeneradorReporteExcel:
         if "salida_anticipada" in row_data and row_data["salida_anticipada"]:
             observaciones.append("Salida anticipada")
 
-        return "; ".join(observaciones) if observaciones else ""
+        # Eliminar duplicados y unir
+        return "; ".join(list(set(observaciones))) if observaciones else ""
 
     def _agregar_fila_totales(self, ws, current_row, emp_data, fill_gris):
         """Agregar fila de totales por empleado"""
