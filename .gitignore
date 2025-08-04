@@ -99,6 +99,9 @@ uv.lock
 .aider.conf.yml
 .aider*
 
+# Serena directory
+.serena/
+
 *.csv
 *.xlsx
 *.html
