@@ -4,7 +4,7 @@ Contains all core business logic for processing check-ins, schedules, and genera
 """
 
 import pandas as pd
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, date
 from itertools import product
 from typing import Dict, List
 
@@ -15,6 +15,7 @@ from config import (
     TOLERANCIA_RETARDO_MINUTOS,
     UMBRAL_FALTA_INJUSTIFICADA_MINUTOS,
     DIAS_ESPANOL,
+    GRACE_MINUTES,
 )
 from utils import td_to_str, safe_timedelta
 from db_postgres_connection import obtener_horario_empleado
@@ -241,178 +242,548 @@ class AttendanceProcessor:
         self, df: pd.DataFrame, cache_horarios: Dict
     ) -> pd.DataFrame:
         """
-        Reorganizes check-ins for shifts that cross midnight.
+        Reorganiza las marcas de entrada/salida para turnos que cruzan medianoche.
+        
+        Para turnos nocturnos (ej: 18:00 → 02:00):
+        1. Determina la "fecha de turno" usando la hora de entrada
+        2. Agrupa marcas por empleado + fecha de turno
+        3. Mantiene primera marca como entrada y última marca como salida
+        4. Calcula horas trabajadas considerando el cruce de medianoche
+        
+        IMPORTANTE: La lógica de ventana de gracia (GRACE_MINUTES) solo aplica cuando 
+        cruza_medianoche=True. Para turnos normales, las marcas se asignan al día 
+        calendario correspondiente.
         """
         print("\n🔄 Procesando turnos que cruzan medianoche...")
-        df_proc = df.copy().sort_values(["employee", "dia"]).reset_index(drop=True)
-        df_proc["es_primera_quincena"] = df_proc["dia"].apply(lambda x: x.day <= 15)
-
-        for empleado in df_proc["employee"].unique():
-            mask_empleado = df_proc["employee"] == empleado
-            filas_empleado = df_proc.loc[mask_empleado].copy()
-
-            for i in range(len(filas_empleado)):
-                idx_actual = filas_empleado.index[i]
-                fila_actual = df_proc.loc[idx_actual]
-
-                horario = obtener_horario_empleado(
+        
+        if df.empty:
+            return df
+            
+        # Crear una copia del DataFrame original para trabajar
+        df_proc = df.copy()
+        
+        # Agregar columna es_primera_quincena si no existe
+        if 'es_primera_quincena' not in df_proc.columns:
+            df_proc['es_primera_quincena'] = df_proc['dia'].apply(lambda x: x.day <= 15)
+        
+        # Función para mapear la fecha de turno correcta
+        def map_shift_date(checada_time, entrada, salida, cruza_medianoche, dia_original):
+            """
+            Mapea una hora de checada a la fecha de turno correcta.
+            
+            Args:
+                checada_time: Hora de la marca (ej: "18:04:00")
+                entrada: Hora de entrada programada (ej: "18:00")
+                salida: Hora de salida programada (ej: "02:00")
+                cruza_medianoche: Boolean indicando si el turno cruza medianoche
+                dia_original: Fecha original de la marca
+                
+            Returns:
+                Fecha del turno (datetime.date)
+            """
+            if not cruza_medianoche:
+                return dia_original
+                
+            # Para turnos que cruzan medianoche
+            try:
+                entrada_time = datetime.strptime(entrada, "%H:%M").time()
+                salida_time = datetime.strptime(salida, "%H:%M").time()
+                checada_time_obj = datetime.strptime(checada_time, "%H:%M:%S").time()
+                
+                # Lógica de ventana de gracia para turnos que cruzan medianoche
+                # Si la marca ocurre en la misma hora del horario de salida (p. ej. cualquier registro 
+                # entre 02:00:00 y 02:59:59 para salida 02:00) debe pertenecer al mismo día de turno 
+                # que la entrada, no al siguiente día de calendario.
+                salida_dt = datetime.combine(dia_original, salida_time)
+                limite_gracia = (datetime.combine(dia_original, salida_time) + 
+                                timedelta(minutes=GRACE_MINUTES)).time()
+                
+                # Si ts está después de medianoche pero <= salida + gracia → día anterior
+                if checada_time_obj <= limite_gracia:
+                    return dia_original - timedelta(days=1)
+                else:
+                    # La marca pertenece al turno que comenzó hoy
+                    return dia_original
+            except (ValueError, TypeError):
+                return dia_original
+        
+        # Función para detectar si un grupo de marcas solo contiene salidas
+        def is_only_checkout(marks, entrada_teorica, salida_teorica):
+            """
+            Determina si un grupo de marcas solo contiene registros de salida.
+            
+            Args:
+                marks: lista de timestamps ordenados
+                entrada_teorica: hora de entrada programada (time object)
+                salida_teorica: hora de salida programada (time object)
+                
+            Returns:
+                True si no hay marca >= entrada_teorica y < 23:59:59 del shift_date
+            """
+            try:
+                entrada_time = datetime.strptime(entrada_teorica, "%H:%M").time()
+                salida_time = datetime.strptime(salida_teorica, "%H:%M").time()
+                
+                # Verificar si todas las marcas están antes de la hora de entrada programada
+                # o dentro de la ventana de gracia de la salida
+                for marca in marks:
+                    marca_time = datetime.strptime(marca, "%H:%M:%S").time()
+                    
+                    # Si hay una marca después de la entrada programada y antes de medianoche, no es solo salida
+                    if marca_time >= entrada_time and marca_time < time(23, 59, 59):
+                        return False
+                
+                # Si llegamos aquí, todas las marcas están antes de la entrada o en la ventana de gracia
+                return True
+            except (ValueError, TypeError):
+                return False
+        
+        # Procesar turnos nocturnos dia por dia
+        marcas_list = []
+        turnos_procesados = set()  # Para rastrear qué turnos fueron procesados
+        
+        # Primero, identificar todos los empleados con turnos nocturnos y recolectar todas sus marcas por día
+        empleados_turnos_nocturnos = {}
+        
+        for index, row in df_proc.iterrows():
+            empleado = row['employee']
+            dia = row['dia']
+            
+            # Obtener horario del empleado para este día
+            horario = obtener_horario_empleado(
+                str(empleado),
+                row['dia_iso'],
+                row['es_primera_quincena'],
+                cache_horarios
+            )
+            
+            # Si no hay horario para este día, buscar en el día anterior
+            # para casos donde las marcas tardías caen en días sin horario programado
+            entrada = None
+            salida = None
+            cruza_medianoche = False
+            
+            if horario:
+                entrada = horario.get('hora_entrada')
+                salida = horario.get('hora_salida')
+                cruza_medianoche = horario.get('cruza_medianoche', False)
+            else:
+                # Buscar horario del día anterior que pueda ser nocturno
+                dia_anterior = dia - timedelta(days=1)
+                dia_anterior_iso = dia_anterior.weekday() + 1
+                
+                horario_anterior = obtener_horario_empleado(
                     str(empleado),
-                    fila_actual["dia_iso"],
-                    fila_actual["es_primera_quincena"],
-                    cache_horarios,
+                    dia_anterior_iso,
+                    row['es_primera_quincena'],
+                    cache_horarios
                 )
-
-                if horario and horario.get("cruza_medianoche", False):
-                    checadas_dia = [
-                        df_proc.loc[idx_actual, f"checado_{j}"]
-                        for j in range(1, 10)
-                        if f"checado_{j}" in df_proc.columns
-                        and pd.notna(df_proc.loc[idx_actual, f"checado_{j}"])
-                    ]
-
-                    # Buscar también checadas del día siguiente para turnos nocturnos
-                    dia_siguiente = fila_actual["dia"] + timedelta(days=1)
-                    mask_siguiente = (df_proc["employee"] == empleado) & (
-                        df_proc["dia"] == dia_siguiente
-                    )
-
-                    checadas_siguiente = []
-                    idx_siguiente = None
-                    if mask_siguiente.any():
-                        idx_siguiente = df_proc[mask_siguiente].index[0]
-                        checadas_siguiente = [
-                            df_proc.loc[idx_siguiente, f"checado_{j}"]
-                            for j in range(1, 10)
-                            if f"checado_{j}" in df_proc.columns
-                            and pd.notna(df_proc.loc[idx_siguiente, f"checado_{j}"])
-                        ]
-
-                        # Determinar entrada y salida real
-                        entrada_real = None
-                        salida_real = None
-
-                        # Si hay checadas del día de entrada, usar la más temprana como entrada
-                        if checadas_dia:
-                            entrada_real = min(checadas_dia)
-
-                        # Si hay checadas del día siguiente, usar la más tardía como salida
-                        if checadas_siguiente:
-                            salida_real = max(checadas_siguiente)
-                        # Si no hay checadas del día siguiente pero sí del día de entrada, usar la más tardía
-                        elif checadas_dia:
-                            salida_real = max(checadas_dia)
-
-                        # Si solo hay checadas del día siguiente (sin entrada), no crear primera checada
-                        if not checadas_dia and checadas_siguiente:
-                            # Marcar como ausencia de entrada - esto se manejará en el análisis posterior
-                            entrada_real = None
-                            salida_real = max(checadas_siguiente)
-
-                        # Limpiar todas las checadas del día actual
-                        for j in range(1, 10):
-                            if f"checado_{j}" in df_proc.columns:
-                                df_proc.loc[idx_actual, f"checado_{j}"] = None
-
-                        # Asignar las checadas procesadas
-                        if entrada_real:
-                            df_proc.loc[idx_actual, "checado_1"] = entrada_real
-                        if salida_real:
-                            df_proc.loc[idx_actual, "checado_2"] = salida_real
-
-                        # Calcular duración solo si tenemos tanto entrada como salida
-                        if entrada_real and salida_real:
-                            try:
-                                entrada_time = datetime.strptime(
-                                    entrada_real, "%H:%M:%S"
-                                ).time()
-                                salida_time = datetime.strptime(
-                                    salida_real, "%H:%M:%S"
-                                ).time()
-
-                                fecha_actual = fila_actual["dia"]
-                                inicio = datetime.combine(fecha_actual, entrada_time)
-
-                                # Para turnos que cruzan medianoche, la salida es al día siguiente
-                                if salida_time <= entrada_time:
-                                    fin = datetime.combine(
-                                        fecha_actual + timedelta(days=1), salida_time
-                                    )
-                                else:
-                                    fin = datetime.combine(fecha_actual, salida_time)
-
-                                duracion_td = fin - inicio
-                                df_proc.loc[idx_actual, "duration"] = duracion_td
-                                df_proc.loc[idx_actual, "horas_trabajadas"] = td_to_str(
-                                    duracion_td
-                                )
-                            except (ValueError, TypeError):
-                                df_proc.loc[idx_actual, "duration"] = pd.Timedelta(0)
-                                df_proc.loc[idx_actual, "horas_trabajadas"] = "00:00:00"
+                
+                if horario_anterior and horario_anterior.get('cruza_medianoche', False):
+                    entrada = horario_anterior.get('hora_entrada')
+                    salida = horario_anterior.get('hora_salida')
+                    cruza_medianoche = True
+            
+            # Solo procesar si hay un turno nocturno (ya sea del día actual o del anterior)
+            if not cruza_medianoche:
+                continue
+            
+            # Inicializar empleado si no existe
+            if empleado not in empleados_turnos_nocturnos:
+                empleados_turnos_nocturnos[empleado] = {}
+            
+            # Recolectar todas las marcas del día
+            checadas_dia = []
+            for j in range(1, 10):
+                col_checado = f'checado_{j}'
+                if col_checado in row and pd.notna(row[col_checado]):
+                    # Crear un horario simulado si es necesario
+                    horario_para_marca = horario or {
+                        'hora_entrada': entrada,
+                        'hora_salida': salida,
+                        'cruza_medianoche': cruza_medianoche,
+                        'horas_totales': 8.0
+                    }
+                    
+                    checadas_dia.append({
+                        'time': row[col_checado],
+                        'day': dia,
+                        'entrada_prog': entrada,
+                        'salida_prog': salida,
+                        'horario': horario_para_marca
+                    })
+            
+            empleados_turnos_nocturnos[empleado][dia] = checadas_dia
+        
+        # Ahora procesar cada empleado para determinar qué marcas pertenecen a qué turno
+        for empleado, dias_marcas in empleados_turnos_nocturnos.items():
+            dias_ordenados = sorted(dias_marcas.keys())
+            
+            for i, dia_actual in enumerate(dias_ordenados):
+                marcas_dia = dias_marcas[dia_actual]
+                if not marcas_dia:
+                    continue
+                    
+                # Obtener horario del día actual
+                horario_actual = marcas_dia[0]['horario']
+                entrada = horario_actual.get('hora_entrada')
+                salida = horario_actual.get('hora_salida')
+                
+                try:
+                    entrada_time = datetime.strptime(entrada, "%H:%M").time()
+                    salida_time = datetime.strptime(salida, "%H:%M").time()
+                except (ValueError, TypeError):
+                    continue
+                
+                # Separar marcas del día actual en entrada (antes de medianoche) y salida (después de medianoche)
+                marcas_entrada = []  # Marcas >= hora_entrada
+                marcas_salida_posibles = []  # Marcas tempranas que podrían ser salida del turno anterior
+                
+                for marca_info in marcas_dia:
+                    try:
+                        marca_time = datetime.strptime(marca_info['time'], "%H:%M:%S").time()
+                        
+                        # Si la marca es después de la hora de entrada programada, es entrada del turno actual
+                        if marca_time >= entrada_time:
+                            marcas_entrada.append(marca_info)
                         else:
-                            # Si no tenemos entrada o salida completa, marcar como sin horas
-                            df_proc.loc[idx_actual, "duration"] = pd.Timedelta(0)
-                            df_proc.loc[idx_actual, "horas_trabajadas"] = "00:00:00"
-
-                        # Limpiar la checada utilizada del día siguiente para evitar duplicación
-                        if (
-                            idx_siguiente is not None
-                            and salida_real
-                            and salida_real in checadas_siguiente
-                        ):
-                            for j in range(1, 10):
-                                if (
-                                    f"checado_{j}" in df_proc.columns
-                                    and df_proc.loc[idx_siguiente, f"checado_{j}"]
-                                    == salida_real
-                                ):
-                                    df_proc.loc[idx_siguiente, f"checado_{j}"] = None
-                                    break
-
-                            # Recalcular horas para el día siguiente con checadas restantes
-                            checadas_restantes = [
-                                df_proc.loc[idx_siguiente, f"checado_{j}"]
-                                for j in range(1, 10)
-                                if f"checado_{j}" in df_proc.columns
-                                and pd.notna(df_proc.loc[idx_siguiente, f"checado_{j}"])
-                            ]
-                            if len(checadas_restantes) >= 2:
-                                try:
-                                    entrada_sig = datetime.strptime(
-                                        min(checadas_restantes), "%H:%M:%S"
-                                    ).time()
-                                    salida_sig = datetime.strptime(
-                                        max(checadas_restantes), "%H:%M:%S"
-                                    ).time()
-
-                                    fecha_siguiente = dia_siguiente
-                                    inicio_sig = datetime.combine(
-                                        fecha_siguiente, entrada_sig
-                                    )
-                                    fin_sig = datetime.combine(
-                                        fecha_siguiente, salida_sig
-                                    )
-
-                                    duracion_sig_td = fin_sig - inicio_sig
-                                    df_proc.loc[idx_siguiente, "duration"] = (
-                                        duracion_sig_td
-                                    )
-                                    df_proc.loc[idx_siguiente, "horas_trabajadas"] = (
-                                        td_to_str(duracion_sig_td)
-                                    )
-                                except (ValueError, TypeError):
-                                    df_proc.loc[idx_siguiente, "duration"] = (
-                                        pd.Timedelta(0)
-                                    )
-                                    df_proc.loc[idx_siguiente, "horas_trabajadas"] = (
-                                        "00:00:00"
-                                    )
-                            else:
-                                df_proc.loc[idx_siguiente, "duration"] = pd.Timedelta(0)
-                                df_proc.loc[idx_siguiente, "horas_trabajadas"] = (
-                                    "00:00:00"
-                                )
-
-        print("✅ Procesamiento de turnos con medianoche completado")
+                            # Marca temprana que podría ser salida del turno anterior
+                            marcas_salida_posibles.append(marca_info)
+                    except (ValueError, TypeError):
+                        continue
+                
+                # Procesar marcas de entrada para el turno actual
+                for marca_info in marcas_entrada:
+                    marcas_list.append({
+                        'employee': empleado,
+                        'marca_time': marca_info['time'],
+                        'fecha_turno': dia_actual,
+                        'entrada_programada': entrada,
+                        'salida_programada': salida,
+                        'cruza_medianoche': True,
+                        'dia_original': dia_actual
+                    })
+                    turnos_procesados.add((empleado, dia_actual))
+                
+                # Procesar marcas de salida posibles para el turno anterior
+                if marcas_salida_posibles and i > 0:
+                    dia_anterior = dias_ordenados[i-1]
+                    
+                    # Verificar si hay un turno nocturno el día anterior
+                    if dia_anterior in dias_marcas:
+                        # Buscar la marca más tardía dentro de la ventana de gracia como salida del turno anterior
+                        limite_gracia = (datetime.combine(datetime.now().date(), salida_time) + 
+                                       timedelta(minutes=GRACE_MINUTES)).time()
+                        
+                        mejor_salida = None
+                        marcas_restantes = []
+                        
+                        for marca_info in marcas_salida_posibles:
+                            try:
+                                marca_time = datetime.strptime(marca_info['time'], "%H:%M:%S").time()
+                                if marca_time <= limite_gracia:
+                                    if mejor_salida is None or marca_time > datetime.strptime(mejor_salida['time'], "%H:%M:%S").time():
+                                        if mejor_salida is not None:
+                                            marcas_restantes.append(mejor_salida)
+                                        mejor_salida = marca_info
+                                    else:
+                                        marcas_restantes.append(marca_info)
+                                else:
+                                    marcas_restantes.append(marca_info)
+                            except (ValueError, TypeError):
+                                marcas_restantes.append(marca_info)
+                        
+                        # Asignar la mejor salida al turno anterior
+                        if mejor_salida:
+                            marcas_list.append({
+                                'employee': empleado,
+                                'marca_time': mejor_salida['time'],
+                                'fecha_turno': dia_anterior,
+                                'entrada_programada': entrada,
+                                'salida_programada': salida,
+                                'cruza_medianoche': True,
+                                'dia_original': dia_actual
+                            })
+                            turnos_procesados.add((empleado, dia_anterior))
+                        
+                        # Las marcas restantes se quedan en el día actual
+                        for marca_info in marcas_restantes:
+                            marcas_list.append({
+                                'employee': empleado,
+                                'marca_time': marca_info['time'],
+                                'fecha_turno': dia_actual,
+                                'entrada_programada': entrada,
+                                'salida_programada': salida,
+                                'cruza_medianoche': True,
+                                'dia_original': dia_actual
+                            })
+                    else:
+                        # No hay turno anterior, todas las marcas se quedan en el día actual
+                        for marca_info in marcas_salida_posibles:
+                            marcas_list.append({
+                                'employee': empleado,
+                                'marca_time': marca_info['time'],
+                                'fecha_turno': dia_actual,
+                                'entrada_programada': entrada,
+                                'salida_programada': salida,
+                                'cruza_medianoche': True,
+                                'dia_original': dia_actual
+                            })
+                            turnos_procesados.add((empleado, dia_actual))
+                else:
+                    # No hay día anterior o no hay marcas de salida posibles
+                    for marca_info in marcas_salida_posibles:
+                        marcas_list.append({
+                            'employee': empleado,
+                            'marca_time': marca_info['time'],
+                            'fecha_turno': dia_actual,
+                            'entrada_programada': entrada,
+                            'salida_programada': salida,
+                            'cruza_medianoche': True,
+                            'dia_original': dia_actual
+                        })
+                        turnos_procesados.add((empleado, dia_actual))
+        
+        if not marcas_list:
+            print("⚠️ No se encontraron turnos nocturnos para procesar")
+            return df_proc
+            
+        # Crear DataFrame de marcas
+        df_marcas = pd.DataFrame(marcas_list)
+        
+        # Agrupar por empleado y fecha de turno, manteniendo todas las marcas
+        df_marcas = pd.DataFrame(marcas_list)
+        df_marcas = df_marcas.sort_values(['employee', 'fecha_turno', 'marca_time'])
+        
+        
+        # Crear DataFrame de resultados procesados
+        resultados = []
+        
+        for (empleado, fecha_turno), grupo in df_marcas.groupby(['employee', 'fecha_turno']):
+            if len(grupo) < 1:
+                continue  # Necesitamos al menos una marca
+                
+            # Obtener horario para determinar entrada y salida programadas
+            entrada_prog = grupo.iloc[0]['entrada_programada']
+            salida_prog = grupo.iloc[0]['salida_programada']
+            
+            try:
+                entrada_time_prog = datetime.strptime(entrada_prog, "%H:%M").time()
+                salida_time_prog = datetime.strptime(salida_prog, "%H:%M").time()
+            except (ValueError, TypeError):
+                continue
+            
+            # Ordenar por tiempo para obtener todas las marcas
+            grupo_ordenado = grupo.sort_values('marca_time')
+            marcas_times = grupo_ordenado['marca_time'].tolist()
+            
+            # Verificar si es un caso de "solo salida" para turnos nocturnos
+            es_solo_salida = False
+            if grupo.iloc[0]['cruza_medianoche']:
+                es_solo_salida = is_only_checkout(marcas_times, entrada_prog, salida_prog)
+            
+            # Para mantener la compatibilidad con los tests, crear entrada con todas las marcas organizadas
+            resultado = {
+                'employee': empleado,
+                'dia': fecha_turno,
+                'entrada_programada': entrada_prog,
+                'salida_programada': salida_prog,
+                'cruza_medianoche': grupo.iloc[0]['cruza_medianoche'],
+                'dia_original': grupo.iloc[0]['dia_original']
+            }
+            
+            # Limpiar todas las columnas de checado
+            for j in range(1, 10):
+                resultado[f'checado_{j}'] = None
+            
+            # Para turnos nocturnos, decidir si usar entrada/salida o todas las marcas
+            if grupo.iloc[0]['cruza_medianoche']:
+                # Separar marcas en noche (>= 12:00) y madrugada (< 12:00)
+                marcas_noche = []
+                marcas_madrugada = []
+                
+                for marca_time in marcas_times:
+                    try:
+                        marca_obj = datetime.strptime(marca_time, "%H:%M:%S").time()
+                        if marca_obj >= datetime.strptime("12:00:00", "%H:%M:%S").time():
+                            marcas_noche.append(marca_time)
+                        else:
+                            marcas_madrugada.append(marca_time)
+                    except (ValueError, TypeError):
+                        marcas_noche.append(marca_time)
+                
+                # Ordenar cada grupo
+                marcas_noche.sort()
+                marcas_madrugada.sort()
+                
+                # Si hay marcas tanto de noche como de madrugada, es un turno completo -> entrada/salida
+                # Si solo hay marcas de un tipo, mostrar todas las marcas secuencialmente
+                if marcas_noche and marcas_madrugada:
+                    # Turno completo: entrada = primera noche, salida = última madrugada
+                    resultado['checado_1'] = marcas_noche[0]
+                    resultado['checado_2'] = marcas_madrugada[-1]
+                else:
+                    # Solo marcas de un tipo: mostrar todas secuencialmente
+                    marcas_ordenadas = marcas_noche + marcas_madrugada
+                    for i, marca_time in enumerate(marcas_ordenadas, 1):
+                        if i <= 9:
+                            resultado[f'checado_{i}'] = marca_time
+            else:
+                # Para turnos normales, asignar todas las marcas en orden
+                for i, marca_time in enumerate(marcas_times, 1):
+                    if i <= 9:
+                        resultado[f'checado_{i}'] = marca_time
+            
+            # Calcular horas trabajadas usando checado_1 y checado_2
+            try:
+                entrada_mark = resultado.get('checado_1')
+                salida_mark = resultado.get('checado_2')
+                
+                if not entrada_mark and not salida_mark:
+                    horas_trabajadas = timedelta(0)
+                    observaciones = ["Sin marcas de asistencia"]
+                elif not entrada_mark:
+                    # Caso de solo salida: horas trabajadas = 0
+                    horas_trabajadas = timedelta(0)
+                    observaciones = ["Falta registro de entrada"]
+                elif not salida_mark:
+                    # Caso de solo entrada: horas trabajadas = 0
+                    horas_trabajadas = timedelta(0)
+                    observaciones = ["Falta registro de salida"]
+                else:
+                    # Caso normal: calcular diferencia entre entrada y salida
+                    entrada_time = datetime.strptime(entrada_mark, "%H:%M:%S").time()
+                    salida_time = datetime.strptime(salida_mark, "%H:%M:%S").time()
+                    
+                    inicio = datetime.combine(fecha_turno, entrada_time)
+                    
+                    # Para turnos que cruzan medianoche, ajustar la salida
+                    if grupo.iloc[0]['cruza_medianoche'] and salida_time < entrada_time:
+                        fin = datetime.combine(fecha_turno + timedelta(days=1), salida_time)
+                    else:
+                        fin = datetime.combine(fecha_turno, salida_time)
+                    
+                    horas_trabajadas = fin - inicio
+                    observaciones = []
+                
+                resultado['duration'] = horas_trabajadas
+                resultado['horas_trabajadas'] = td_to_str(horas_trabajadas)
+                resultado['observaciones'] = '; '.join(observaciones) if observaciones else None
+                
+                resultados.append(resultado)
+                
+            except (ValueError, TypeError) as e:
+                print(f"Error calculando horas para empleado {empleado}: {e}")
+                continue
+        
+        if not resultados:
+            print("⚠️ No se pudieron procesar turnos nocturnos")
+            return df_proc
+            
+        # Crear DataFrame de resultados
+        df_resultados = pd.DataFrame(resultados)
+        
+        # Actualizar el DataFrame original con los resultados procesados
+        for index, resultado in df_resultados.iterrows():
+            # Buscar la fila correspondiente en el DataFrame original usando la fecha del turno
+            mask = (df_proc['employee'] == resultado['employee']) & \
+                   (df_proc['dia'] == resultado['dia'])
+            
+            if mask.any():
+                idx_original = df_proc[mask].index[0]
+                
+                # Limpiar todas las checadas existentes solo para el turno nocturno procesado
+                for j in range(1, 10):
+                    col_checado = f'checado_{j}'
+                    if col_checado in df_proc.columns:
+                        df_proc.loc[idx_original, col_checado] = None
+                
+                # Asignar entrada y salida procesadas
+                df_proc.loc[idx_original, 'checado_1'] = resultado['checado_1']
+                df_proc.loc[idx_original, 'checado_2'] = resultado['checado_2']
+                df_proc.loc[idx_original, 'duration'] = resultado['duration']
+                df_proc.loc[idx_original, 'horas_trabajadas'] = resultado['horas_trabajadas']
+                
+                # Asignar observaciones si existen
+                if 'observaciones' in resultado and resultado['observaciones']:
+                    if 'observaciones' not in df_proc.columns:
+                        df_proc['observaciones'] = None
+                    df_proc.loc[idx_original, 'observaciones'] = resultado['observaciones']
+            else:
+                # Si no existe la fila para esta fecha de turno, crearla
+                # Esto puede pasar cuando las marcas se reasignan a un día anterior
+                fila_original = df_proc[df_proc['employee'] == resultado['employee']].iloc[0].copy()
+                fila_original['dia'] = resultado['dia']
+                fila_original['dia_iso'] = resultado['dia'].weekday() + 1
+                fila_original['es_primera_quincena'] = resultado['dia'].day <= 15
+                
+                # Limpiar todas las checadas
+                for j in range(1, 10):
+                    col_checado = f'checado_{j}'
+                    if col_checado in fila_original:
+                        fila_original[col_checado] = None
+                
+                # Asignar entrada y salida procesadas
+                fila_original['checado_1'] = resultado['checado_1']
+                fila_original['checado_2'] = resultado['checado_2']
+                fila_original['duration'] = resultado['duration']
+                fila_original['horas_trabajadas'] = resultado['horas_trabajadas']
+                
+                # Asignar observaciones si existen  
+                if 'observaciones' in resultado and resultado['observaciones']:
+                    if 'observaciones' not in fila_original:
+                        fila_original['observaciones'] = None
+                    fila_original['observaciones'] = resultado['observaciones']
+                
+                # Agregar la nueva fila al DataFrame
+                df_proc = pd.concat([df_proc, fila_original.to_frame().T], ignore_index=True)
+        
+        # Limpiar marcas de días originales que fueron completamente procesadas y reasignadas
+        for index, resultado in df_resultados.iterrows():
+            # Si la fecha del turno es diferente al día original, necesitamos limpiar las marcas del día original
+            # que fueron reasignadas al turno
+            if resultado['dia'] != resultado['dia_original']:
+                mask_original = (df_proc['employee'] == resultado['employee']) & \
+                               (df_proc['dia'] == resultado['dia_original'])
+                
+                if mask_original.any():
+                    idx_original = df_proc[mask_original].index[0]
+                    
+                    # Obtener todas las marcas que fueron reasignadas a este turno
+                    marcas_reasignadas = []
+                    for marca_info in marcas_list:
+                        if (marca_info['employee'] == resultado['employee'] and 
+                            marca_info['fecha_turno'] == resultado['dia'] and
+                            marca_info['dia_original'] == resultado['dia_original']):
+                            marcas_reasignadas.append(marca_info['marca_time'])
+                    
+                    # Limpiar solo las marcas que fueron reasignadas, mantener las que corresponden al día original
+                    for j in range(1, 10):
+                        col_checado = f'checado_{j}'
+                        if col_checado in df_proc.columns and pd.notna(df_proc.loc[idx_original, col_checado]):
+                            # Si esta marca fue reasignada, limpiarla
+                            if df_proc.loc[idx_original, col_checado] in marcas_reasignadas:
+                                df_proc.loc[idx_original, col_checado] = None
+                    
+                    # Reorganizar las marcas restantes
+                    marcas_restantes = []
+                    for j in range(1, 10):
+                        col_checado = f'checado_{j}'
+                        if col_checado in df_proc.columns and pd.notna(df_proc.loc[idx_original, col_checado]):
+                            marcas_restantes.append(df_proc.loc[idx_original, col_checado])
+                            df_proc.loc[idx_original, col_checado] = None
+                    
+                    # Reasignar las marcas restantes desde checado_1
+                    for i, marca in enumerate(marcas_restantes, 1):
+                        if i <= 9:
+                            df_proc.loc[idx_original, f'checado_{i}'] = marca
+                    
+                    # Si no quedan marcas, limpiar duration y horas_trabajadas
+                    if not marcas_restantes:
+                        df_proc.loc[idx_original, 'duration'] = None
+                        df_proc.loc[idx_original, 'horas_trabajadas'] = None
+        
+        print(f"✅ Procesamiento completado: {len(resultados)} turnos nocturnos procesados")
         return df_proc
 
     def analizar_asistencia_con_horarios_cache(
