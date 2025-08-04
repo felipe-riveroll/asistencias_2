@@ -4,7 +4,7 @@ Contains all core business logic for processing check-ins, schedules, and genera
 """
 
 import pandas as pd
-from datetime import datetime, timedelta, time, date
+from datetime import datetime, timedelta, time
 from itertools import product
 from typing import Dict, List
 
@@ -286,7 +286,7 @@ class AttendanceProcessor:
                 
             # Para turnos que cruzan medianoche
             try:
-                entrada_time = datetime.strptime(entrada, "%H:%M").time()
+                datetime.strptime(entrada, "%H:%M").time()
                 salida_time = datetime.strptime(salida, "%H:%M").time()
                 checada_time_obj = datetime.strptime(checada_time, "%H:%M:%S").time()
                 
@@ -294,7 +294,7 @@ class AttendanceProcessor:
                 # Si la marca ocurre en la misma hora del horario de salida (p. ej. cualquier registro 
                 # entre 02:00:00 y 02:59:59 para salida 02:00) debe pertenecer al mismo día de turno 
                 # que la entrada, no al siguiente día de calendario.
-                salida_dt = datetime.combine(dia_original, salida_time)
+                datetime.combine(dia_original, salida_time)
                 limite_gracia = (datetime.combine(dia_original, salida_time) + 
                                 timedelta(minutes=GRACE_MINUTES)).time()
                 
@@ -322,7 +322,7 @@ class AttendanceProcessor:
             """
             try:
                 entrada_time = datetime.strptime(entrada_teorica, "%H:%M").time()
-                salida_time = datetime.strptime(salida_teorica, "%H:%M").time()
+                datetime.strptime(salida_teorica, "%H:%M").time()
                 
                 # Verificar si todas las marcas están antes de la hora de entrada programada
                 # o dentro de la ventana de gracia de la salida
@@ -568,8 +568,8 @@ class AttendanceProcessor:
             salida_prog = grupo.iloc[0]['salida_programada']
             
             try:
-                entrada_time_prog = datetime.strptime(entrada_prog, "%H:%M").time()
-                salida_time_prog = datetime.strptime(salida_prog, "%H:%M").time()
+                datetime.strptime(entrada_prog, "%H:%M").time()
+                datetime.strptime(salida_prog, "%H:%M").time()
             except (ValueError, TypeError):
                 continue
             
@@ -578,9 +578,8 @@ class AttendanceProcessor:
             marcas_times = grupo_ordenado['marca_time'].tolist()
             
             # Verificar si es un caso de "solo salida" para turnos nocturnos
-            es_solo_salida = False
             if grupo.iloc[0]['cruza_medianoche']:
-                es_solo_salida = is_only_checkout(marcas_times, entrada_prog, salida_prog)
+                is_only_checkout(marcas_times, entrada_prog, salida_prog)
             
             # Para mantener la compatibilidad con los tests, crear entrada con todas las marcas organizadas
             resultado = {
