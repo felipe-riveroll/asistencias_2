@@ -129,6 +129,16 @@ class AttendanceReportManager:
             else:
                 print("⚠️ Resumen no generado, omitiendo creación del dashboard HTML.")
 
+            # Generate Excel report
+            excel_filename = ""
+            if not df_resumen.empty:
+                print("\n📊 Paso 7: Generando reporte Excel...")
+                excel_filename = self.report_generator.generar_reporte_excel(
+                    df_detalle, df_resumen, sucursal, start_date, end_date
+                )
+            else:
+                print("⚠️ Resumen no generado, omitiendo creación del reporte Excel.")
+
             print("\n🎉 ¡Proceso completado!")
             
             return {
@@ -136,6 +146,7 @@ class AttendanceReportManager:
                 "detailed_report": detailed_filename,
                 "summary_report": "resumen_periodo.csv",
                 "html_dashboard": html_filename,
+                "excel_report": excel_filename,
                 "employees_processed": len(codigos_empleados_api),
                 "days_processed": len(df_detalle["dia"].unique()) if not df_detalle.empty else 0
             }
@@ -159,8 +170,8 @@ def main():
     end_date = "2025-07-31"
     
     # Branch and device filter
-    sucursal = "Villas"
-    device_filter = "%Villas%"
+    sucursal = "31pte"
+    device_filter = "%31%"
     
     # ==========================================================================
     # END CONFIGURATION SECTION
@@ -191,6 +202,8 @@ def main():
             print(f"   • Reporte resumen: {result['summary_report']}")
         if result.get("html_dashboard"):
             print(f"   • Dashboard HTML: {result['html_dashboard']}")
+        if result.get("excel_report"):
+            print(f"   • Reporte Excel: {result['excel_report']}")
         print("\n✅ ¡Todos los reportes han sido generados exitosamente!")
     else:
         print("\n" + "="*60)

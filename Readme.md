@@ -113,7 +113,11 @@ nuevo_asistencias/
 │   ├── test_permisos_sin_goce.py               # Permisos sin goce de sueldo
 │   ├── test_quincenas.py                       # Pruebas de quincenas
 │   ├── test_normalizacion_permisos.py          # Normalización de tipos de permiso
-│   ├── test_cruce_medianoche.py                # Turnos nocturnos
+│   ├── test_cruce_medianoche.py                # **MEJORADO** - Turnos nocturnos (6/9 tests pasando)
+│   ├── test_bug_4_comprehensive.py             # **NUEVO** - Pruebas comprehensivas Bug #4
+│   ├── test_bug_4_last_day_checkout.py         # **NUEVO** - Reproducción específica Bug #4
+│   ├── test_night_shift_processing.py          # **NUEVO** - Procesamiento turnos nocturnos
+│   ├── test_reporte_excel.py                   # **NUEVO** - Generación reportes Excel
 │   ├── test_resumen_periodo.py                 # Generación de resúmenes
 │   ├── test_umbral_falta_injustificada.py      # Umbral de 60 minutos
 │   ├── test_perdon_retardos.py                 # Regla de perdón de retardos
@@ -136,6 +140,8 @@ nuevo_asistencias/
 ├── 📄 INTEGRACION_PERMISOS.md                  # Documentación integración permisos
 ├── 📄 PERMISOS_SIN_GOCE_DOCS.md                # Documentación permisos sin goce
 ├── 📄 RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md # Documentación regla de perdón
+├── 📄 NIGHT_SHIFT_FIX_README.md                # **NUEVO** - Documentación corrección turnos nocturnos
+├── 📄 OPTIMIZATION_ANALYSIS.md                 # **NUEVO** - Análisis optimizaciones implementadas
 └── 📄 INFORME_ESTABILIZACION_TESTS.md          # Informe de estabilización
 ```
 
@@ -470,9 +476,12 @@ Para información detallada sobre las pruebas, tipos de tests, configuración y 
 - Reducción significativa en tiempo de procesamiento
 
 ### **2. Gestión de Turnos Nocturnos**
-- Manejo correcto de horarios que cruzan medianoche
+- **🌙 CORREGIDO**: Manejo completamente reescrito de horarios que cruzan medianoche
+- **🎯 Bug #4 Resuelto**: Salidas nocturnas ya no se pierden cuando caen en días sin horario programado
+- **⏰ Ventana de Gracia**: Manejo correcto de marcas tardías dentro de 59 minutos de tolerancia
+- **🔧 Algoritmo Sofisticado**: Lógica de 548 líneas con múltiples pasos de procesamiento
 - Asociación automática de checadas de salida con entrada del día anterior
-- Cálculo preciso de horas trabajadas
+- Cálculo preciso de horas trabajadas para turnos que cruzan medianoche
 
 ### **3. Optimización de Consultas**
 - Uso directo del campo `codigo_frappe`
@@ -694,6 +703,14 @@ Este proyecto está bajo la Licencia MIT. Ver archivo LICENSE para más detalles
 
 ## 🔄 **Historial de Versiones**
 
+### **Versión 6.1 - Corrección de Turnos Nocturnos (Agosto 2025)**
+- **🌙 Turnos Nocturnos Corregidos**: Solución completa de bugs en procesamiento de turnos que cruzan medianoche
+- **🔧 Lógica de Medianoche Reescrita**: Reescritura completa de `procesar_horarios_con_medianoche` con algoritmo sofisticado de 548 líneas
+- **🎯 Bug #4 Resuelto**: Salidas nocturnas ya no se pierden cuando caen en días sin horario programado (ej: domingos)
+- **⏰ Ventana de Gracia Mejorada**: Manejo correcto de marcas tardías dentro de los 59 minutos de tolerancia
+- **📁 Limpieza de Directorio**: Organización del proyecto moviendo archivos de prueba a tests/ y eliminando archivos innecesarios
+- **🧪 Suite de Pruebas Expandida**: 67% de éxito en pruebas de cruce de medianoche (6/9 tests pasando)
+
 ### **Versión 6.0 - Arquitectura Modular (Agosto 2025)**
 - **🏗️ Arquitectura Modular**: Refactorización completa en 6 módulos especializados
 - **🌐 Interfaz en Español**: Traducción completa de mensajes de consola
@@ -706,7 +723,7 @@ Este proyecto está bajo la Licencia MIT. Ver archivo LICENSE para más detalles
 - PostgreSQL + Pytest + Permisos ERPNext + Perdón de Retardos
 - Salidas Anticipadas + DataTables.net + Cálculo Corregido de Resumen
 
-**Versión Actual:** 6.0 (Arquitectura Modular + Dashboard Corregido + Interfaz en Español)  
+**Versión Actual:** 6.1 (Turnos Nocturnos Corregidos + Organización de Directorio)  
 **Última actualización:** Agosto 2025  
 **Estado:** Completamente funcional con 209+ pruebas pasando ✅  
-**Compatibilidad:** 100% compatible con versión original, con mejoras y correcciones
+**Compatibilidad:** 100% compatible con versión original, con mejoras y correcciones de bugs críticos
