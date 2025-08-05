@@ -103,16 +103,12 @@ INSERT INTO Horario (hora_entrada, hora_salida, cruza_medianoche, descripcion_ho
 ('11:00:00', '20:00:00', FALSE, '11:00-20:00'), ('14:00:00', '05:00:00', TRUE, '14:00-05:00'),
 ('08:00:00', '16:00:00', FALSE, '08:00-16:00'), ('08:00:00', '15:00:00', FALSE, '08:00-15:00'),
 ('16:45:00', '03:00:00', TRUE, '16:45-03:00'), ('10:00:00', '17:00:00', FALSE, '10:00-17:00'),
-('16:10:00', '08:00:00', TRUE, '16:10-08:00')
+('16:10:00', '08:00:00', TRUE, '16:10-08:00'), ('11:00:00', '17:00:00', FALSE, '11:00-17:00'),
+('12:00:00', '17:00:00', FALSE, '12:00-17:00')
 ON CONFLICT (descripcion_horario) DO NOTHING;
 
--- Asegurar horario 11:00-17:00
-INSERT INTO Horario (hora_entrada, hora_salida, cruza_medianoche, descripcion_horario)
-SELECT '11:00:00','17:00:00', FALSE, '11:00-17:00'
-WHERE NOT EXISTS (SELECT 1 FROM Horario WHERE descripcion_horario='11:00-17:00');
-
 -- INSERCIÓN DE EMPLEADOS (DATOS ACTUALIZADOS)
-INSERT INTO Empleados (empleado_id, apellido_materno, apellido_paterno, codigo_checador, codigo_frappe, nombre, tiene_horario_asignado) VALUES 
+INSERT INTO Empleados (empleado_id, apellido_materno, apellido_paterno, codigo_checador, codigo_frappe, nombre, tiene_horario_asignado) VALUES
 (1, 'Reyes', 'Pérez', 1643, 1, 'Beatriz', true),
 (2, 'Zamudio', 'García', 166, 2, 'Rocío Eufracia', true),
 (3, NULL, 'Rojas', 1649, 4, 'Antonio', false),
@@ -181,7 +177,15 @@ INSERT INTO Empleados (empleado_id, apellido_materno, apellido_paterno, codigo_c
 (66, 'Carrillo', 'Barbosa', 2520, 82, 'Antonio Alejandro', TRUE),
 (67, 'Sánchez', 'Fuentes', 4016, 88, 'Carolina', TRUE),
 (68, 'Ramírez', 'Rojas', 4018, 89, 'Iván', TRUE),
-(69, 'Pineda', 'Hidalgo', 3018, 91, 'Antonio', TRUE)
+(69, 'Pineda', 'Hidalgo', 3018, 91, 'Antonio', TRUE),
+(70, 'Alvarez', 'Moreno', 2525, 92, 'Jessica', TRUE),
+(71,'Flores','Lechuga',2526,93,'Evelyn Dolores', TRUE),
+(72,'del Valle','Barrera',2527,94,'Guillermo', TRUE),
+(73,'Toral','Antonio',3023,95,'Leonardo Regino', TRUE),
+(74,'Marin','Velazco',3021,96,'Karla Odalyz', TRUE),
+(75,'Nicolas','Robles',3020,97,'Nestor de Jesus', TRUE),
+(76,'Gomez','Coeto',3022,98,'Jose Rodolfo', TRUE),
+(77,'Ramirez','Portugal',2528,99,'Jair', TRUE)
 ON CONFLICT (empleado_id) DO NOTHING;
 
 -- Ajustar secuencia de empleados
@@ -588,13 +592,45 @@ FROM TipoTurno tt, Horario h
 WHERE tt.descripcion='L-V' AND h.descripcion_horario='09:00-17:00'
 AND NOT EXISTS (SELECT 1 FROM AsignacionHorario a WHERE a.empleado_id=69 AND a.sucursal_id=2 AND a.tipo_turno_id=tt.tipo_turno_id AND a.horario_id=h.horario_id);
 
+-- Jessica Alvarez Moreno (31 pte)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(70, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+
+-- Evelyn Dolores Flores Lechuga (31 pte)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(71, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+
+-- Guillermo del Valle Barrera (31 pte)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(72, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+
+-- Leonardo Regino Toral Antonio (Nave)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(73, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '11:00-17:00'));
+
+-- Karla Odalyz Marin Velazco (Nave)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(74, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+
+-- Nestor de Jesus Nicolas Robles (Nave)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(75, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+
+-- Jose Rodolfo Gomez Coeto (Nave)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(76, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+
+-- Jair Ramirez Portugal (Nave)
+-- CORRECCIÓN: Se usó el empleado_id 77 en lugar del 76 duplicado.
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(77, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '12:00-17:00'));
+
 -- =====================================================================
--- 🚀 SECCIÓN DE FUNCIONES 
+-- 🚀 SECCIÓN DE FUNCIONES
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
--- 1. FUNCIÓN AUXILIAR PARA CREAR EL JSONB DEL HORARIO (VERSIÓN CORREGIDA)
---    - Se ha añadido el campo 'cruza_medianoche' al objeto JSON de salida.
+-- 1. FUNCIÓN AUXILIAR PARA CREAR EL JSONB DEL HORARIO
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION F_CrearJsonHorario(
     p_entrada TIME,
@@ -619,12 +655,12 @@ BEGIN
         v_horas_totales := EXTRACT(EPOCH FROM (p_salida - p_entrada)) / 3600.0;
     END IF;
 
-    -- Construir el objeto JSON (con el nuevo campo 'cruza_medianoche')
+    -- Construir el objeto JSON
     RETURN jsonb_build_object(
         'horario_entrada', TO_CHAR(p_entrada, 'HH24:MI'),
         'horario_salida', TO_CHAR(p_salida, 'HH24:MI'),
         'horas_totales', ROUND(v_horas_totales, 2),
-        'cruza_medianoche', p_cruza_medianoche -- <-- CAMBIO REALIZADO AQUÍ
+        'cruza_medianoche', p_cruza_medianoche
     );
 END;
 $$ LANGUAGE plpgsql STABLE;
@@ -632,16 +668,14 @@ $$ LANGUAGE plpgsql STABLE;
 
 -- ---------------------------------------------------------------------
 -- 2. FUNCIÓN MULTI-QUINCENA PROPUESTA (COMPLETA Y FUNCIONAL)
---    - Utiliza la función auxiliar corregida F_CrearJsonHorario.
---    - Está diseñada para ser llamada con un parámetro TEXT.
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION f_tabla_horarios_multi_quincena (p_sucursal TEXT)
 RETURNS TABLE (
-    codigo_frappe       SMALLINT,
-    nombre_completo     TEXT,
-    nombre_sucursal     TEXT,
+    codigo_frappe     SMALLINT,
+    nombre_completo   TEXT,
+    nombre_sucursal   TEXT,
     es_primera_quincena BOOLEAN,
-    "Lunes"  JSONB, "Martes" JSONB, "Miércoles" JSONB,
+    "Lunes"   JSONB, "Martes" JSONB, "Miércoles" JSONB,
     "Jueves" JSONB, "Viernes" JSONB, "Sábado" JSONB, "Domingo" JSONB
 ) LANGUAGE sql STABLE AS
 $func$
@@ -655,14 +689,14 @@ Horarios AS (
     SELECT
         AH.empleado_id,
         AH.sucursal_id,
-        AH.dia_especifico_id          AS dia_id,
+        AH.dia_especifico_id           AS dia_id,
         AH.hora_entrada_especifica    AS hora_entrada,
         AH.hora_salida_especifica     AS hora_salida,
         COALESCE(AH.hora_salida_especifica_cruza_medianoche, FALSE) AS cruza_medianoche,
         COALESCE(AH.es_primera_quincena, Q.es_primera_quincena)     AS es_primera_quincena,
         1 AS prioridad
     FROM AsignacionHorario AH
-    JOIN Sucursales S            ON S.sucursal_id = AH.sucursal_id
+    JOIN Sucursales S              ON S.sucursal_id = AH.sucursal_id
     CROSS JOIN Quincenas Q
     WHERE AH.dia_especifico_id IS NOT NULL
       AND S.nombre_sucursal = p_sucursal
@@ -681,8 +715,8 @@ Horarios AS (
         COALESCE(AH.es_primera_quincena, Q.es_primera_quincena) AS es_primera_quincena,
         2 AS prioridad
     FROM AsignacionHorario AH
-    JOIN TipoTurno TT           ON TT.tipo_turno_id = AH.tipo_turno_id
-    JOIN Horario H              ON H.horario_id   = AH.horario_id
+    JOIN TipoTurno TT          ON TT.tipo_turno_id = AH.tipo_turno_id
+    JOIN Horario H             ON H.horario_id   = AH.horario_id
     JOIN DiaSemana DS ON (
         /* --- Traducción de rangos abreviados --- */
         CASE
@@ -690,21 +724,21 @@ Horarios AS (
             WHEN TT.descripcion = 'L-J' THEN DS.dia_id BETWEEN 1 AND 4
             WHEN TT.descripcion = 'M-V' THEN DS.dia_id BETWEEN 2 AND 5
             ELSE POSITION(
-                    CASE DS.dia_id
-                        WHEN 1 THEN 'L' WHEN 2 THEN 'M' WHEN 3 THEN 'X'
-                        WHEN 4 THEN 'J' WHEN 5 THEN 'V' WHEN 6 THEN 'S'
-                        WHEN 7 THEN 'D'
-                    END
-                 IN REPLACE(UPPER(TT.descripcion), ',', '')
+                     CASE DS.dia_id
+                         WHEN 1 THEN 'L' WHEN 2 THEN 'M' WHEN 3 THEN 'X'
+                         WHEN 4 THEN 'J' WHEN 5 THEN 'V' WHEN 6 THEN 'S'
+                         WHEN 7 THEN 'D'
+                     END
+                  IN REPLACE(UPPER(TT.descripcion), ',', '')
                  ) > 0
         END
     )
-    JOIN Sucursales S       ON S.sucursal_id = AH.sucursal_id
+    JOIN Sucursales S      ON S.sucursal_id = AH.sucursal_id
     CROSS JOIN Quincenas Q
     WHERE AH.dia_especifico_id IS NULL
       AND S.nombre_sucursal = p_sucursal
       AND (AH.es_primera_quincena = Q.es_primera_quincena OR AH.es_primera_quincena IS NULL)
-      AND NOT EXISTS (                -- evita duplicar si ya hay horario específico
+      AND NOT EXISTS (              -- evita duplicar si ya hay horario específico
             SELECT 1
             FROM AsignacionHorario sub
             WHERE sub.empleado_id = AH.empleado_id
@@ -725,7 +759,7 @@ Elegidos AS (
 )
 SELECT
     E.codigo_frappe,
-    E.nombre || ' ' || E.apellido_paterno      AS nombre_completo,
+    E.nombre || ' ' || E.apellido_paterno   AS nombre_completo,
     S.nombre_sucursal,
     es_primera_quincena,
     (ARRAY_AGG(F_CrearJsonHorario(hora_entrada, hora_salida, cruza_medianoche)
@@ -742,7 +776,7 @@ SELECT
         ORDER BY dia_id) FILTER (WHERE dia_id = 6))[1] AS "Sábado",
     (ARRAY_AGG(F_CrearJsonHorario(hora_entrada, hora_salida, cruza_medianoche)
         ORDER BY dia_id) FILTER (WHERE dia_id = 7))[1] AS "Domingo"
-FROM Elegidos  EG
+FROM Elegidos   EG
 JOIN Empleados  E ON E.empleado_id = EG.empleado_id
 JOIN Sucursales S ON S.sucursal_id = EG.sucursal_id
 GROUP BY
@@ -755,7 +789,7 @@ $func$;
 -- 💡 CÓMO LLAMAR A LA FUNCIÓN CORRECTAMENTE
 -- =====================================================================
 --
--- El error que recibiste se debe a cómo se invoca la función.
+-- El error que podrías haber recibido se debe a cómo se invoca la función.
 -- Como la función devuelve una TABLA, debes usar 'SELECT * FROM ...'
 --
 -- EJEMPLO DE USO CORRECTO:
