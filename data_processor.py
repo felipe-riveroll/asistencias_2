@@ -97,7 +97,8 @@ class AttendanceProcessor:
     def calcular_horas_descanso(self, df_dia) -> timedelta:
         """
         Calculates break hours based on check-ins for the day.
-        Allows multiple break intervals (pairs 1-2, 3-4, etc.) summing all.
+        Only calculates break if there are 4+ check-ins and the break times 
+        are different from entry/exit times.
         """
         # Get all available check-in columns
         if hasattr(df_dia, "columns"):
@@ -127,6 +128,10 @@ class AttendanceProcessor:
 
         # Sort check-ins chronologically
         checados_ordenados = sorted(checados, key=lambda x: str(x))
+        
+        # Get first and last check-in times (entry and exit)
+        hora_entrada = checados_ordenados[0]
+        hora_salida = checados_ordenados[-1]
 
         # Calculate multiple break intervals (pairs 1-2, 3-4, etc.)
         total_descanso = timedelta(0)
@@ -138,6 +143,11 @@ class AttendanceProcessor:
                     # Take second and third check-in of the pair
                     segundo_checado = checados_ordenados[i]
                     tercer_checado = checados_ordenados[i + 1]
+                    
+                    # Skip if break times are same as entry or exit times
+                    if (segundo_checado == hora_entrada or segundo_checado == hora_salida or
+                        tercer_checado == hora_entrada or tercer_checado == hora_salida):
+                        continue
 
                     # Convert to datetime to calculate difference
                     if isinstance(segundo_checado, time):
@@ -153,8 +163,8 @@ class AttendanceProcessor:
                     # Calculate difference
                     descanso_intervalo = tercer_dt - segundo_dt
 
-                    # Only add if difference is positive
-                    if descanso_intervalo.total_seconds() > 0:
+                    # Only add if difference is positive and reasonable (more than 5 minutes)
+                    if descanso_intervalo.total_seconds() > 300:  # More than 5 minutes
                         total_descanso += descanso_intervalo
 
             return total_descanso
@@ -164,8 +174,8 @@ class AttendanceProcessor:
 
     def aplicar_calculo_horas_descanso(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Applies break hours calculation to the entire DataFrame and adjusts worked and expected hours.
-        Keeps columns as Timedelta; formats to text only when exporting CSV.
+        Applies break hours calculation to the entire DataFrame.
+        NO adjustments are made to expected or worked hours - only calculates break time.
         """
         if df.empty:
             return df
@@ -176,7 +186,7 @@ class AttendanceProcessor:
         df["horas_descanso_td"] = pd.Timedelta(0)
         df["horas_descanso"] = "00:00:00"  # For CSV compatibility
 
-        # Save original values
+        # Save original values (no longer needed for adjustments, but kept for reference)
         df["horas_trabajadas_originales"] = df["horas_trabajadas"].copy()
         df["horas_esperadas_originales"] = df["horas_esperadas"].copy()
 
@@ -195,44 +205,6 @@ class AttendanceProcessor:
             if horas_descanso_td > timedelta(0):
                 df.at[index, "horas_descanso_td"] = horas_descanso_td
                 df.at[index, "horas_descanso"] = td_to_str(horas_descanso_td)
-
-                # Adjust worked hours (subtract break) using Timedelta
-                if "duration" in df.columns and pd.notna(row.get("duration")):
-                    try:
-                        # Convert duration to Timedelta if necessary
-                        if isinstance(row["duration"], str):
-                            duration_td = pd.to_timedelta(row["duration"])
-                        else:
-                            duration_td = row["duration"]
-
-                        horas_trabajadas_ajustadas = duration_td - horas_descanso_td
-                        if horas_trabajadas_ajustadas.total_seconds() >= 0:
-                            df.at[index, "duration"] = horas_trabajadas_ajustadas
-                            df.at[index, "duration_td"] = horas_trabajadas_ajustadas
-                            df.at[index, "horas_trabajadas"] = td_to_str(
-                                horas_trabajadas_ajustadas
-                            )
-                    except (ValueError, TypeError):
-                        pass  # Keep original value if there's an error
-
-                # Adjust expected hours (subtract 1 hour if there's a break)
-                if (
-                    pd.notna(row["horas_esperadas"])
-                    and row["horas_esperadas"] != "00:00:00"
-                ):
-                    try:
-                        horas_esperadas_td = pd.to_timedelta(row["horas_esperadas"])
-                        horas_esperadas_ajustadas = horas_esperadas_td - timedelta(
-                            hours=1
-                        )
-
-                        if horas_esperadas_ajustadas.total_seconds() >= 0:
-                            df.at[index, "horas_esperadas"] = td_to_str(
-                                horas_esperadas_ajustadas
-                            )
-                    except (ValueError, TypeError):
-                        pass  # Keep original value if there's an error
-
                 total_dias_con_descanso += 1
 
         print(f"✅ Se calcularon horas de descanso para {total_dias_con_descanso} días")
