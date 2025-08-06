@@ -86,7 +86,8 @@ INSERT INTO TipoTurno (descripcion) VALUES
 ('L-V'), ('X,J,V'), ('L,X,V,M,J'), ('L,X,J,S,M,V'), ('L,M,J,X,V'), ('L,X,J,V,S,D'),
 ('J,V,S,D'), ('L,M,X,V,S,D'), ('L,V,X,J,S,D'), ('L,V,M'), ('D'), ('V,S,D'),
 ('M,X,J,S,D'), ('J,V,S'), ('M,X,J,D,V,S'), ('L,J,V'), ('L,V,M,X,J,S'), ('L-J'),
-('V'), ('M,X'), ('J'), ('S'), ('M-V'), ('LXJ'), ('M'), ('X'), ('L,J,X'), ('M,J,L')
+('V'), ('M,X'), ('J'), ('S'), ('M-V'), ('LXJ'), ('M'), ('X'), ('L,J,X'), ('M,J,L'),
+('M,J,V')
 ON CONFLICT (descripcion) DO NOTHING;
 
 -- Horarios Predefinidos
@@ -104,7 +105,7 @@ INSERT INTO Horario (hora_entrada, hora_salida, cruza_medianoche, descripcion_ho
 ('08:00:00', '16:00:00', FALSE, '08:00-16:00'), ('08:00:00', '15:00:00', FALSE, '08:00-15:00'),
 ('16:45:00', '03:00:00', TRUE, '16:45-03:00'), ('10:00:00', '17:00:00', FALSE, '10:00-17:00'),
 ('16:10:00', '08:00:00', TRUE, '16:10-08:00'), ('11:00:00', '17:00:00', FALSE, '11:00-17:00'),
-('12:00:00', '17:00:00', FALSE, '12:00-17:00')
+('12:00:00', '17:00:00', FALSE, '12:00-17:00'), ('12:00:00', '16:00:00', FALSE, '12:00-16:00')
 ON CONFLICT (descripcion_horario) DO NOTHING;
 
 -- INSERCIÓN DE EMPLEADOS (DATOS ACTUALIZADOS)
@@ -185,7 +186,9 @@ INSERT INTO Empleados (empleado_id, apellido_materno, apellido_paterno, codigo_c
 (74,'Marin','Velazco',3021,96,'Karla Odalyz', TRUE),
 (75,'Nicolas','Robles',3020,97,'Nestor de Jesus', TRUE),
 (76,'Gomez','Coeto',3022,98,'Jose Rodolfo', TRUE),
-(77,'Ramirez','Portugal',2528,99,'Jair', TRUE)
+(77,'Ramirez','Portugal',2528,99,'Jair', TRUE),
+(78, 'Díaz', 'Andrade', 2529, 100, 'Abigail', TRUE),
+(79, 'Martínez', 'Pérez', 2530, 101, 'Deborah', TRUE)
 ON CONFLICT (empleado_id) DO NOTHING;
 
 -- Ajustar secuencia de empleados
@@ -621,9 +624,16 @@ INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_
 (76, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
 
 -- Jair Ramirez Portugal (Nave)
--- CORRECCIÓN: Se usó el empleado_id 77 en lugar del 76 duplicado.
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
 (77, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '12:00-17:00'));
+
+-- Abigail Diaz Andrade (31 pte)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(78, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'M,J,V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+
+-- Deborah Maretínez Pérez (31 pte)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(79, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '12:00-16:00'));
 
 -- =====================================================================
 -- 🚀 SECCIÓN DE FUNCIONES
