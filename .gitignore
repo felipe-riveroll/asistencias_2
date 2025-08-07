@@ -114,3 +114,6 @@ uv.lock
 *.jsonl.gz.part.3
 *.jsonl.gz.part.4
 *.jsonl.gz.part.5
+
+.envrc
+.direnv

@@ -123,6 +123,20 @@ nuevo_asistencias/
 │   ├── test_perdon_retardos.py                 # Regla de perdón de retardos
 │   ├── conftest_permisos.py                    # Fixtures para pruebas
 │   └── run_tests.py                            # Ejecutor interno
+├── 📁 Docs/                                     # **NUEVO** - Documentación del proyecto
+│   ├── README_PYTEST.md                        # Documentación pruebas
+│   ├── README_PERMISOS_TESTS.md                # Documentación pruebas permisos
+│   ├── README_MODULAR.md                       # Documentación arquitectura modular
+│   ├── INTEGRACION_PERMISOS.md                 # Documentación integración permisos
+│   ├── PERMISOS_SIN_GOCE_DOCS.md               # Documentación permisos sin goce
+│   ├── RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md # Documentación regla de perdón
+│   ├── RESUMEN_CAMBIOS_PERMISOS_MEDIO_DIA.md   # Documentación permisos de medio día
+│   ├── NIGHT_SHIFT_FIX_README.md               # Documentación corrección turnos nocturnos
+│   ├── OPTIMIZATION_ANALYSIS.md                # Análisis optimizaciones implementadas
+│   ├── INFORME_ESTABILIZACION_TESTS.md         # Informe de estabilización
+│   ├── PRUEBAS_SALIDAS_ANTICIPADAS.md          # Documentación salidas anticipadas
+│   ├── TAREAS_CORRECCION_TESTS.md              # Tareas de corrección de tests
+│   └── ROADMAP_FULLSTACK.md                    # Roadmap desarrollo fullstack
 ├── 📄 main.py                                   # **NUEVO** - Script principal modular (punto de entrada)
 ├── 📄 config.py                                 # **NUEVO** - Configuración centralizada y constantes
 ├── 📄 utils.py                                  # **NUEVO** - Funciones de utilidad compartidas
@@ -134,15 +148,7 @@ nuevo_asistencias/
 ├── 📄 db_postgres.sql                          # Estructura BD
 ├── 📄 pyproject.toml                           # Configuración proyecto
 ├── 📄 pytest.ini                               # Configuración pytest
-├── 📄 run_tests.py                             # Ejecutor pruebas
-├── 📄 README_PYTEST.md                         # Documentación pruebas
-├── 📄 README_PERMISOS_TESTS.md                 # Documentación pruebas permisos
-├── 📄 INTEGRACION_PERMISOS.md                  # Documentación integración permisos
-├── 📄 PERMISOS_SIN_GOCE_DOCS.md                # Documentación permisos sin goce
-├── 📄 RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md # Documentación regla de perdón
-├── 📄 NIGHT_SHIFT_FIX_README.md                # **NUEVO** - Documentación corrección turnos nocturnos
-├── 📄 OPTIMIZATION_ANALYSIS.md                 # **NUEVO** - Análisis optimizaciones implementadas
-└── 📄 INFORME_ESTABILIZACION_TESTS.md          # Informe de estabilización
+└── 📄 run_tests.py                             # Ejecutor pruebas
 ```
 
 ## 🔧 **Componentes de la Arquitectura Modular**
@@ -152,16 +158,32 @@ nuevo_asistencias/
 
 **Clase Principal:**
 - `AttendanceReportManager`: Coordina todo el proceso de generación de reportes
-- `generate_attendance_report()`: Método principal que ejecuta todo el flujo
-- **Mensajes en español**: Toda la interfaz de consola en español
+  - Inicializa componentes: `APIClient`, `AttendanceProcessor`, `ReportGenerator`
+  - Ejecuta flujo completo: checadas → permisos → horarios → procesamiento → reportes
+- `generate_attendance_report()`: Método principal que ejecuta todo el flujo de 7 pasos:
+  1. **Validación API**: Verifica credenciales de acceso
+  2. **Obtención de checadas**: Descarga registros de entrada/salida desde API
+  3. **Obtención de permisos**: Descarga permisos aprobados desde ERPNext
+  4. **Obtención de horarios**: Consulta horarios programados desde PostgreSQL
+  5. **Procesamiento**: Analiza asistencia, aplica reglas de negocio
+  6. **Generación CSV/HTML**: Crea reportes detallados e interactivos
+  7. **Generación Excel**: Crea reportes avanzados con múltiples hojas y KPIs
+- **Mensajes en español**: Toda la interfaz de consola en español con emojis
+- **Manejo de errores**: Captura y reporta errores de forma amigable
+
+**Archivos Generados:**
+- `reporte_asistencia_analizado.csv`: Reporte detallado diario por empleado
+- `resumen_periodo.csv`: Resumen agregado con KPIs del período  
+- `dashboard_asistencia.html`: Dashboard interactivo con gráficos y tablas
+- `reporte_asistencia_[sucursal]_[fecha].xlsx`: Reporte Excel con múltiples hojas y análisis
 
 **Configuración de Ejecución:**
 ```python
 # En la sección de configuración del archivo:
-start_date = "2025-07-01"      # Fecha inicio
-end_date = "2025-07-31"        # Fecha fin
-sucursal = "Villas"            # Sucursal a analizar
-device_filter = "%Villas%"     # Filtro de dispositivos
+start_date = "2025-07-01"      # Fecha inicio del análisis
+end_date = "2025-07-31"        # Fecha fin del análisis
+sucursal = "31pte"             # Sucursal a analizar
+device_filter = "%31%"         # Filtro de dispositivos para BD
 ```
 
 ### **`config.py` - Configuración Centralizada**
@@ -460,13 +482,13 @@ El resumen del periodo (`resumen_periodo.csv`) calculaba incorrectamente las hor
 
 ### **📖 Documentación Completa de Pruebas:**
 Para información detallada sobre las pruebas, tipos de tests, configuración y ejemplos, consulta:
-- **[README_PYTEST.md](README_PYTEST.md)** - Pruebas generales del sistema
-- **[README_PERMISOS_TESTS.md](README_PERMISOS_TESTS.md)** - Suite de pruebas de permisos ERPNext
-- **[INTEGRACION_PERMISOS.md](INTEGRACION_PERMISOS.md)** - Documentación de integración con ERPNext
-- **[PERMISOS_SIN_GOCE_DOCS.md](PERMISOS_SIN_GOCE_DOCS.md)** - Documentación de permisos sin goce
-- **[RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md](RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md)** - Documentación de la regla de perdón
-- **[🆕 RESUMEN_CAMBIOS_PERMISOS_MEDIO_DIA.md](RESUMEN_CAMBIOS_PERMISOS_MEDIO_DIA.md)** - **NUEVO** - Documentación completa de implementación de permisos de medio día
-- **[INFORME_ESTABILIZACION_TESTS.md](INFORME_ESTABILIZACION_TESTS.md)** - Informe completo de estabilización
+- **[Docs/README_PYTEST.md](Docs/README_PYTEST.md)** - Pruebas generales del sistema
+- **[Docs/README_PERMISOS_TESTS.md](Docs/README_PERMISOS_TESTS.md)** - Suite de pruebas de permisos ERPNext
+- **[Docs/INTEGRACION_PERMISOS.md](Docs/INTEGRACION_PERMISOS.md)** - Documentación de integración con ERPNext
+- **[Docs/PERMISOS_SIN_GOCE_DOCS.md](Docs/PERMISOS_SIN_GOCE_DOCS.md)** - Documentación de permisos sin goce
+- **[Docs/RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md](Docs/RESUMEN_IMPLEMENTACION_PERDON_RETARDOS.md)** - Documentación de la regla de perdón
+- **[🆕 Docs/RESUMEN_CAMBIOS_PERMISOS_MEDIO_DIA.md](Docs/RESUMEN_CAMBIOS_PERMISOS_MEDIO_DIA.md)** - **NUEVO** - Documentación completa de implementación de permisos de medio día
+- **[Docs/INFORME_ESTABILIZACION_TESTS.md](Docs/INFORME_ESTABILIZACION_TESTS.md)** - Informe completo de estabilización
 
 ## ⚡ **Optimizaciones Implementadas**
 
