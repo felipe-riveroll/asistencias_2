@@ -262,9 +262,13 @@ class TestAttendanceProcessor:
         assert 'horas_descanso_td' in result.columns
         assert result.iloc[0]['horas_descanso'] == '01:00:00'  # 1 hour break
         
-        # Verify hours were adjusted
-        assert result.iloc[0]['horas_trabajadas'] == '08:00:00'  # 9h - 1h break = 8h
-        assert result.iloc[0]['horas_esperadas'] == '07:00:00'  # 8h - 1h = 7h (adjusted)
+        # Verify original values are preserved (no longer adjusting worked hours)
+        assert result.iloc[0]['horas_trabajadas'] == '09:00:00'  # Original hours preserved
+        assert result.iloc[0]['horas_esperadas'] == '08:00:00'  # Original hours preserved
+        
+        # Verify original values are saved for reference
+        assert 'horas_trabajadas_originales' in result.columns
+        assert 'horas_esperadas_originales' in result.columns
     
     @patch('data_processor.obtener_horario_empleado')
     def test_analizar_asistencia_con_horarios_cache_basic(self, mock_obtener_horario):
@@ -323,7 +327,7 @@ class TestAttendanceProcessor:
         assert 'es_permiso_medio_dia' in result.columns
         
         # Verify no permits
-        assert result.iloc[0]['tiene_permiso'] is False
+        assert result.iloc[0]['tiene_permiso'] == False
         assert pd.isna(result.iloc[0]['tipo_permiso'])
     
     def test_ajustar_horas_esperadas_con_permisos_full_day(self):
@@ -350,9 +354,9 @@ class TestAttendanceProcessor:
         )
         
         # Verify permit was applied
-        assert result.iloc[0]['tiene_permiso'] is True
+        assert result.iloc[0]['tiene_permiso'] == True
         assert result.iloc[0]['tipo_permiso'] == 'Vacations'
-        assert result.iloc[0]['es_permiso_medio_dia'] is False
+        assert result.iloc[0]['es_permiso_medio_dia'] == False
         assert result.iloc[0]['horas_esperadas'] == '00:00:00'  # Full day leave
     
     def test_ajustar_horas_esperadas_con_permisos_half_day(self):
@@ -379,8 +383,8 @@ class TestAttendanceProcessor:
         )
         
         # Verify half day permit was applied
-        assert result.iloc[0]['tiene_permiso'] is True
-        assert result.iloc[0]['es_permiso_medio_dia'] is True
+        assert result.iloc[0]['tiene_permiso'] == True
+        assert result.iloc[0]['es_permiso_medio_dia'] == True
         assert result.iloc[0]['horas_esperadas'] == '04:00:00'  # Half of 8 hours
     
     def test_aplicar_regla_perdon_retardos_basic(self):
@@ -402,7 +406,7 @@ class TestAttendanceProcessor:
         assert 'cumplio_horas_turno' in result.columns
         
         # Verify tardiness was forgiven (worked more than expected)
-        assert result.iloc[0]['retardo_perdonado'] is True
+        assert result.iloc[0]['retardo_perdonado'] == True
         assert result.iloc[0]['tipo_retardo'] == 'A Tiempo (Cumplió Horas)'
         assert result.iloc[0]['tipo_retardo_original'] == 'Retardo'
         assert result.iloc[0]['minutos_tarde'] == 0  # Forgiven
@@ -421,7 +425,7 @@ class TestAttendanceProcessor:
         result = self.processor.aplicar_regla_perdon_retardos(df)
         
         # Verify no forgiveness
-        assert result.iloc[0]['retardo_perdonado'] is False
+        assert result.iloc[0]['retardo_perdonado'] == False
         assert result.iloc[0]['tipo_retardo'] == 'Retardo'  # Unchanged
         assert result.iloc[0]['minutos_tarde'] == 30  # Unchanged
     
@@ -442,7 +446,7 @@ class TestAttendanceProcessor:
         
         # Verify absence was justified
         assert result.iloc[0]['tipo_falta_ajustada'] == 'Falta Justificada'
-        assert result.iloc[0]['falta_justificada'] is True
+        assert result.iloc[0]['falta_justificada'] == True
         assert result.iloc[0]['es_falta_ajustada'] == 0  # Not an unjustified absence
     
     def test_clasificar_faltas_con_permisos_no_permit(self):
@@ -457,7 +461,7 @@ class TestAttendanceProcessor:
         
         # Verify absence remains unjustified
         assert result.iloc[0]['tipo_falta_ajustada'] == 'Falta'
-        assert result.iloc[0]['falta_justificada'] is False
+        assert result.iloc[0]['falta_justificada'] == False
         assert result.iloc[0]['es_falta_ajustada'] == 1  # Still an unjustified absence
 
 

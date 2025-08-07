@@ -52,8 +52,8 @@ class TestAttendanceReportManager:
         mock_obtener_codigos.return_value = ['EMP001', 'EMP002']
         mock_procesar_permisos.return_value = {}
         mock_determine_period.return_value = (True, False)
-        mock_obtener_horarios.return_value = {'primera': []}
-        mock_mapear_horarios.return_value = {}
+        mock_obtener_horarios.return_value = {'primera': [{'employee': 'EMP001', 'hora_entrada': '08:00', 'hora_salida': '17:00'}]}
+        mock_mapear_horarios.return_value = {'EMP001': {'08:00': '17:00'}}
         
         # Mock API client methods
         self.manager.api_client.fetch_checkins = Mock(return_value=[
@@ -166,15 +166,15 @@ class TestAttendanceReportManager:
         assert 'Invalid API credentials' in result['error']
     
     @patch('main.obtener_horarios_multi_quincena')
-    @patch('main.obtain_other_mocks')  # Placeholder for other required mocks
-    def test_generate_attendance_report_no_schedules(self, mock_other, mock_obtener_horarios):
+    def test_generate_attendance_report_no_schedules(self, mock_obtener_horarios):
         """Test handling when no schedules are found."""
         
         # Setup basic mocks
         with patch('main.validate_api_credentials'), \
              patch('main.connect_db', return_value=MagicMock()), \
              patch('main.obtener_codigos_empleados_api', return_value=['EMP001']), \
-             patch('main.determine_period_type', return_value=(True, False)):
+             patch('main.determine_period_type', return_value=(True, False)), \
+             patch('main.mapear_horarios_por_empleado_multi', return_value={}):
             
             # Mock no schedules found
             mock_obtener_horarios.return_value = {'primera': [], 'segunda': []}
@@ -267,8 +267,9 @@ class TestConfigurationValidation:
     def test_validate_api_credentials_missing(self):
         """Test API credential validation with missing credentials."""
         
-        with patch.dict('os.environ', {}, clear=True):
-            with pytest.raises(Exception):
+        with patch('config.API_KEY', None), \
+             patch('config.API_SECRET', None):
+            with pytest.raises(ValueError):
                 validate_api_credentials()
 
 

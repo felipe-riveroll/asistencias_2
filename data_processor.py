@@ -1156,13 +1156,14 @@ class AttendanceProcessor:
         if mask_permiso_y_falta.any():
             df.loc[mask_permiso_y_falta, "tipo_falta_ajustada"] = "Falta Justificada"
             df.loc[mask_permiso_y_falta, "falta_justificada"] = True
-            df["es_falta_ajustada"] = (
-                df["tipo_falta_ajustada"].isin(["Falta", "Falta Injustificada"])
-            ).astype(int)
             faltas_justificadas = mask_permiso_y_falta.sum()
             print(f"✅ {faltas_justificadas} absences justified with approved leaves.")
         else:
-            df["es_falta_ajustada"] = df["es_falta"].copy()
             print("✅ No absences found to justify with leaves.")
+
+        # Calculate es_falta_ajustada in both cases
+        df["es_falta_ajustada"] = (
+            df["tipo_falta_ajustada"].isin(["Falta", "Falta Injustificada"])
+        ).astype(int)
 
         return df

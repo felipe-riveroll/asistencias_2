@@ -20,10 +20,12 @@ class TestAPIClient:
     
     def test_init(self):
         """Test APIClient initialization."""
-        assert hasattr(self.client, 'api_key')
-        assert hasattr(self.client, 'api_secret')
-        assert hasattr(self.client, 'api_url')
-        assert hasattr(self.client, 'leave_api_url')
+        assert hasattr(self.client, 'checkin_url')
+        assert hasattr(self.client, 'leave_url')
+        assert hasattr(self.client, 'page_length')
+        assert hasattr(self.client, 'timeout')
+        assert self.client.page_length == 100
+        assert self.client.timeout == 30
     
     @patch('api_client.requests.get')
     @patch.dict('os.environ', {
@@ -97,16 +99,19 @@ class TestAPIClient:
         assert len(result) == 100
         assert mock_get.call_count == 2
     
+    @patch('api_client.get_api_headers')
     @patch('api_client.requests.get')
-    def test_fetch_checkins_missing_credentials(self, mock_get):
+    def test_fetch_checkins_missing_credentials(self, mock_get, mock_get_headers):
         """Test checkin fetching with missing API credentials."""
         
-        with patch.dict('os.environ', {}, clear=True):
-            result = self.client.fetch_checkins('2025-01-01', '2025-01-01', '%test%')
-            
-            # Should return empty list when credentials are missing
-            assert result == []
-            mock_get.assert_not_called()
+        # Mock missing credentials by making get_api_headers raise an exception
+        mock_get_headers.side_effect = ValueError("Missing API credentials")
+        
+        result = self.client.fetch_checkins('2025-01-01', '2025-01-01', '%test%')
+        
+        # Should return empty list when credentials are missing
+        assert result == []
+        mock_get.assert_not_called()
     
     @patch('api_client.requests.get')
     @patch.dict('os.environ', {
@@ -195,16 +200,19 @@ class TestAPIClient:
         assert result == []
         assert mock_get.call_count == 2
     
+    @patch('api_client.get_api_headers')
     @patch('api_client.requests.get')
-    def test_fetch_leave_applications_missing_credentials(self, mock_get):
+    def test_fetch_leave_applications_missing_credentials(self, mock_get, mock_get_headers):
         """Test leave application fetching with missing credentials."""
         
-        with patch.dict('os.environ', {}, clear=True):
-            result = self.client.fetch_leave_applications('2025-01-01', '2025-01-03')
-            
-            # Should return empty list when credentials are missing
-            assert result == []
-            mock_get.assert_not_called()
+        # Mock missing credentials by making get_api_headers raise an exception
+        mock_get_headers.side_effect = ValueError("Missing API credentials")
+        
+        result = self.client.fetch_leave_applications('2025-01-01', '2025-01-03')
+        
+        # Should return empty list when credentials are missing
+        assert result == []
+        mock_get.assert_not_called()
     
     @patch('api_client.requests.get')
     @patch.dict('os.environ', {

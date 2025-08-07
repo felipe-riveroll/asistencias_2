@@ -20,6 +20,18 @@ class ReportGenerator:
         """Initialize the report generator."""
         pass
     
+    def _time_to_decimal(self, time_str):
+        """Wrapper for utils.time_to_decimal"""
+        return time_to_decimal(time_str)
+    
+    def _format_timedelta_with_sign(self, td):
+        """Wrapper for utils.format_timedelta_with_sign"""
+        return format_timedelta_with_sign(td)
+    
+    def _format_positive_timedelta(self, td):
+        """Wrapper for utils.format_positive_timedelta"""  
+        return format_positive_timedelta(td)
+    
     def generar_resumen_periodo(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Crea un DataFrame de resumen con totales por empleado.
@@ -58,29 +70,58 @@ class ReportGenerator:
             df["horas_descanso_td"] = pd.to_timedelta("00:00:00")
 
         total_faltas_col = (
-            "es_falta_ajustada" if "es_falta_ajustada" in df.columns else "es_falta"
+            "es_falta_ajustada" if "es_falta_ajustada" in df.columns 
+            else "es_falta" if "es_falta" in df.columns
+            else None
         )
+        
+        retardos_col = (
+            "es_retardo_acumulable" if "es_retardo_acumulable" in df.columns
+            else None
+        )
+        
+        salidas_anticipadas_col = (
+            "salida_anticipada" if "salida_anticipada" in df.columns
+            else None
+        )
+
+        # Build aggregation dict dynamically
+        agg_dict = {
+            'total_horas_trabajadas': ("horas_trabajadas_td", "sum"),
+            'total_horas_esperadas': ("horas_esperadas_originales_td", "sum"),
+            'total_horas_descontadas_permiso': ("horas_descontadas_permiso_td", "sum"),
+            'total_horas_descanso': ("horas_descanso_td", "sum"),
+        }
+        
+        if retardos_col:
+            agg_dict['total_retardos'] = (retardos_col, "sum")
+        else:
+            # Create a default column with zeros
+            df['_temp_retardos'] = 0
+            agg_dict['total_retardos'] = ("_temp_retardos", "sum")
+            
+        if total_faltas_col:
+            agg_dict['faltas_del_periodo'] = (total_faltas_col, "sum")
+        else:
+            # Create a default column with zeros
+            df['_temp_faltas'] = 0
+            agg_dict['faltas_del_periodo'] = ("_temp_faltas", "sum")
+            
+        if "falta_justificada" in df.columns:
+            agg_dict['faltas_justificadas'] = ("falta_justificada", "sum")
+        else:
+            df['_temp_faltas_just'] = 0
+            agg_dict['faltas_justificadas'] = ("_temp_faltas_just", "sum")
+            
+        if salidas_anticipadas_col:
+            agg_dict['total_salidas_anticipadas'] = (salidas_anticipadas_col, "sum")
+        else:
+            df['_temp_salidas'] = 0
+            agg_dict['total_salidas_anticipadas'] = ("_temp_salidas", "sum")
 
         resumen_final = (
             df.groupby(["employee", "Nombre"])
-            .agg(
-                total_horas_trabajadas=("horas_trabajadas_td", "sum"),
-                total_horas_esperadas=("horas_esperadas_originales_td", "sum"),
-                total_horas_descontadas_permiso=("horas_descontadas_permiso_td", "sum"),
-                total_horas_descanso=("horas_descanso_td", "sum"),
-                total_retardos=("es_retardo_acumulable", "sum"),
-                faltas_del_periodo=(total_faltas_col, "sum"),
-                faltas_justificadas=(
-                    ("falta_justificada", "sum")
-                    if "falta_justificada" in df.columns
-                    else ("es_falta", lambda x: 0)
-                ),
-                total_salidas_anticipadas=(
-                    ("salida_anticipada", "sum")
-                    if "salida_anticipada" in df.columns
-                    else ("es_falta", lambda x: 0)
-                ),
-            )
+            .agg(**agg_dict)
             .reset_index()
         )
 
@@ -169,6 +210,27 @@ class ReportGenerator:
         )
         return filename
 
+    def save_summary_report(self, df: pd.DataFrame) -> str:
+        """
+        Guarda el reporte resumen de período en CSV.
+        
+        Args:
+            df: DataFrame resumen con totales por empleado
+            
+        Returns:
+            Nombre del archivo del reporte guardado
+        """
+        if df.empty:
+            print("⚠️ No hay datos para guardar el reporte resumen.")
+            return ""
+
+        filename = self._save_csv_with_fallback(
+            df, 
+            OUTPUT_SUMMARY_REPORT, 
+            "summary report"
+        )
+        return filename
+
     def generar_reporte_html(
         self,
         df_detallado: pd.DataFrame,
@@ -214,18 +276,38 @@ class ReportGenerator:
         # Prepare daily data for charts
         daily_data_js = []
         if not df_detallado.empty and "dia" in df_detallado.columns:
-            df_laborables = df_detallado[df_detallado["hora_entrada_programada"].notna()].copy()
+            # Check if hora_entrada_programada exists, if not, use all rows
+            if "hora_entrada_programada" in df_detallado.columns:
+                df_laborables = df_detallado[df_detallado["hora_entrada_programada"].notna()].copy()
+            else:
+                df_laborables = df_detallado.copy()
             if not df_laborables.empty:
+                # Build aggregation safely checking for column existence
+                agg_dict = {
+                    'total_empleados': ("employee", "nunique")
+                }
+                
+                if "tipo_falta_ajustada" in df_laborables.columns:
+                    agg_dict['faltas_injustificadas'] = (
+                        "tipo_falta_ajustada",
+                        lambda x: x.isin(["Falta", "Falta Injustificada"]).sum(),
+                    )
+                elif "es_falta" in df_laborables.columns:
+                    agg_dict['faltas_injustificadas'] = ("es_falta", "sum")
+                else:
+                    # Create temp column for missing data
+                    df_laborables['_temp_faltas'] = 0
+                    agg_dict['faltas_injustificadas'] = ("_temp_faltas", "sum")
+                
+                if "falta_justificada" in df_laborables.columns:
+                    agg_dict['permisos'] = ("falta_justificada", lambda x: x.sum())
+                else:
+                    df_laborables['_temp_permisos'] = 0
+                    agg_dict['permisos'] = ("_temp_permisos", "sum")
+                
                 daily_summary = (
                     df_laborables.groupby(["dia", "dia_semana"])
-                    .agg(
-                        total_empleados=("employee", "nunique"),
-                        faltas_injustificadas=(
-                            "tipo_falta_ajustada",
-                            lambda x: x.isin(["Falta", "Falta Injustificada"]).sum(),
-                        ),
-                        permisos=("falta_justificada", lambda x: x.sum()),
-                    )
+                    .agg(**agg_dict)
                     .reset_index()
                 )
                 for _, row in daily_summary.iterrows():

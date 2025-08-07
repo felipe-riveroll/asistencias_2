@@ -37,7 +37,12 @@ class APIClient:
         """
         print(f"📡 Obtaining check-ins from API for device '{device_filter}'...")
         
-        headers = get_api_headers()
+        try:
+            headers = get_api_headers()
+        except ValueError as e:
+            print(f"❌ Error validating API credentials: {e}")
+            return []
+        
         filters = json.dumps([
             ["Employee Checkin", "time", "Between", [start_date, end_date]],
             ["Employee Checkin", "device_id", "like", device_filter],
@@ -101,7 +106,11 @@ class APIClient:
         """
         print(f"📄 Obtaining approved leave applications from API for period {start_date} - {end_date}...")
         
-        headers = get_api_headers()
+        try:
+            headers = get_api_headers()
+        except ValueError as e:
+            print(f"❌ Error validating API credentials: {e}")
+            return []
         url = f'https://erp.asiatech.com.mx/api/resource/Leave Application?fields=["employee","employee_name","leave_type","from_date","to_date","status","half_day"]&filters=[["status","=","Approved"],["from_date",">=","{start_date}"],["to_date","<=","{end_date}"]]'
 
         all_leave_records = []
