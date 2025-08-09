@@ -9,6 +9,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.chart import BarChart, Reference
 from datetime import datetime
+from config import TOLERANCIA_RETARDO_MINUTOS, UMBRAL_FALTA_INJUSTIFICADA_MINUTOS
 
 
 class GeneradorReporteExcel:
@@ -215,6 +216,7 @@ class GeneradorReporteExcel:
                         idx == 9,  # idx=9 corresponde a la primera checada (columna I)
                         row_data.get("retardo_perdonado", False),
                         row_data.get("tipo_retardo", ""),
+                        row_data.get("hora_entrada_programada", ""),
                         fill_amarillo,
                         fill_rojo,
                         fill_verde_claro,
@@ -428,6 +430,7 @@ class GeneradorReporteExcel:
         es_entrada,
         retardo_perdonado,
         tipo_retardo,
+        hora_entrada_programada,
         fill_amarillo,
         fill_rojo,
         fill_verde,
@@ -460,19 +463,17 @@ class GeneradorReporteExcel:
                 if retardo_perdonado:
                     return  # Sin color para retardos perdonados
                 
-                hora_limite_normal = pd.to_datetime(
-                    "08:05:00", format="%H:%M:%S"
-                ).time()
-                hora_limite_retardo = pd.to_datetime(
-                    "08:20:00", format="%H:%M:%S"
-                ).time()
-
-                if hora <= hora_limite_normal:
+                # Solo aplicar colores si tenemos hora de entrada programada
+                if not hora_entrada_programada or hora_entrada_programada == "":
+                    return
+                
+                # Usar el tipo_retardo ya calculado en data_processor en lugar de recalcular
+                if tipo_retardo == "A Tiempo":
                     pass  # Sin color (normal)
-                elif hora <= hora_limite_retardo:
+                elif tipo_retardo == "Retardo":
                     # Retardo menor NO perdonado: amarillo
                     cell.fill = fill_amarillo
-                else:
+                elif tipo_retardo == "Falta Injustificada":
                     # Retardo mayor NO perdonado: rojo
                     cell.fill = fill_rojo
                     cell.font = Font(color="FFFFFF")
