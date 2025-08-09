@@ -24,19 +24,22 @@ uv run pytest -n auto
 
 ### Code Quality
 ```bash
-# Format code with Black
-uv run black .
-
-# Format and lint with Ruff (faster alternative)
+# Format and lint with Ruff (preferred)
 uv run ruff format .
 uv run ruff check .
 uv run ruff check --fix .        # Auto-fix issues
+
+# Format code with Black (alternative)
+uv run black .
 
 # Lint with flake8
 uv run flake8 .
 
 # Type checking with mypy
 uv run mypy generar_reporte_optimizado.py db_postgres_connection.py
+
+# Run specific test file (for new modules)
+uv run python test_reporte_excel.py
 ```
 
 ### Main Application
@@ -72,6 +75,17 @@ This is a Python-based attendance reporting system that processes employee check
 - Integration tests with external APIs
 - Edge case testing for complex scenarios
 - Performance and validation tests
+
+**`reporte_excel.py`** - Excel report generator with advanced formatting:
+- Generates detailed Excel reports with multiple sheets
+- Advanced coloring for attendance status (on-time, late, absent)
+- Statistical analysis and KPI calculations
+- Integration with existing data processing pipeline
+
+**`test_reporte_excel.py`** - Unit tests for Excel report generation:
+- Tests for attendance coloring logic
+- Validation of different tardiness scenarios
+- Mock-based testing for Excel formatting features
 
 ### Data Flow Architecture
 
@@ -114,6 +128,7 @@ device_filter = "%villas%"     # Device filter for database query
 - `reporte_asistencia_analizado.csv` - Detailed daily attendance analysis
 - `resumen_periodo.csv` - Period summary with aggregated metrics
 - `dashboard_asistencia.html` - Interactive dashboard with DataTables.net and D3.js visualizations
+- `reporte_asistencia_[branch]_[dates].xlsx` - Advanced Excel report with multiple sheets, KPIs, and colored formatting
 
 ### Testing Strategy
 
@@ -129,3 +144,5 @@ The project uses pytest with comprehensive test coverage:
 - **Break Deduction**: 1 hour deducted from expected hours when breaks are detected
 - **Leave Policies**: Configurable per leave type (currently "no adjustment" for unpaid leave)
 - **Forgiveness Rule**: Tardiness pardoned when scheduled hours are completed
+- **Excel Report Coloring**: Automatic color coding for attendance status (yellow for late, red for excessive tardiness)
+- **Data Processing**: Supports both modular architecture (main.py) and legacy monolithic script (generar_reporte_optimizado.py)
