@@ -814,9 +814,11 @@ class AttendanceProcessor:
                     return pd.Series(["Falta Entrada Nocturno", 0])
                 return pd.Series(["Falta", 0])
             try:
-                hora_prog = datetime.strptime(
-                    row["hora_entrada_programada"] + ":00", "%H:%M:%S"
-                )
+                # Handle both HH:MM and HH:MM:SS formats
+                hora_prog_str = row["hora_entrada_programada"]
+                if len(hora_prog_str.split(':')) == 2:  # HH:MM format
+                    hora_prog_str += ":00"
+                hora_prog = datetime.strptime(hora_prog_str, "%H:%M:%S")
                 hora_checada = datetime.strptime(row["checado_1"], "%H:%M:%S")
 
                 if (
