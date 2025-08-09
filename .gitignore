@@ -17,6 +17,8 @@ ENV/
 # Data files (mantener algunos archivos específicos)
 *.csv
 *.log
+*.html
+*.xlsx
 
 # IDE directories
 .vscode/
@@ -103,7 +105,7 @@ uv.lock
 # Serena directory
 .serena/
 
-*.xlsx
+
 *.json
 *.jsonl
 *.jsonl.gz
