@@ -41,6 +41,8 @@ coverage.xml
 *.cover
 .pytest_cache/
 .tox/
+.mypy_cache/
+.ruff_cache/
 
 # Distribution / packaging
 .Python
@@ -94,7 +96,6 @@ uv.lock
 *.tmp
 *.temp
 
-*.html
 
 .aider.conf.yml
 .aider*
@@ -102,9 +103,7 @@ uv.lock
 # Serena directory
 .serena/
 
-*.csv
 *.xlsx
-*.html
 *.json
 *.jsonl
 *.jsonl.gz
