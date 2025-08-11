@@ -117,4 +117,5 @@ uv.lock
 *.jsonl.gz.part.5
 
 .envrc
-.direnv
+
+.crush/

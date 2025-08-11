@@ -241,6 +241,24 @@ class AttendanceProcessor:
         # Función para mapear la fecha de turno correcta
         def map_shift_date(checada_time, entrada, salida, cruza_medianoche, dia_original):
             """
+            Adjust logic: treat times within grace window after salida as belonging to previous day.
+            """
+            if not cruza_medianoche:
+                return dia_original
+            try:
+                datetime.strptime(entrada, "%H:%M").time()
+                salida_time = datetime.strptime(salida, "%H:%M").time()
+                checada_time_obj = datetime.strptime(checada_time, "%H:%M:%S").time()
+                # Grace window after scheduled salida
+                limite_gracia = (datetime.combine(dia_original, salida_time) + timedelta(minutes=GRACE_MINUTES)).time()
+                # If checada is between salida and limite_gracia inclusive, assign to previous day
+                if salida_time <= checada_time_obj <= limite_gracia:
+                    return dia_original - timedelta(days=1)
+                else:
+                    return dia_original
+            except (ValueError, TypeError):
+                return dia_original
+            """
             Mapea una hora de checada a la fecha de turno correcta.
             
             Args:
