@@ -116,3 +116,4 @@ uv.lock
 
 .envrc
 .direnv
+.crush
