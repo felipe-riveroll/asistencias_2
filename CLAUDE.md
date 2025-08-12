@@ -44,11 +44,20 @@ uv run python test_reporte_excel.py
 
 ### Main Application
 ```bash
-# Run the attendance report generator
+# Run the attendance report generator (legacy script)
 python generar_reporte_optimizado.py
 
-# Run with UV
-uv run python generar_reporte_optimizado.py
+# Run the modular version
+python main.py
+uv run python main.py
+
+# Run the PyQt6 Desktop GUI
+python gui_pyqt6.py
+uv run python gui_pyqt6.py
+
+# Or use the launcher script
+python run_gui.py
+uv run python run_gui.py
 ```
 
 ## Project Architecture
@@ -86,6 +95,18 @@ This is a Python-based attendance reporting system that processes employee check
 - Tests for attendance coloring logic
 - Validation of different tardiness scenarios
 - Mock-based testing for Excel formatting features
+
+**`gui_pyqt6.py`** - PyQt6 Desktop GUI Application:
+- User-friendly interface for report generation
+- Date range selection with validation
+- Branch selection (31 PTE, VILLAS, NAVE)
+- Real-time status updates and progress indication
+- Automatic Excel file opening functionality
+- Error handling with detailed dialog messages
+
+**`run_gui.py`** - GUI launcher script for easy application startup
+
+**`test_gui.py`** - GUI component testing without full report execution
 
 ### Data Flow Architecture
 
