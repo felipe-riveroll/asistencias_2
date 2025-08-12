@@ -9,7 +9,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.chart import BarChart, Reference
 from datetime import datetime
-from config import TOLERANCIA_RETARDO_MINUTOS, UMBRAL_FALTA_INJUSTIFICADA_MINUTOS
+import logging
 
 
 class GeneradorReporteExcel:
@@ -250,79 +250,102 @@ class GeneradorReporteExcel:
         # Título
         ws["A1"] = "Análisis de KPIs por Empleado"
         ws["A1"].font = Font(size=14, bold=True)
-        
+
         # Información del período
         ws["A2"] = "Indicadores de Rendimiento Individual"
         ws["A2"].font = Font(size=11, italic=True)
 
         try:
-            # Crear analyzer y calcular KPIs usando df_resumen directamente
+            # Crear analyzer y calcular KPIs con datos completos
             analyzer = AsistenciaAnalyzer(dias_laborables_mes=22)
-            analyzer.df_data = df_resumen  # Usar df_resumen directamente
-            
+            analyzer.df_data = df_resumen  # Datos de resumen para horas/totales
+            analyzer.df_daily = df_reporte  # Datos diarios para Bradford Factor
+
             # Calcular KPIs
             df_kpis = analyzer.calculate_individual_kpis()
-            
+
             if not df_kpis.empty:
                 # Escribir encabezados de KPIs
                 start_row = 4
-                headers = ['ID', 'Nombre', 'Bradford Factor', 'Tasa Ausentismo (%)', 
-                          'Índice Puntualidad', 'Eficiencia Horas (%)', 'SIC']
-                
+                headers = [
+                    "ID",
+                    "Nombre",
+                    "Bradford Factor",
+                    "Tasa Ausentismo (%)",
+                    "Índice Puntualidad",
+                    "Eficiencia Horas (%)",
+                    "SIC",
+                ]
+
                 for col_idx, header in enumerate(headers, 1):
                     cell = ws.cell(row=start_row, column=col_idx, value=header)
                     cell.font = Font(bold=True, color="FFFFFF")
-                    cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                    cell.fill = PatternFill(
+                        start_color="366092", end_color="366092", fill_type="solid"
+                    )
                     cell.alignment = Alignment(horizontal="center")
 
                 # Escribir datos de KPIs
-                for row_idx, (_, kpi_row) in enumerate(df_kpis.iterrows(), start_row + 1):
-                    ws.cell(row=row_idx, column=1, value=kpi_row['ID'])
-                    ws.cell(row=row_idx, column=2, value=kpi_row['Nombre'])
-                    ws.cell(row=row_idx, column=3, value=kpi_row['Bradford_Factor'])
-                    ws.cell(row=row_idx, column=4, value=kpi_row['Tasa_Ausentismo'])
-                    ws.cell(row=row_idx, column=5, value=kpi_row['Indice_Puntualidad'])
-                    ws.cell(row=row_idx, column=6, value=kpi_row['Eficiencia_Horas'])
-                    ws.cell(row=row_idx, column=7, value=kpi_row['SIC'])
-                    
+                for row_idx, (_, kpi_row) in enumerate(
+                    df_kpis.iterrows(), start_row + 1
+                ):
+                    ws.cell(row=row_idx, column=1, value=kpi_row["ID"])
+                    ws.cell(row=row_idx, column=2, value=kpi_row["Nombre"])
+                    ws.cell(row=row_idx, column=3, value=kpi_row["Bradford_Factor"])
+                    ws.cell(row=row_idx, column=4, value=kpi_row["Tasa_Ausentismo"])
+                    ws.cell(row=row_idx, column=5, value=kpi_row["Indice_Puntualidad"])
+                    ws.cell(row=row_idx, column=6, value=kpi_row["Eficiencia_Horas"])
+                    ws.cell(row=row_idx, column=7, value=kpi_row["SIC"])
+
                     # Aplicar formato condicional al SIC
                     sic_cell = ws.cell(row=row_idx, column=7)
-                    sic_value = kpi_row['SIC']
-                    
+                    sic_value = kpi_row["SIC"]
+
                     if sic_value >= 85:
-                        sic_cell.fill = PatternFill(start_color="92D050", end_color="92D050", fill_type="solid")  # Verde
+                        sic_cell.fill = PatternFill(
+                            start_color="92D050", end_color="92D050", fill_type="solid"
+                        )  # Verde
                     elif sic_value >= 70:
-                        sic_cell.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")  # Amarillo
+                        sic_cell.fill = PatternFill(
+                            start_color="FFFF00", end_color="FFFF00", fill_type="solid"
+                        )  # Amarillo
                     elif sic_value >= 50:
-                        sic_cell.fill = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")  # Naranja
+                        sic_cell.fill = PatternFill(
+                            start_color="FFC000", end_color="FFC000", fill_type="solid"
+                        )  # Naranja
                     else:
-                        sic_cell.fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")  # Rojo
+                        sic_cell.fill = PatternFill(
+                            start_color="FF0000", end_color="FF0000", fill_type="solid"
+                        )  # Rojo
                         sic_cell.font = Font(color="FFFFFF")
-                
+
                 # Aplicar bordes
                 self._aplicar_bordes(ws, start_row, start_row + len(df_kpis), 1, 7)
-                
+
                 # Agregar leyenda de interpretación
                 legend_start = start_row + len(df_kpis) + 3
                 ws[f"A{legend_start}"] = "Interpretación de KPIs:"
                 ws[f"A{legend_start}"].font = Font(size=12, bold=True)
-                
+
                 interpretations = [
-                    "• Bradford Factor: 0-25 (Excelente), 26-50 (Bueno), 51-100 (Regular), >100 (Crítico)",
-                    "• Tasa Ausentismo: <5% (Excelente), 5-10% (Aceptable), >10% (Alto)",
-                    "• Índice Puntualidad: >95 (Excelente), 85-95 (Bueno), 70-85 (Regular), <70 (Crítico)",
+                    "• Bradford Factor: B = S² × D; S = episodios; D = días totales",
+                    "  0-25 (Excelente), 26-50 (Bueno), 51-100 (Regular), >100 (Crítico)",
+                    "• Tasa Ausentismo: Basada en horas programadas reales del empleado",
+                    "  <5% (Excelente), 5-10% (Aceptable), >10% (Alto)",
+                    "• Índice Puntualidad: Normalizado por días programados del período",
+                    "  >95 (Excelente), 85-95 (Bueno), 70-85 (Regular), <70 (Crítico)",
                     "• Eficiencia Horas: >100% (Excelente), 95-100% (Bueno), 85-95% (Regular), <85% (Crítico)",
-                    "• SIC: >85 (Excelente), 70-85 (Bueno), 50-70 (Regular), <50 (Crítico)"
+                    "• SIC: Score integral reescalado - >85 (Excelente), 70-85 (Bueno), 50-70 (Regular), <50 (Crítico)",
                 ]
-                
+
                 for i, interpretation in enumerate(interpretations):
                     ws[f"A{legend_start + i + 1}"] = interpretation
                     ws[f"A{legend_start + i + 1}"].font = Font(size=10)
-                
+
             else:
                 ws["A4"] = "No se pudieron calcular los KPIs - datos insuficientes"
                 ws["A4"].font = Font(size=12, color="FF0000")
-        
+
         except Exception as e:
             ws["A4"] = f"Error al generar estadísticas: {str(e)}"
             ws["A4"].font = Font(size=12, color="FF0000")
@@ -438,8 +461,14 @@ class GeneradorReporteExcel:
     ):
         """Aplicar color a las checadas según ICG"""
         # Para "Falta Entrada Nocturno" o entrada faltante, aplicar color especial en la primera checada (vacía)
-        if es_entrada and (tipo_retardo == "Falta Entrada Nocturno" or 
-                          (pd.isna(checada_value) and "Falta registro de entrada" in str(cell.parent.cell(cell.row, 14).value or ""))):
+        if es_entrada and (
+            tipo_retardo == "Falta Entrada Nocturno"
+            or (
+                pd.isna(checada_value)
+                and "Falta registro de entrada"
+                in str(cell.parent.cell(cell.row, 14).value or "")
+            )
+        ):
             if pd.isna(checada_value) or checada_value == "" or checada_value == "---":
                 cell.fill = fill_verde_entrada_nocturno
                 return
@@ -454,7 +483,8 @@ class GeneradorReporteExcel:
                 time_str = (
                     checada_value.split()[0] if " " in checada_value else checada_value
                 )
-                hora = pd.to_datetime(time_str, format="%H:%M:%S").time()
+                # Parse time for validation (used by tipo_retardo logic)
+                pd.to_datetime(time_str, format="%H:%M:%S").time()
             else:
                 return
 
@@ -462,11 +492,11 @@ class GeneradorReporteExcel:
                 # Si el retardo está perdonado, NO aplicar ningún color (dejar normal)
                 if retardo_perdonado:
                     return  # Sin color para retardos perdonados
-                
+
                 # Solo aplicar colores si tenemos hora de entrada programada
                 if not hora_entrada_programada or hora_entrada_programada == "":
                     return
-                
+
                 # Usar el tipo_retardo ya calculado en data_processor en lugar de recalcular
                 if tipo_retardo == "A Tiempo":
                     pass  # Sin color (normal)
@@ -615,16 +645,16 @@ class GeneradorReporteExcel:
 def parse_time_to_decimal(time_string):
     """
     Convertir string de tiempo HH:MM:SS a decimal
-    
+
     Args:
         time_string (str): Tiempo en formato HH:MM:SS
-        
+
     Returns:
         float: Horas en formato decimal
     """
     if pd.isna(time_string) or time_string == "" or time_string == "---":
         return 0.0
-    
+
     try:
         if isinstance(time_string, str) and ":" in time_string:
             parts = time_string.split(":")
@@ -641,132 +671,322 @@ class AsistenciaAnalyzer:
     """
     Clase para analizar datos de asistencia y calcular KPIs individuales
     """
-    
-    def __init__(self, dias_laborables_mes=22):
+
+    def __init__(self, dias_laborables_mes=22, include_justified_in_bf=False):
         """
         Inicializar el analizador de asistencia
-        
+
         Args:
             dias_laborables_mes (int): Número de días laborables en el mes
+            include_justified_in_bf (bool): Si incluir faltas justificadas en Bradford Factor
         """
         self.dias_laborables_mes = dias_laborables_mes
+        self.include_justified_in_bf = include_justified_in_bf
         self.df_data = None
-    
+        self.df_daily = None  # Para datos diarios detallados
+
     def load_data(self, excel_file, sheet_name="Resumen Ejecutivo"):
         """
         Cargar datos desde archivo Excel
-        
+
         Args:
             excel_file (str): Ruta del archivo Excel
             sheet_name (str): Nombre de la hoja con los datos
-            
+
         Returns:
             pd.DataFrame: DataFrame con los datos cargados
         """
         try:
             # Leer archivo Excel desde la fila 6 (índice 5)
             df = pd.read_excel(excel_file, sheet_name=sheet_name, header=5)
-            
-            # Validar que tenemos las columnas necesarias
-            required_columns = [
-                'employee', 'Nombre', 'total_horas_trabajadas', 'total_horas_esperadas',
-                'total_horas_descontadas_permiso', 'total_retardos', 'faltas_del_periodo',
-                'faltas_justificadas', 'total_faltas', 'total_salidas_anticipadas'
-            ]
-            
+
+            # Note: Column validation removed as structure is handled by index-based assignment
+
             # Verificar columnas por índice si los nombres no coinciden
             if len(df.columns) >= 12:
                 df.columns = [
-                    'employee', 'Nombre', 'total_horas_trabajadas', 'total_horas_esperadas',
-                    'total_horas_descontadas_permiso', 'col5', 'col6', 'total_retardos',
-                    'faltas_del_periodo', 'faltas_justificadas', 'total_faltas', 
-                    'total_salidas_anticipadas'
-                ] + [f'col{i}' for i in range(12, len(df.columns))]
-            
+                    "employee",
+                    "Nombre",
+                    "total_horas_trabajadas",
+                    "total_horas_esperadas",
+                    "total_horas_descontadas_permiso",
+                    "col5",
+                    "col6",
+                    "total_retardos",
+                    "faltas_del_periodo",
+                    "faltas_justificadas",
+                    "total_faltas",
+                    "total_salidas_anticipadas",
+                ] + [f"col{i}" for i in range(12, len(df.columns))]
+
             # Filtrar filas con datos válidos
-            df = df.dropna(subset=['employee', 'Nombre'])
-            
+            df = df.dropna(subset=["employee", "Nombre"])
+
             # Convertir tipos de datos
-            df['total_retardos'] = pd.to_numeric(df['total_retardos'], errors='coerce').fillna(0)
-            df['faltas_del_periodo'] = pd.to_numeric(df['faltas_del_periodo'], errors='coerce').fillna(0)
-            df['faltas_justificadas'] = pd.to_numeric(df['faltas_justificadas'], errors='coerce').fillna(0)
-            df['total_faltas'] = pd.to_numeric(df['total_faltas'], errors='coerce').fillna(0)
-            df['total_salidas_anticipadas'] = pd.to_numeric(df['total_salidas_anticipadas'], errors='coerce').fillna(0)
-            
+            df["total_retardos"] = pd.to_numeric(
+                df["total_retardos"], errors="coerce"
+            ).fillna(0)
+            df["faltas_del_periodo"] = pd.to_numeric(
+                df["faltas_del_periodo"], errors="coerce"
+            ).fillna(0)
+            df["faltas_justificadas"] = pd.to_numeric(
+                df["faltas_justificadas"], errors="coerce"
+            ).fillna(0)
+            df["total_faltas"] = pd.to_numeric(
+                df["total_faltas"], errors="coerce"
+            ).fillna(0)
+            df["total_salidas_anticipadas"] = pd.to_numeric(
+                df["total_salidas_anticipadas"], errors="coerce"
+            ).fillna(0)
+
             self.df_data = df
             return df
-            
+
         except Exception as e:
             print(f"Error al cargar datos: {str(e)}")
             return pd.DataFrame()
-    
+
+    def bf_to_100_scale(self, bf: int) -> float:
+        """
+        Convertir Bradford Factor a escala 0-100 usando interpolación por tramos
+
+        Args:
+            bf (int): Bradford Factor valor
+
+        Returns:
+            float: Valor reescalado en rango 0-100
+        """
+        # Puntos de referencia para interpolación
+        points = [(0, 100), (50, 85), (100, 70), (200, 50), (400, 25), (900, 0)]
+
+        if bf <= 0:
+            return 100.0
+        if bf >= 900:
+            return 0.0
+
+        # Encontrar los puntos de interpolación
+        for i in range(len(points) - 1):
+            x1, y1 = points[i]
+            x2, y2 = points[i + 1]
+
+            if x1 <= bf <= x2:
+                # Interpolación lineal
+                if x2 == x1:
+                    return y1
+                return y1 + (y2 - y1) * (bf - x1) / (x2 - x1)
+
+        return 0.0
+
+    def calculate_bradford_factor_episodes(self, employee_id):
+        """
+        Calcular episodios de ausencia correctamente usando datos diarios
+
+        Args:
+            employee_id (str): ID del empleado
+
+        Returns:
+            tuple: (episodios, dias_ausentes)
+        """
+        if self.df_daily is None:
+            logging.warning(
+                f"No hay datos diarios para calcular episodios Bradford para {employee_id}"
+            )
+            return 0, 0
+
+        # Filtrar datos del empleado
+        emp_data = self.df_daily[self.df_daily["employee"] == employee_id].copy()
+        if emp_data.empty:
+            return 0, 0
+
+        # Ordenar por fecha
+        emp_data = emp_data.sort_values("dia")
+
+        # Determinar qué constituye una ausencia
+        def is_absent(row):
+            """Determinar si un día es ausencia para Bradford Factor"""
+            # Excluir días no laborables
+            if row.get("tipo_retardo") == "Día no Laborable":
+                return False
+
+            # Excluir días con permiso aprobado si configurado
+            if not self.include_justified_in_bf and row.get("tiene_permiso", False):
+                return False
+
+            # Ausencia si no trabajó (sin horas o horas = 0)
+            horas_trabajadas = row.get("horas_trabajadas", "---")
+            if (
+                horas_trabajadas in ["---", "", "00:00:00"]
+                or parse_time_to_decimal(horas_trabajadas) == 0
+            ):
+                return True
+
+            return False
+
+        # Calcular ausencias
+        emp_data["is_absent"] = emp_data.apply(is_absent, axis=1)
+
+        if not emp_data["is_absent"].any():
+            return 0, 0
+
+        # Calcular episodios usando operaciones vectorizadas
+        emp_data["prev_absent"] = emp_data["is_absent"].shift(1, fill_value=False)
+        emp_data["prev_date"] = pd.to_datetime(emp_data["dia"]).shift(1)
+        emp_data["current_date"] = pd.to_datetime(emp_data["dia"])
+
+        # Un episodio comienza cuando:
+        # 1. Es ausente Y (el anterior no era ausente O no es consecutivo)
+        emp_data["is_consecutive"] = (
+            emp_data["current_date"] - emp_data["prev_date"]
+        ).dt.days == 1
+        emp_data["episode_start"] = emp_data["is_absent"] & (
+            ~emp_data["prev_absent"] | ~emp_data["is_consecutive"]
+        )
+
+        episodios = emp_data["episode_start"].sum()
+        dias_ausentes = emp_data["is_absent"].sum()
+
+        logging.info(
+            f"Empleado {employee_id}: {episodios} episodios, {dias_ausentes} días ausentes"
+        )
+        return episodios, dias_ausentes
+
     def calculate_individual_kpis(self):
         """
-        Calcular todos los KPIs individuales para cada empleado
-        
+        Calcular todos los KPIs individuales para cada empleado con fórmulas corregidas
+
         Returns:
             pd.DataFrame: DataFrame con KPIs calculados
         """
         if self.df_data is None or self.df_data.empty:
             return pd.DataFrame()
-        
+
         results = []
-        
+
         for _, row in self.df_data.iterrows():
             try:
+                employee_id = row["employee"]
+
                 # Convertir tiempos a decimal
-                horas_trabajadas = parse_time_to_decimal(row['total_horas_trabajadas'])
-                horas_esperadas = parse_time_to_decimal(row['total_horas_esperadas'])
-                horas_descontadas = parse_time_to_decimal(row['total_horas_descontadas_permiso'])
-                
+                horas_trabajadas = parse_time_to_decimal(row["total_horas_trabajadas"])
+                horas_esperadas = parse_time_to_decimal(row["total_horas_esperadas"])
+                horas_descontadas = parse_time_to_decimal(
+                    row["total_horas_descontadas_permiso"]
+                )
+
                 # Calcular horas esperadas netas
                 horas_esperadas_netas = horas_esperadas - horas_descontadas
-                
-                # 1. Bradford Factor = S² × D
-                episodios_ausencia = int(row['faltas_del_periodo']) + int(row['faltas_justificadas'])
-                total_dias_ausentes = int(row['total_faltas'])
-                bradford_factor = (episodios_ausencia ** 2) * total_dias_ausentes
-                
-                # 2. Tasa de Ausentismo (%)
-                tasa_ausentismo = (total_dias_ausentes / self.dias_laborables_mes) * 100 if self.dias_laborables_mes > 0 else 0
-                
-                # 3. Índice de Puntualidad
-                retardos = int(row['total_retardos'])
-                salidas_anticipadas = int(row['total_salidas_anticipadas'])
-                indice_puntualidad = max(0, 100 - ((retardos * 2) + (salidas_anticipadas * 1.5)))
-                
-                # 4. Eficiencia de Horas (%)
-                eficiencia_horas = (horas_trabajadas / horas_esperadas_netas * 100) if horas_esperadas_netas > 0 else 0
-                eficiencia_horas = min(eficiencia_horas, 120)  # Cap at 120%
-                
-                # 5. SIC (Score Integral de Calidad)
-                bradford_invertido = 100 - min(bradford_factor, 100)
-                sic = (indice_puntualidad * 0.3) + (eficiencia_horas * 0.4) + (bradford_invertido * 0.3)
-                
-                results.append({
-                    'ID': row['employee'],
-                    'Nombre': row['Nombre'],
-                    'Bradford_Factor': round(bradford_factor, 2),
-                    'Tasa_Ausentismo': round(tasa_ausentismo, 2),
-                    'Indice_Puntualidad': round(indice_puntualidad, 2),
-                    'Eficiencia_Horas': round(eficiencia_horas, 2),
-                    'SIC': round(sic, 2)
-                })
-                
+
+                # 1. Bradford Factor correcto = S² × D
+                episodios, dias_ausentes = self.calculate_bradford_factor_episodes(
+                    employee_id
+                )
+                bradford_factor = (episodios**2) * dias_ausentes
+
+                # 2. Tasa de Ausentismo con denominador real
+                # Calcular días programados reales del empleado
+                dias_programados = self._calculate_programmed_days(employee_id)
+                if dias_programados == 0:
+                    logging.warning(
+                        f"Empleado {employee_id}: días programados = 0, usando {self.dias_laborables_mes}"
+                    )
+                    dias_programados = self.dias_laborables_mes
+
+                horas_ausentes = max(
+                    0, horas_esperadas - horas_trabajadas - horas_descontadas
+                )
+                tasa_ausentismo = (
+                    (horas_ausentes / horas_esperadas * 100)
+                    if horas_esperadas > 0
+                    else 0
+                )
+
+                # 3. Índice de Puntualidad normalizado por período
+                retardos = int(row["total_retardos"])
+                salidas_anticipadas = int(row["total_salidas_anticipadas"])
+                penalizacion_pct = (
+                    100
+                    * ((retardos * 2) + (salidas_anticipadas * 1.5))
+                    / dias_programados
+                )
+                indice_puntualidad = max(0, 100 - penalizacion_pct)
+
+                # 4. Eficiencia de Horas con cap
+                eficiencia_horas = (
+                    (horas_trabajadas / horas_esperadas_netas * 100)
+                    if horas_esperadas_netas > 0
+                    else 0
+                )
+                eficiencia_cap = min(eficiencia_horas, 105)  # Cap a 105%
+
+                # 5. SIC con Bradford Factor reescalado
+                bf_score = self.bf_to_100_scale(bradford_factor)
+                sic = (
+                    (indice_puntualidad * 0.3)
+                    + (eficiencia_cap * 0.4)
+                    + (bf_score * 0.3)
+                )
+                sic = max(0, min(100, sic))  # Limitar a [0, 100]
+
+                # Logging para debugging
+                logging.info(
+                    f"Empleado {employee_id}: S={episodios}, D={dias_ausentes}, BF={bradford_factor}, "
+                    f"días_prog={dias_programados}, tasa_aus={tasa_ausentismo:.1f}%, "
+                    f"punt={indice_puntualidad:.1f}, efic={eficiencia_horas:.1f}%, SIC={sic:.1f}"
+                )
+
+                results.append(
+                    {
+                        "ID": employee_id,
+                        "Nombre": row["Nombre"],
+                        "Bradford_Factor": round(bradford_factor, 2),
+                        "Tasa_Ausentismo": round(tasa_ausentismo, 2),
+                        "Indice_Puntualidad": round(indice_puntualidad, 2),
+                        "Eficiencia_Horas": round(eficiencia_horas, 2),
+                        "SIC": round(sic, 1),
+                    }
+                )
+
             except Exception as e:
-                print(f"Error calculando KPIs para empleado {row.get('employee', 'N/A')}: {str(e)}")
+                logging.error(
+                    f"Error calculando KPIs para empleado {row.get('employee', 'N/A')}: {str(e)}"
+                )
                 # Agregar fila con valores por defecto en caso de error
-                results.append({
-                    'ID': row.get('employee', 'N/A'),
-                    'Nombre': row.get('Nombre', 'N/A'),
-                    'Bradford_Factor': 0,
-                    'Tasa_Ausentismo': 0,
-                    'Indice_Puntualidad': 0,
-                    'Eficiencia_Horas': 0,
-                    'SIC': 0
-                })
-        
+                results.append(
+                    {
+                        "ID": row.get("employee", "N/A"),
+                        "Nombre": row.get("Nombre", "N/A"),
+                        "Bradford_Factor": 0,
+                        "Tasa_Ausentismo": 0,
+                        "Indice_Puntualidad": 0,
+                        "Eficiencia_Horas": 0,
+                        "SIC": 0,
+                    }
+                )
+
         return pd.DataFrame(results)
+
+    def _calculate_programmed_days(self, employee_id):
+        """
+        Calcular días programados reales para un empleado
+
+        Args:
+            employee_id (str): ID del empleado
+
+        Returns:
+            int: Número de días programados
+        """
+        if self.df_daily is None:
+            return self.dias_laborables_mes
+
+        emp_data = self.df_daily[self.df_daily["employee"] == employee_id]
+        if emp_data.empty:
+            return self.dias_laborables_mes
+
+        # Contar días que no son "Día no Laborable"
+        dias_programados = len(
+            emp_data[emp_data.get("tipo_retardo", "") != "Día no Laborable"]
+        )
+        return max(1, dias_programados)  # Mínimo 1 día
 
 
 def generar_reporte_excel(
