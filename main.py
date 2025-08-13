@@ -76,6 +76,10 @@ class AttendanceReportManager:
                 ).date()
                 for rec in joining_dates_records
             }
+            print(f"DEBUG: Se encontraron {len(joining_dates_dict)} fechas de contratación.")
+            if not joining_dates_dict:
+                print("ADVERTENCIA: No se pudieron obtener las fechas de contratación. La lógica para empleados nuevos no se aplicará.")
+
 
             # Step 3: Fetch schedules
             print("\n📋 Paso 3: Obteniendo horarios...")
