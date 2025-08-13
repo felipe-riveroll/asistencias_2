@@ -1187,3 +1187,53 @@ class AttendanceProcessor:
         ).astype(int)
 
         return df
+
+    def marcar_dias_no_contratado(self, df: pd.DataFrame, joining_dates_dict: Dict) -> pd.DataFrame:
+        """
+        Marks days before an employee's joining date as 'No Contratado'.
+        This prevents these days from being counted as absences.
+        """
+        if df.empty or not joining_dates_dict:
+            return df
+
+        print("📝 Marcando días previos a la contratación como 'No Contratado'...")
+
+        # Map joining dates to a temporary column
+        df['fecha_contratacion'] = df['employee'].astype(str).map(joining_dates_dict)
+
+        # Create a boolean mask for rows where the day is before the joining date
+        # pd.NaT will be correctly handled in comparisons (evaluating to False)
+        mask = pd.to_datetime(df['dia']) < pd.to_datetime(df['fecha_contratacion'])
+
+        # Count how many employees and days will be affected
+        affected_employees = df[mask]['employee'].nunique() if mask.any() else 0
+        affected_days = mask.sum()
+        
+        if affected_days > 0:
+            print(f"   - Se marcarán {affected_days} días de {affected_employees} empleados como 'No Contratado'")
+        else:
+            print("   - No se encontraron días previos a contratación para marcar")
+
+        if mask.any():
+            update_values = {
+                "tiene_permiso": True,
+                "tipo_permiso": "No Contratado",
+                "horas_esperadas": "00:00:00",
+                "tipo_retardo": "No Contratado",
+                "tipo_falta_ajustada": "No Contratado",
+                "minutos_tarde": 0,
+                "es_falta": 0,
+                "es_falta_ajustada": 0,
+                "falta_justificada": False,
+                "retardo_perdonado": False,
+                "salida_anticipada": False,
+            }
+
+            for col, value in update_values.items():
+                if col in df.columns:
+                    df.loc[mask, col] = value
+
+        # Clean up the temporary column
+        df.drop(columns=['fecha_contratacion'], inplace=True)
+
+        return df

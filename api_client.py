@@ -9,7 +9,7 @@ import pytz
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
-from config import API_URL, LEAVE_API_URL, get_api_headers
+from config import API_URL, LEAVE_API_URL, EMPLOYEE_API_URL, get_api_headers
 from utils import normalize_leave_type
 
 
@@ -20,6 +20,7 @@ class APIClient:
         """Initialize API client with default configuration."""
         self.checkin_url = API_URL
         self.leave_url = LEAVE_API_URL
+        self.employee_url = EMPLOYEE_API_URL
         self.page_length = 100
         self.timeout = 30
     
@@ -158,6 +159,59 @@ class APIClient:
                 print(f"   - {leave['employee_name']}: {leave['leave_type']}{half_day_info} ({leave['from_date']} - {leave['to_date']})")
 
         return all_leave_records
+
+    def fetch_employee_joining_dates(self) -> List[Dict[str, Any]]:
+        """
+        Fetches all employee records from the API to get their joining dates.
+
+        Returns:
+            List of employee records with 'employee' and 'date_of_joining'.
+        """
+        print("👥 Obtaining all employee joining dates from API...")
+
+        try:
+            headers = get_api_headers()
+        except ValueError as e:
+            print(f"❌ Error validating API credentials: {e}")
+            return []
+
+        params = {
+            "fields": json.dumps(["employee", "date_of_joining"]),
+        }
+
+        all_records = []
+        limit_start = 0
+
+        while True:
+            params["limit_start"] = limit_start
+            params["limit_page_length"] = self.page_length
+
+            try:
+                response = requests.get(
+                    self.employee_url,
+                    headers=headers,
+                    params=params,
+                    timeout=self.timeout
+                )
+                response.raise_for_status()
+                data = response.json().get("data", [])
+
+                if not data:
+                    break
+
+                all_records.extend(data)
+
+                if len(data) < self.page_length:
+                    break
+
+                limit_start += self.page_length
+
+            except requests.exceptions.RequestException as e:
+                print(f"❌ Error calling Employee API: {e}")
+                return []
+
+        print(f"✅ Retrieved {len(all_records)} employee records from API.")
+        return all_records
 
 
 def procesar_permisos_empleados(leave_data: List[Dict[str, Any]]) -> Dict[str, Dict]:

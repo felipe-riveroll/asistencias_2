@@ -103,6 +103,7 @@ This is a Python-based attendance reporting system that processes employee check
 - Real-time status updates and progress indication
 - Automatic Excel file opening functionality
 - Error handling with detailed dialog messages
+- **NEW**: Includes employee joining date logic to prevent false absences for new employees
 
 **`run_gui.py`** - GUI launcher script for easy application startup
 
@@ -110,9 +111,9 @@ This is a Python-based attendance reporting system that processes employee check
 
 ### Data Flow Architecture
 
-1. **Data Collection**: Fetch check-ins from Frappe API and leave applications from ERPNext
+1. **Data Collection**: Fetch check-ins from Frappe API, leave applications from ERPNext, and employee joining dates
 2. **Data Processing**: Match check-ins with scheduled hours, calculate worked hours, apply business rules
-3. **Policy Application**: Apply forgiveness rules, handle half-day leaves, classify absences
+3. **Policy Application**: Apply forgiveness rules, handle half-day leaves, classify absences, mark pre-hire days as "No Contratado"
 4. **Report Generation**: Generate detailed CSV and interactive HTML dashboard
 
 ### Business Logic Features
@@ -128,6 +129,8 @@ This is a Python-based attendance reporting system that processes employee check
 **Half-Day Leave Support**: Handles both full-day (0.5 day deduction) and half-day leaves proportionally
 
 **Leave Integration**: Automatically justifies absences with approved leave applications
+
+**Employee Joining Date Logic**: Automatically handles new employee joining dates to prevent incorrect absence accumulation before their start date
 
 ### Configuration
 
@@ -166,4 +169,5 @@ The project uses pytest with comprehensive test coverage:
 - **Leave Policies**: Configurable per leave type (currently "no adjustment" for unpaid leave)
 - **Forgiveness Rule**: Tardiness pardoned when scheduled hours are completed
 - **Excel Report Coloring**: Automatic color coding for attendance status (yellow for late, red for excessive tardiness)
+- **Joining Date Handling**: Days before employee joining date are marked as "No Contratado" to prevent false absence statistics
 - **Data Processing**: Supports both modular architecture (main.py) and legacy monolithic script (generar_reporte_optimizado.py)

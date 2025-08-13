@@ -42,6 +42,7 @@ El script monolítico original de **1844 líneas** fue dividido en **6 módulos 
 - **📋 Integración de Permisos**: Conecta con ERPNext para obtener permisos aprobados
 - **✅ Faltas Justificadas**: Reclasifica automáticamente faltas con permisos válidos
 - **🆕 Permisos de Medio Día**: **NUEVO** - Maneja permisos de medio día (0.5 días) con cálculo proporcional de horas
+- **👥 Fechas de Contratación**: **NUEVO** - Maneja automáticamente fechas de contratación para evitar falsas faltas de empleados nuevos
 - **🌙 Turnos Nocturnos**: Maneja correctamente horarios que cruzan medianoche
 - **💾 Caché Inteligente**: Optimiza consultas a base de datos con sistema de caché
 - **📈 Reportes Detallados**: Genera CSV con análisis completo y resúmenes
@@ -164,10 +165,11 @@ nuevo_asistencias/
   1. **Validación API**: Verifica credenciales de acceso
   2. **Obtención de checadas**: Descarga registros de entrada/salida desde API
   3. **Obtención de permisos**: Descarga permisos aprobados desde ERPNext
-  4. **Obtención de horarios**: Consulta horarios programados desde PostgreSQL
-  5. **Procesamiento**: Analiza asistencia, aplica reglas de negocio
-  6. **Generación CSV/HTML**: Crea reportes detallados e interactivos
-  7. **Generación Excel**: Crea reportes avanzados con múltiples hojas y KPIs
+  4. **👥 Obtención fechas contratación**: **NUEVO** - Descarga fechas de contratación de todos los empleados
+  5. **Obtención de horarios**: Consulta horarios programados desde PostgreSQL
+  6. **Procesamiento**: Analiza asistencia, aplica reglas de negocio, **incluye lógica de fechas de contratación**
+  7. **Generación CSV/HTML**: Crea reportes detallados e interactivos
+  8. **Generación Excel**: Crea reportes avanzados con múltiples hojas y KPIs
 - **Mensajes en español**: Toda la interfaz de consola en español con emojis
 - **Manejo de errores**: Captura y reporta errores de forma amigable
 
@@ -214,6 +216,7 @@ device_filter = "%31%"         # Filtro de dispositivos para BD
 **Funciones Core:**
 - `fetch_checkins()`: Obtiene checadas desde la API de asistencia
 - `fetch_leave_applications()`: Obtiene permisos aprobados desde ERPNext
+- **👥 `fetch_employee_joining_dates()`**: **NUEVO** - Obtiene fechas de contratación de todos los empleados desde ERPNext
 - `procesar_permisos_empleados()`: Organiza permisos por empleado y fecha
 
 ### **`data_processor.py` - Procesamiento de Datos**
@@ -230,6 +233,7 @@ device_filter = "%31%"         # Filtro de dispositivos para BD
 - `ajustar_horas_esperadas_con_permisos()`: Ajusta horas considerando permisos
 - `aplicar_regla_perdon_retardos()`: Aplica perdón de retardos por cumplimiento de horas
 - `clasificar_faltas_con_permisos()`: Reclasifica faltas como justificadas
+- **👥 `marcar_dias_no_contratado()`**: **NUEVO** - Marca días previos a contratación como "No Contratado"
 
 ### **`report_generator.py` - Generación de Reportes**
 **Generación de reportes CSV y HTML:**
@@ -640,7 +644,16 @@ El sistema automáticamente:
 - **NUEVO** - Incluye la columna `es_permiso_medio_dia` en reportes detallados
 - **NUEVO** - Mantiene estadísticas separadas para permisos de día completo vs medio día
 
-### **9. 🔧 Cálculo Corregido del Resumen del Periodo**
+### **9. 👥 Fechas de Contratación de Empleados**
+El sistema automáticamente:
+- **NUEVO** - Obtiene fechas de contratación (`date_of_joining`) de todos los empleados desde ERPNext
+- **NUEVO** - Marca días anteriores a la fecha de contratación como "No Contratado"
+- **NUEVO** - Evita acumulación de faltas incorrectas para empleados nuevos
+- **NUEVO** - Mejora precisión de estadísticas de asistencia para empleados con fechas de inicio recientes
+- **NUEVO** - Funciona tanto en la versión modular (`main.py`) como en la GUI (`run_gui.py`)
+- **NUEVO** - Integra completamente con el flujo de procesamiento existente
+
+### **10. 🔧 Cálculo Corregido del Resumen del Periodo**
 El sistema automáticamente:
 - **CORREGIDO** - Calcula `total_horas_trabajadas` usando horas netas (después de descanso)
 - **CORREGIDO** - Calcula `diferencia_HHMMSS` usando la diferencia real entre horas esperadas y trabajadas netas
@@ -725,6 +738,14 @@ Este proyecto está bajo la Licencia MIT. Ver archivo LICENSE para más detalles
 
 ## 🔄 **Historial de Versiones**
 
+### **Versión 6.2 - Fechas de Contratación de Empleados (Agosto 2025)**
+- **👥 Fechas de Contratación**: Nueva funcionalidad que obtiene automáticamente fechas de contratación desde ERPNext
+- **🔧 Lógica "No Contratado"**: Marca días anteriores a la fecha de contratación como "No Contratado" para evitar falsas faltas
+- **📊 Estadísticas Precisas**: Mejora la precisión de reportes para empleados nuevos eliminando acumulación incorrecta de faltas
+- **🖥️ GUI Actualizada**: La interfaz gráfica ahora incluye la misma lógica que la versión de línea de comandos
+- **🧪 Tests Específicos**: Nuevos tests para validar el manejo correcto de fechas de contratación
+- **📝 Logging Mejorado**: Mejor información durante el procesamiento para debugging
+
 ### **Versión 6.1 - Corrección de Turnos Nocturnos (Agosto 2025)**
 - **🌙 Turnos Nocturnos Corregidos**: Solución completa de bugs en procesamiento de turnos que cruzan medianoche
 - **🔧 Lógica de Medianoche Reescrita**: Reescritura completa de `procesar_horarios_con_medianoche` con algoritmo sofisticado de 548 líneas
@@ -745,7 +766,7 @@ Este proyecto está bajo la Licencia MIT. Ver archivo LICENSE para más detalles
 - PostgreSQL + Pytest + Permisos ERPNext + Perdón de Retardos
 - Salidas Anticipadas + DataTables.net + Cálculo Corregido de Resumen
 
-**Versión Actual:** 6.1 (Turnos Nocturnos Corregidos + Organización de Directorio)  
+**Versión Actual:** 6.2 (Fechas de Contratación de Empleados)  
 **Última actualización:** Agosto 2025  
-**Estado:** Completamente funcional con 209+ pruebas pasando ✅  
+**Estado:** Completamente funcional con 211+ pruebas pasando ✅  
 **Compatibilidad:** 100% compatible con versión original, con mejoras y correcciones de bugs críticos

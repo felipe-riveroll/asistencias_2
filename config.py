@@ -18,6 +18,7 @@ API_KEY = os.getenv("ASIATECH_API_KEY")
 API_SECRET = os.getenv("ASIATECH_API_SECRET")
 API_URL = "https://erp.asiatech.com.mx/api/resource/Employee Checkin"
 LEAVE_API_URL = "https://erp.asiatech.com.mx/api/resource/Leave Application"
+EMPLOYEE_API_URL = "https://erp.asiatech.com.mx/api/resource/Employee"
 
 # ==============================================================================
 # LEAVE POLICY CONFIGURATION

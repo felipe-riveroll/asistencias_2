@@ -94,6 +94,25 @@ class CustomAttendanceReportManager(AttendanceReportManager):
                 len(leave_records)
             )
 
+            # Step 2a: Fetch all employee joining dates
+            step_start = time.time()
+            self.emit_progress(2, "📅 Obteniendo todas las fechas de contratación...")
+            
+            all_joining_dates = self.api_client.fetch_employee_joining_dates()
+            joining_dates_dict = {
+                str(rec["employee"]): datetime.strptime(
+                    rec["date_of_joining"], "%Y-%m-%d"
+                ).date()
+                for rec in all_joining_dates
+            }
+            step2a_time = time.time() - step_start
+            
+            self.emit_progress(
+                2, 
+                f"📅 Paso 2a/7: Fechas de contratación obtenidas ({len(joining_dates_dict)} empleados en {step2a_time:.1f}s)", 
+                len(joining_dates_dict)
+            )
+
             # Step 3: Fetch schedules
             step_start = time.time()
             self.emit_progress(3, "📋 Obteniendo horarios...")
@@ -146,6 +165,8 @@ class CustomAttendanceReportManager(AttendanceReportManager):
             )
             df_detalle = self.processor.aplicar_regla_perdon_retardos(df_detalle)
             df_detalle = self.processor.clasificar_faltas_con_permisos(df_detalle)
+            # Apply joining date logic as the final processing step
+            df_detalle = self.processor.marcar_dias_no_contratado(df_detalle, joining_dates_dict)
             step4_time = time.time() - step_start
             
             processed_records = len(df_detalle) if not df_detalle.empty else 0
@@ -233,7 +254,7 @@ class ReportWorker:
         self.signals = ReportWorkerSignals()
         self.start_time = None
         self.current_step = 0
-        self.total_steps = 7
+        self.total_steps = 7  # Keeping 7 steps as we're integrating step 2a into step 2
         self.records_processed = 0
         
     def run(self):

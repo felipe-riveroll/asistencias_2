@@ -67,6 +67,17 @@ class AttendanceReportManager:
             leave_records = self.api_client.fetch_leave_applications(start_date, end_date)
             permisos_dict = procesar_permisos_empleados(leave_records)
 
+            # Step 2a: Fetch all employee joining dates
+            print("\n📅 Paso 2a: Obteniendo todas las fechas de contratación...")
+            all_joining_dates = self.api_client.fetch_employee_joining_dates()
+            joining_dates_dict = {
+                str(rec["employee"]): datetime.strptime(
+                    rec["date_of_joining"], "%Y-%m-%d"
+                ).date()
+                for rec in all_joining_dates
+            }
+            print(f"   - Se encontraron {len(joining_dates_dict)} fechas de contratación en total.")
+
             # Step 3: Fetch schedules
             print("\n📋 Paso 3: Obteniendo horarios...")
             conn_pg = connect_db()
@@ -109,6 +120,8 @@ class AttendanceReportManager:
             )
             df_detalle = self.processor.aplicar_regla_perdon_retardos(df_detalle)
             df_detalle = self.processor.clasificar_faltas_con_permisos(df_detalle)
+            # Apply joining date logic as the final processing step
+            df_detalle = self.processor.marcar_dias_no_contratado(df_detalle, joining_dates_dict)
 
             # Step 5: Generate reports
             print("\n💾 Paso 5: Generando reportes...")

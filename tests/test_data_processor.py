@@ -464,6 +464,94 @@ class TestAttendanceProcessor:
         assert result.iloc[0]['falta_justificada'] == False
         assert result.iloc[0]['es_falta_ajustada'] == 1  # Still an unjustified absence
 
+    def test_marcar_dias_no_contratado(self):
+        """Test that days before joining date are marked as 'No Contratado' permit."""
+        df = pd.DataFrame({
+            'employee': ['EMP001', 'EMP001', 'EMP001', 'EMP002'],
+            'dia': [date(2025, 1, 1), date(2025, 1, 2), date(2025, 1, 3), date(2025, 1, 1)],
+            'horas_esperadas': ['08:00:00', '08:00:00', '08:00:00', '08:00:00'],
+            'tipo_retardo': ['Falta', 'A Tiempo', 'Falta', 'Falta'],
+            'es_falta': [1, 0, 1, 1],
+            'tiene_permiso': [False, False, False, False],
+            'tipo_permiso': [None, None, None, None]
+        })
+        # EMP001 starts on Jan 2, EMP002 is an existing employee
+        joining_dates = {'EMP001': date(2025, 1, 2)}
+
+        # Add 'tipo_falta_ajustada' if it doesn't exist, to simulate the state before this function runs
+        if 'tipo_falta_ajustada' not in df.columns:
+            df['tipo_falta_ajustada'] = df['tipo_retardo']
+
+        result = self.processor.marcar_dias_no_contratado(df, joining_dates)
+
+        # --- Verify EMP001 (New Employee) ---
+        emp1_rows = result[result['employee'] == 'EMP001'].sort_values('dia')
+
+        # Day before joining date
+        day1 = emp1_rows.iloc[0]
+        assert day1['tipo_retardo'] == 'No Contratado'
+        assert day1['tipo_falta_ajustada'] == 'No Contratado'
+        assert day1['horas_esperadas'] == '00:00:00'
+        assert day1['es_falta'] == 0
+        assert day1['tiene_permiso'] == True
+        assert day1['tipo_permiso'] == 'No Contratado'
+
+        # Day of joining (should be unchanged)
+        day2 = emp1_rows.iloc[1]
+        assert day2['tipo_retardo'] == 'A Tiempo'
+        assert day2['tipo_falta_ajustada'] == 'A Tiempo'
+        assert day2['es_falta'] == 0
+        assert day2['tiene_permiso'] == False
+
+        # Day after joining (should be unchanged)
+        day3 = emp1_rows.iloc[2]
+        assert day3['tipo_retardo'] == 'Falta'
+        assert day3['tipo_falta_ajustada'] == 'Falta'
+        assert day3['es_falta'] == 1
+        assert day3['tiene_permiso'] == False
+
+        # --- Verify EMP002 (Existing Employee) ---
+        emp2_row = result[result['employee'] == 'EMP002'].iloc[0]
+        assert emp2_row['tipo_retardo'] == 'Falta'
+        assert emp2_row['tipo_falta_ajustada'] == 'Falta'
+        assert emp2_row['es_falta'] == 1
+        assert emp2_row['tiene_permiso'] == False
+
+    def test_marcar_dias_no_contratado_lorenzo_case(self):
+        """Test the specific case of Lorenzo Rojas García (employee 86) with joining date 2025-07-16."""
+        # Create data similar to Lorenzo's case: period 2025-07-01 to 2025-07-31, joining 2025-07-16
+        dates = pd.date_range('2025-07-01', '2025-07-15', freq='D').date  # Only show pre-joining dates
+        df = pd.DataFrame({
+            'employee': ['86'] * len(dates),
+            'dia': dates,
+            'horas_esperadas': ['6:00:00'] * len(dates),
+            'tipo_retardo': ['Falta'] * len(dates),
+            'es_falta': [1] * len(dates),
+            'tiene_permiso': [False] * len(dates),
+            'tipo_permiso': [None] * len(dates),
+            'tipo_falta_ajustada': ['Falta'] * len(dates),
+            'es_falta_ajustada': [1] * len(dates),
+            'falta_justificada': [False] * len(dates),
+            'retardo_perdonado': [False] * len(dates),
+            'salida_anticipada': [False] * len(dates),
+            'minutos_tarde': [0] * len(dates)
+        })
+        
+        # Lorenzo's joining date is 2025-07-16
+        joining_dates = {'86': date(2025, 7, 16)}
+
+        result = self.processor.marcar_dias_no_contratado(df, joining_dates)
+
+        # Verify ALL days before 2025-07-16 are marked as 'No Contratado'
+        for index, row in result.iterrows():
+            assert row['tipo_retardo'] == 'No Contratado', f"Day {row['dia']} should be 'No Contratado' but is '{row['tipo_retardo']}'"
+            assert row['tipo_falta_ajustada'] == 'No Contratado'
+            assert row['horas_esperadas'] == '00:00:00'
+            assert row['es_falta'] == 0
+            assert row['es_falta_ajustada'] == 0
+            assert row['tiene_permiso'] == True
+            assert row['tipo_permiso'] == 'No Contratado'
+
 
 class TestAttendanceProcessorIntegration:
     """Integration tests for AttendanceProcessor methods working together."""
