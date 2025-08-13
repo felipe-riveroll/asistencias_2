@@ -8,6 +8,7 @@ import requests
 import json
 from datetime import datetime, date, timedelta
 
+import config
 from api_client import APIClient, procesar_permisos_empleados
 
 
@@ -27,209 +28,214 @@ class TestAPIClient:
         assert self.client.page_length == 100
         assert self.client.timeout == 30
     
-    @patch('api_client.requests.get')
-    @patch.dict('os.environ', {
-        'ASIATECH_API_KEY': 'test_key',
-        'ASIATECH_API_SECRET': 'test_secret'
-    })
-    def test_fetch_checkins_success(self, mock_get):
+    def test_fetch_checkins_success(self):
         """Test successful checkin fetching."""
-        
-        # Mock successful API response
-        mock_response = Mock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            'data': [
-                {
-                    'employee': 'EMP001',
-                    'employee_name': 'John Doe',
-                    'time': '2025-01-01T08:30:00Z'
-                },
-                {
-                    'employee': 'EMP001',
-                    'employee_name': 'John Doe',
-                    'time': '2025-01-01T17:00:00Z'
-                }
-            ]
-        }
-        mock_get.return_value = mock_response
-        
-        # Execute
-        result = self.client.fetch_checkins('2025-01-01', '2025-01-01', '%test%')
-        
-        # Verify
-        assert len(result) == 2
-        assert result[0]['employee'] == 'EMP001'
-        assert result[0]['employee_name'] == 'John Doe'
-        
-        # Verify API call was made correctly
-        mock_get.assert_called()
-        call_args = mock_get.call_args
-        assert 'headers' in call_args[1]
-        assert 'Authorization' in call_args[1]['headers']
-        assert 'params' in call_args[1]
-    
-    @patch('api_client.requests.get')
-    @patch.dict('os.environ', {
-        'ASIATECH_API_KEY': 'test_key',
-        'ASIATECH_API_SECRET': 'test_secret'
-    })
-    def test_fetch_checkins_pagination(self, mock_get):
+        with patch('config.API_SECRET', 'test_secret'), \
+             patch('config.API_KEY', 'test_key'), \
+             patch('api_client.requests.get') as mock_get:
+
+            # Mock successful API response
+            mock_response = Mock()
+            mock_response.raise_for_status.return_value = None
+            mock_response.json.return_value = {
+                'data': [
+                    {
+                        'employee': 'EMP001',
+                        'employee_name': 'John Doe',
+                        'time': '2025-01-01T08:30:00Z'
+                    },
+                    {
+                        'employee': 'EMP001',
+                        'employee_name': 'John Doe',
+                        'time': '2025-01-01T17:00:00Z'
+                    }
+                ]
+            }
+            # Terminate pagination loop
+            mock_response_empty = Mock()
+            mock_response_empty.raise_for_status.return_value = None
+            mock_response_empty.json.return_value = {'data': []}
+            mock_get.side_effect = [mock_response, mock_response_empty]
+
+            # Execute
+            result = self.client.fetch_checkins('2025-01-01', '2025-01-01', '%test%')
+
+            # Verify
+            assert len(result) == 2
+            assert result[0]['employee'] == 'EMP001'
+            assert result[0]['employee_name'] == 'John Doe'
+
+            # Verify API call was made correctly
+            assert mock_get.call_count > 0
+            call_args = mock_get.call_args_list[0]
+            assert 'headers' in call_args[1]
+            assert 'Authorization' in call_args[1]['headers']
+            assert 'params' in call_args[1]
+
+    def test_fetch_checkins_pagination(self):
         """Test checkin fetching with pagination."""
-        
-        # Mock first page response
-        first_response = Mock()
-        first_response.raise_for_status.return_value = None
-        first_response.json.return_value = {
-            'data': [{'employee': f'EMP{i:03d}', 'employee_name': f'Employee {i}', 'time': '2025-01-01T08:30:00Z'} for i in range(100)]
-        }
-        
-        # Mock second page response (empty)
-        second_response = Mock()
-        second_response.raise_for_status.return_value = None
-        second_response.json.return_value = {'data': []}
-        
-        # Configure mock to return different responses for different calls
-        mock_get.side_effect = [first_response, second_response]
-        
-        # Execute
-        result = self.client.fetch_checkins('2025-01-01', '2025-01-01', '%test%')
-        
-        # Verify
-        assert len(result) == 100
-        assert mock_get.call_count == 2
+        with patch('config.API_SECRET', 'test_secret'), \
+             patch('config.API_KEY', 'test_key'), \
+             patch('api_client.requests.get') as mock_get:
+
+            # Mock first page response
+            first_response = Mock()
+            first_response.raise_for_status.return_value = None
+            first_response.json.return_value = {
+                'data': [{'employee': f'EMP{i:03d}', 'employee_name': f'Employee {i}', 'time': '2025-01-01T08:30:00Z'} for i in range(100)]
+            }
+
+            # Mock second page response (empty)
+            second_response = Mock()
+            second_response.raise_for_status.return_value = None
+            second_response.json.return_value = {'data': []}
+
+            mock_get.side_effect = [first_response, second_response]
+
+            # Execute
+            result = self.client.fetch_checkins('2025-01-01', '2025-01-01', '%test%')
+
+            # Verify
+            assert len(result) == 100
+            assert mock_get.call_count == 2
     
     @patch('api_client.get_api_headers')
     @patch('api_client.requests.get')
     def test_fetch_checkins_missing_credentials(self, mock_get, mock_get_headers):
         """Test checkin fetching with missing API credentials."""
-        
-        # Mock missing credentials by making get_api_headers raise an exception
         mock_get_headers.side_effect = ValueError("Missing API credentials")
-        
         result = self.client.fetch_checkins('2025-01-01', '2025-01-01', '%test%')
-        
-        # Should return empty list when credentials are missing
         assert result == []
         mock_get.assert_not_called()
-    
-    @patch('api_client.requests.get')
-    @patch.dict('os.environ', {
-        'ASIATECH_API_KEY': 'test_key',
-        'ASIATECH_API_SECRET': 'test_secret'
-    })
-    def test_fetch_checkins_api_error(self, mock_get):
+
+    def test_fetch_checkins_api_error(self):
         """Test checkin fetching with API error."""
-        
-        # Mock API error
-        mock_get.side_effect = requests.exceptions.RequestException("API Error")
-        
-        # Execute
-        result = self.client.fetch_checkins('2025-01-01', '2025-01-01', '%test%')
-        
-        # Should return empty list on API error
-        assert result == []
-    
-    @patch('api_client.requests.get')
-    @patch.dict('os.environ', {
-        'ASIATECH_API_KEY': 'test_key',
-        'ASIATECH_API_SECRET': 'test_secret'
-    })
-    def test_fetch_leave_applications_success(self, mock_get):
+        with patch('config.API_SECRET', 'test_secret'), \
+             patch('config.API_KEY', 'test_key'), \
+             patch('api_client.requests.get') as mock_get:
+            mock_get.side_effect = requests.exceptions.RequestException("API Error")
+            result = self.client.fetch_checkins('2025-01-01', '2025-01-01', '%test%')
+            assert result == []
+
+    def test_fetch_leave_applications_success(self):
         """Test successful leave application fetching."""
-        
-        # Mock successful API response
-        mock_response = Mock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            'data': [
-                {
-                    'employee': 'EMP001',
-                    'employee_name': 'John Doe',
-                    'leave_type': 'Vacations',
-                    'from_date': '2025-01-01',
-                    'to_date': '2025-01-01',
-                    'status': 'Approved',
-                    'half_day': 0
-                },
-                {
-                    'employee': 'EMP002',
-                    'employee_name': 'Jane Smith',
-                    'leave_type': 'Sick Leave',
-                    'from_date': '2025-01-02',
-                    'to_date': '2025-01-03',
-                    'status': 'Approved',
-                    'half_day': 1
-                }
-            ]
-        }
-        mock_get.return_value = mock_response
-        
-        # Execute
-        result = self.client.fetch_leave_applications('2025-01-01', '2025-01-03')
-        
-        # Verify
-        assert len(result) == 2
-        assert result[0]['employee'] == 'EMP001'
-        assert result[0]['leave_type'] == 'Vacations'
-        assert result[1]['half_day'] == 1
-        
-        # Verify API call was made correctly
-        mock_get.assert_called()
-    
-    @patch('api_client.requests.get')
-    @patch.dict('os.environ', {
-        'ASIATECH_API_KEY': 'test_key',
-        'ASIATECH_API_SECRET': 'test_secret'
-    })
-    def test_fetch_leave_applications_timeout(self, mock_get):
+        with patch('config.API_SECRET', 'test_secret'), \
+             patch('config.API_KEY', 'test_key'), \
+             patch('api_client.requests.get') as mock_get:
+
+            mock_response = Mock()
+            mock_response.raise_for_status.return_value = None
+            mock_response.json.return_value = {
+                'data': [
+                    {'employee': 'EMP001', 'employee_name': 'John Doe', 'leave_type': 'Vacations', 'from_date': '2025-01-01', 'to_date': '2025-01-01', 'status': 'Approved', 'half_day': 0},
+                    {'employee': 'EMP002', 'employee_name': 'Jane Smith', 'leave_type': 'Sick Leave', 'from_date': '2025-01-02', 'to_date': '2025-01-03', 'status': 'Approved', 'half_day': 1}
+                ]
+            }
+            mock_response_empty = Mock()
+            mock_response_empty.raise_for_status.return_value = None
+            mock_response_empty.json.return_value = {'data': []}
+            mock_get.side_effect = [mock_response, mock_response_empty]
+
+            result = self.client.fetch_leave_applications('2025-01-01', '2025-01-03')
+
+            assert len(result) == 2
+            assert result[0]['employee'] == 'EMP001'
+            assert result[0]['leave_type'] == 'Vacations'
+            assert result[1]['half_day'] == 1
+            mock_get.assert_called()
+
+    def test_fetch_leave_applications_timeout(self):
         """Test leave application fetching with timeout."""
-        
-        # Mock timeout on first call, success on second
-        timeout_response = requests.exceptions.Timeout("Timeout")
-        success_response = Mock()
-        success_response.raise_for_status.return_value = None
-        success_response.json.return_value = {'data': []}
-        
-        mock_get.side_effect = [timeout_response, success_response]
-        
-        # Execute
-        result = self.client.fetch_leave_applications('2025-01-01', '2025-01-03')
-        
-        # Should retry after timeout
-        assert result == []
-        assert mock_get.call_count == 2
+        with patch('config.API_SECRET', 'test_secret'), \
+             patch('config.API_KEY', 'test_key'), \
+             patch('api_client.requests.get') as mock_get:
+
+            timeout_response = requests.exceptions.Timeout("Timeout")
+            success_response = Mock()
+            success_response.raise_for_status.return_value = None
+            success_response.json.return_value = {'data': []}
+            mock_get.side_effect = [timeout_response, success_response]
+
+            result = self.client.fetch_leave_applications('2025-01-01', '2025-01-03')
+
+            assert result == []
+            assert mock_get.call_count == 2
     
     @patch('api_client.get_api_headers')
     @patch('api_client.requests.get')
     def test_fetch_leave_applications_missing_credentials(self, mock_get, mock_get_headers):
         """Test leave application fetching with missing credentials."""
-        
-        # Mock missing credentials by making get_api_headers raise an exception
         mock_get_headers.side_effect = ValueError("Missing API credentials")
-        
         result = self.client.fetch_leave_applications('2025-01-01', '2025-01-03')
-        
-        # Should return empty list when credentials are missing
         assert result == []
         mock_get.assert_not_called()
     
-    @patch('api_client.requests.get')
-    @patch.dict('os.environ', {
-        'ASIATECH_API_KEY': 'test_key',
-        'ASIATECH_API_SECRET': 'test_secret'
-    })
-    def test_fetch_leave_applications_api_error(self, mock_get):
+    def test_fetch_leave_applications_api_error(self):
         """Test leave application fetching with API error."""
-        
-        # Mock API error
-        mock_get.side_effect = requests.exceptions.RequestException("API Error")
-        
-        # Execute
-        result = self.client.fetch_leave_applications('2025-01-01', '2025-01-03')
-        
-        # Should return empty list on API error
-        assert result == []
+        with patch('config.API_SECRET', 'test_secret'), \
+             patch('config.API_KEY', 'test_key'), \
+             patch('api_client.requests.get') as mock_get:
+            mock_get.side_effect = requests.exceptions.RequestException("API Error")
+            result = self.client.fetch_leave_applications('2025-01-01', '2025-01-03')
+            assert result == []
+
+    def test_fetch_employee_joining_dates_success(self):
+        """Test successful fetching of employee joining dates."""
+        with patch('config.API_SECRET', 'test_secret'), \
+             patch('config.API_KEY', 'test_key'), \
+             patch('api_client.requests.get') as mock_get:
+
+            mock_response = Mock()
+            mock_response.raise_for_status.return_value = None
+            mock_response.json.return_value = {
+                'data': [
+                    {'employee': 'EMP001', 'date_of_joining': '2020-01-15'},
+                    {'employee': 'EMP002', 'date_of_joining': '2021-03-10'}
+                ]
+            }
+            mock_get.return_value = mock_response
+
+            result = self.client.fetch_employee_joining_dates()
+
+            assert len(result) == 2
+            assert result[0]['employee'] == 'EMP001'
+            assert result[1]['date_of_joining'] == '2021-03-10'
+            assert mock_get.call_count == 1
+            call_args = mock_get.call_args
+            assert self.client.employee_url == call_args[0][0]
+            assert json.loads(call_args[1]['params']['fields']) == ["employee", "date_of_joining"]
+
+    def test_fetch_employee_joining_dates_pagination(self):
+        """Test fetching employee joining dates with pagination."""
+        with patch('config.API_SECRET', 'test_secret'), \
+             patch('config.API_KEY', 'test_key'), \
+             patch('api_client.requests.get') as mock_get:
+
+            first_response = Mock()
+            first_response.raise_for_status.return_value = None
+            first_response.json.return_value = {
+                'data': [{'employee': f'EMP{i:03d}', 'date_of_joining': '2022-01-01'} for i in range(100)]
+            }
+
+            second_response = Mock()
+            second_response.raise_for_status.return_value = None
+            second_response.json.return_value = {'data': []}
+
+            mock_get.side_effect = [first_response, second_response]
+
+            result = self.client.fetch_employee_joining_dates()
+
+            assert len(result) == 100
+            assert mock_get.call_count == 2
+
+    def test_fetch_employee_joining_dates_api_error(self):
+        """Test fetching employee joining dates with an API error."""
+        with patch('config.API_SECRET', 'test_secret'), \
+             patch('config.API_KEY', 'test_key'), \
+             patch('api_client.requests.get') as mock_get:
+            mock_get.side_effect = requests.exceptions.RequestException("API Error")
+            result = self.client.fetch_employee_joining_dates()
+            assert result == []
 
 
 class TestProcesarPermisosEmpleados:
