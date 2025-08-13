@@ -1198,26 +1198,32 @@ class AttendanceProcessor:
 
         print("📝 Marcando días previos a la contratación como 'No Contratado'...")
 
-        # Ensure columns exist before modifying
-        if "tiene_permiso" not in df.columns:
-            df["tiene_permiso"] = False
-        if "tipo_permiso" not in df.columns:
-            df["tipo_permiso"] = None
+        # Map joining dates to a temporary column
+        df['fecha_contratacion'] = df['employee'].astype(str).map(joining_dates_dict)
 
-        for index, row in df.iterrows():
-            employee_id = str(row["employee"])
-            joining_date = joining_dates_dict.get(employee_id)
+        # Create a boolean mask for rows where the day is before the joining date
+        # pd.NaT will be correctly handled in comparisons (evaluating to False)
+        mask = pd.to_datetime(df['dia']) < pd.to_datetime(df['fecha_contratacion'])
 
-            if joining_date and row["dia"] < joining_date:
-                df.loc[index, "tiene_permiso"] = True
-                df.loc[index, "tipo_permiso"] = "No Contratado"
-                df.loc[index, "horas_esperadas"] = "00:00:00"
-                df.loc[index, "tipo_retardo"] = "No Contratado"
-                df.loc[index, "es_falta"] = 0
+        if mask.any():
+            update_values = {
+                "tiene_permiso": True,
+                "tipo_permiso": "No Contratado",
+                "horas_esperadas": "00:00:00",
+                "tipo_retardo": "No Contratado",
+                "minutos_tarde": 0,
+                "es_falta": 0,
+                "es_falta_ajustada": 0,
+                "falta_justificada": False,
+                "retardo_perdonado": False,
+                "salida_anticipada": False,
+            }
 
-                if "es_falta_ajustada" in df.columns:
-                    df.loc[index, "es_falta_ajustada"] = 0
-                if "falta_justificada" in df.columns:
-                    df.loc[index, "falta_justificada"] = False
+            for col, value in update_values.items():
+                if col in df.columns:
+                    df.loc[mask, col] = value
+
+        # Clean up the temporary column
+        df.drop(columns=['fecha_contratacion'], inplace=True)
 
         return df

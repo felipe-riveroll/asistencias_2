@@ -195,7 +195,7 @@ class TestAPIClient:
             }
             mock_get.return_value = mock_response
 
-            result = self.client.fetch_employee_joining_dates()
+            result = self.client.fetch_employee_joining_dates('2025-01-01', '2025-01-31')
 
             assert len(result) == 2
             assert result[0]['employee'] == 'EMP001'
@@ -223,7 +223,7 @@ class TestAPIClient:
 
             mock_get.side_effect = [first_response, second_response]
 
-            result = self.client.fetch_employee_joining_dates()
+            result = self.client.fetch_employee_joining_dates('2025-01-01', '2025-01-31')
 
             assert len(result) == 100
             assert mock_get.call_count == 2
@@ -234,7 +234,7 @@ class TestAPIClient:
              patch('config.API_KEY', 'test_key'), \
              patch('api_client.requests.get') as mock_get:
             mock_get.side_effect = requests.exceptions.RequestException("API Error")
-            result = self.client.fetch_employee_joining_dates()
+            result = self.client.fetch_employee_joining_dates('2025-01-01', '2025-01-31')
             assert result == []
 
 

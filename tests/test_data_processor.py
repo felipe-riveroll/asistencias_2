@@ -467,37 +467,47 @@ class TestAttendanceProcessor:
     def test_marcar_dias_no_contratado(self):
         """Test that days before joining date are marked as 'No Contratado' permit."""
         df = pd.DataFrame({
-            'employee': ['EMP001', 'EMP001', 'EMP001'],
-            'dia': [date(2025, 1, 1), date(2025, 1, 2), date(2025, 1, 3)],
-            'horas_esperadas': ['08:00:00', '08:00:00', '08:00:00'],
-            'tipo_retardo': ['Falta', 'A Tiempo', 'Falta'],
-            'es_falta': [1, 0, 1],
-            'tiene_permiso': [False, False, False],
-            'tipo_permiso': [None, None, None]
+            'employee': ['EMP001', 'EMP001', 'EMP001', 'EMP002'],
+            'dia': [date(2025, 1, 1), date(2025, 1, 2), date(2025, 1, 3), date(2025, 1, 1)],
+            'horas_esperadas': ['08:00:00', '08:00:00', '08:00:00', '08:00:00'],
+            'tipo_retardo': ['Falta', 'A Tiempo', 'Falta', 'Falta'],
+            'es_falta': [1, 0, 1, 1],
+            'tiene_permiso': [False, False, False, False],
+            'tipo_permiso': [None, None, None, None]
         })
+        # EMP001 starts on Jan 2, EMP002 is an existing employee
         joining_dates = {'EMP001': date(2025, 1, 2)}
 
         result = self.processor.marcar_dias_no_contratado(df, joining_dates)
 
+        # --- Verify EMP001 (New Employee) ---
+        emp1_rows = result[result['employee'] == 'EMP001'].sort_values('dia')
+
         # Day before joining date
-        day1 = result[result['dia'] == date(2025, 1, 1)].iloc[0]
+        day1 = emp1_rows.iloc[0]
+        assert day1['tipo_retardo'] == 'No Contratado'
+        assert day1['horas_esperadas'] == '00:00:00'
+        assert day1['es_falta'] == 0
         assert day1['tiene_permiso'] == True
         assert day1['tipo_permiso'] == 'No Contratado'
-        assert day1['horas_esperadas'] == '00:00:00'
-        assert day1['tipo_retardo'] == 'No Contratado'
-        assert day1['es_falta'] == 0
 
         # Day of joining (should be unchanged)
-        day2 = result[result['dia'] == date(2025, 1, 2)].iloc[0]
-        assert day2['tiene_permiso'] == False
-        assert pd.isna(day2['tipo_permiso'])
+        day2 = emp1_rows.iloc[1]
         assert day2['tipo_retardo'] == 'A Tiempo'
+        assert day2['es_falta'] == 0
+        assert day2['tiene_permiso'] == False
 
         # Day after joining (should be unchanged)
-        day3 = result[result['dia'] == date(2025, 1, 3)].iloc[0]
-        assert day3['tiene_permiso'] == False
-        assert pd.isna(day3['tipo_permiso'])
+        day3 = emp1_rows.iloc[2]
         assert day3['tipo_retardo'] == 'Falta'
+        assert day3['es_falta'] == 1
+        assert day3['tiene_permiso'] == False
+
+        # --- Verify EMP002 (Existing Employee) ---
+        emp2_row = result[result['employee'] == 'EMP002'].iloc[0]
+        assert emp2_row['tipo_retardo'] == 'Falta'
+        assert emp2_row['es_falta'] == 1
+        assert emp2_row['tiene_permiso'] == False
 
 
 class TestAttendanceProcessorIntegration:

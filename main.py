@@ -67,19 +67,17 @@ class AttendanceReportManager:
             leave_records = self.api_client.fetch_leave_applications(start_date, end_date)
             permisos_dict = procesar_permisos_empleados(leave_records)
 
-            # Step 2a: Fetch employee joining dates
-            print("\n📅 Paso 2a: Obteniendo fechas de contratación...")
-            joining_dates_records = self.api_client.fetch_employee_joining_dates()
+            # Step 2a: Fetch employee joining dates for the period
+            print("\n📅 Paso 2a: Obteniendo fechas de contratación de nuevos empleados...")
+            newly_joined_records = self.api_client.fetch_employee_joining_dates(start_date, end_date)
             joining_dates_dict = {
                 str(rec["employee"]): datetime.strptime(
                     rec["date_of_joining"], "%Y-%m-%d"
                 ).date()
-                for rec in joining_dates_records
+                for rec in newly_joined_records
             }
-            print(f"DEBUG: Se encontraron {len(joining_dates_dict)} fechas de contratación.")
-            if not joining_dates_dict:
-                print("ADVERTENCIA: No se pudieron obtener las fechas de contratación. La lógica para empleados nuevos no se aplicará.")
-
+            if newly_joined_records:
+                print(f"   - Se encontraron {len(newly_joined_records)} empleados que se unieron en este período.")
 
             # Step 3: Fetch schedules
             print("\n📋 Paso 3: Obteniendo horarios...")
@@ -118,10 +116,11 @@ class AttendanceReportManager:
                 df_detalle, cache_horarios
             )
             df_detalle = self.processor.aplicar_calculo_horas_descanso(df_detalle)
+            # Apply joining date logic BEFORE adjusting for other permits
+            df_detalle = self.processor.marcar_dias_no_contratado(df_detalle, joining_dates_dict)
             df_detalle = self.processor.ajustar_horas_esperadas_con_permisos(
                 df_detalle, permisos_dict, cache_horarios
             )
-            df_detalle = self.processor.marcar_dias_no_contratado(df_detalle, joining_dates_dict)
             df_detalle = self.processor.aplicar_regla_perdon_retardos(df_detalle)
             df_detalle = self.processor.clasificar_faltas_con_permisos(df_detalle)
 
