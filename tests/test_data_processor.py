@@ -517,6 +517,41 @@ class TestAttendanceProcessor:
         assert emp2_row['es_falta'] == 1
         assert emp2_row['tiene_permiso'] == False
 
+    def test_marcar_dias_no_contratado_lorenzo_case(self):
+        """Test the specific case of Lorenzo Rojas García (employee 86) with joining date 2025-07-16."""
+        # Create data similar to Lorenzo's case: period 2025-07-01 to 2025-07-31, joining 2025-07-16
+        dates = pd.date_range('2025-07-01', '2025-07-15', freq='D').date  # Only show pre-joining dates
+        df = pd.DataFrame({
+            'employee': ['86'] * len(dates),
+            'dia': dates,
+            'horas_esperadas': ['6:00:00'] * len(dates),
+            'tipo_retardo': ['Falta'] * len(dates),
+            'es_falta': [1] * len(dates),
+            'tiene_permiso': [False] * len(dates),
+            'tipo_permiso': [None] * len(dates),
+            'tipo_falta_ajustada': ['Falta'] * len(dates),
+            'es_falta_ajustada': [1] * len(dates),
+            'falta_justificada': [False] * len(dates),
+            'retardo_perdonado': [False] * len(dates),
+            'salida_anticipada': [False] * len(dates),
+            'minutos_tarde': [0] * len(dates)
+        })
+        
+        # Lorenzo's joining date is 2025-07-16
+        joining_dates = {'86': date(2025, 7, 16)}
+
+        result = self.processor.marcar_dias_no_contratado(df, joining_dates)
+
+        # Verify ALL days before 2025-07-16 are marked as 'No Contratado'
+        for index, row in result.iterrows():
+            assert row['tipo_retardo'] == 'No Contratado', f"Day {row['dia']} should be 'No Contratado' but is '{row['tipo_retardo']}'"
+            assert row['tipo_falta_ajustada'] == 'No Contratado'
+            assert row['horas_esperadas'] == '00:00:00'
+            assert row['es_falta'] == 0
+            assert row['es_falta_ajustada'] == 0
+            assert row['tiene_permiso'] == True
+            assert row['tipo_permiso'] == 'No Contratado'
+
 
 class TestAttendanceProcessorIntegration:
     """Integration tests for AttendanceProcessor methods working together."""
