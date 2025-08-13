@@ -160,18 +160,14 @@ class APIClient:
 
         return all_leave_records
 
-    def fetch_employee_joining_dates(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+    def fetch_employee_joining_dates(self) -> List[Dict[str, Any]]:
         """
-        Fetches employee records from the API who joined within a specific date range.
-
-        Args:
-            start_date: Start date in YYYY-MM-DD format
-            end_date: End date in YYYY-MM-DD format
+        Fetches all employee records from the API to get their joining dates.
 
         Returns:
             List of employee records with 'employee' and 'date_of_joining'.
         """
-        print(f"👥 Obtaining employee joining dates from API for period {start_date} - {end_date}...")
+        print("👥 Obtaining all employee joining dates from API...")
 
         try:
             headers = get_api_headers()
@@ -179,12 +175,8 @@ class APIClient:
             print(f"❌ Error validating API credentials: {e}")
             return []
 
-        filters = json.dumps([
-            ["Employee", "date_of_joining", "Between", [start_date, end_date]],
-        ])
         params = {
             "fields": json.dumps(["employee", "date_of_joining"]),
-            "filters": filters,
         }
 
         all_records = []

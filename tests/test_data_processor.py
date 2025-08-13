@@ -478,6 +478,10 @@ class TestAttendanceProcessor:
         # EMP001 starts on Jan 2, EMP002 is an existing employee
         joining_dates = {'EMP001': date(2025, 1, 2)}
 
+        # Add 'tipo_falta_ajustada' if it doesn't exist, to simulate the state before this function runs
+        if 'tipo_falta_ajustada' not in df.columns:
+            df['tipo_falta_ajustada'] = df['tipo_retardo']
+
         result = self.processor.marcar_dias_no_contratado(df, joining_dates)
 
         # --- Verify EMP001 (New Employee) ---
@@ -486,6 +490,7 @@ class TestAttendanceProcessor:
         # Day before joining date
         day1 = emp1_rows.iloc[0]
         assert day1['tipo_retardo'] == 'No Contratado'
+        assert day1['tipo_falta_ajustada'] == 'No Contratado'
         assert day1['horas_esperadas'] == '00:00:00'
         assert day1['es_falta'] == 0
         assert day1['tiene_permiso'] == True
@@ -494,18 +499,21 @@ class TestAttendanceProcessor:
         # Day of joining (should be unchanged)
         day2 = emp1_rows.iloc[1]
         assert day2['tipo_retardo'] == 'A Tiempo'
+        assert day2['tipo_falta_ajustada'] == 'A Tiempo'
         assert day2['es_falta'] == 0
         assert day2['tiene_permiso'] == False
 
         # Day after joining (should be unchanged)
         day3 = emp1_rows.iloc[2]
         assert day3['tipo_retardo'] == 'Falta'
+        assert day3['tipo_falta_ajustada'] == 'Falta'
         assert day3['es_falta'] == 1
         assert day3['tiene_permiso'] == False
 
         # --- Verify EMP002 (Existing Employee) ---
         emp2_row = result[result['employee'] == 'EMP002'].iloc[0]
         assert emp2_row['tipo_retardo'] == 'Falta'
+        assert emp2_row['tipo_falta_ajustada'] == 'Falta'
         assert emp2_row['es_falta'] == 1
         assert emp2_row['tiene_permiso'] == False
 
