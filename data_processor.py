@@ -1205,6 +1205,15 @@ class AttendanceProcessor:
         # pd.NaT will be correctly handled in comparisons (evaluating to False)
         mask = pd.to_datetime(df['dia']) < pd.to_datetime(df['fecha_contratacion'])
 
+        # Count how many employees and days will be affected
+        affected_employees = df[mask]['employee'].nunique() if mask.any() else 0
+        affected_days = mask.sum()
+        
+        if affected_days > 0:
+            print(f"   - Se marcarán {affected_days} días de {affected_employees} empleados como 'No Contratado'")
+        else:
+            print("   - No se encontraron días previos a contratación para marcar")
+
         if mask.any():
             update_values = {
                 "tiene_permiso": True,
