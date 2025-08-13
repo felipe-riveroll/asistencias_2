@@ -464,6 +464,55 @@ class TestAttendanceProcessor:
         assert result.iloc[0]['falta_justificada'] == False
         assert result.iloc[0]['es_falta_ajustada'] == 1  # Still an unjustified absence
 
+    def test_analizar_asistencia_con_horarios_y_fecha_contratacion(self):
+        """Test attendance analysis considering employee joining dates."""
+        # Mock schedule
+        cache_horarios = {
+            'EMP001': {
+                True: {
+                    # Schedule for Wednesday, Thursday, Friday
+                    d: {'hora_entrada': '09:00', 'hora_salida': '18:00', 'cruza_medianoche': False, 'horas_totales': 8.0}
+                    for d in [3, 4, 5]
+                }
+            }
+        }
+
+        # Employee starts on Jan 2, 2025
+        joining_dates = {'EMP001': date(2025, 1, 2)}
+
+        # Create a dataframe for 3 days: Jan 1 (Wed), Jan 2 (Thu), Jan 3 (Fri)
+        df = pd.DataFrame({
+            'employee': ['EMP001', 'EMP001', 'EMP001'],
+            'dia': [date(2025, 1, 1), date(2025, 1, 2), date(2025, 1, 3)],
+            'checado_1': [None, '09:05:00', None],  # No check-in before start, late on start day, absent on third day
+        })
+        # Add required columns
+        df['dia_iso'] = pd.to_datetime(df['dia']).dt.weekday + 1
+        df['es_primera_quincena'] = True
+
+
+        result = self.processor.analizar_asistencia_con_horarios_cache(
+            df, cache_horarios, joining_dates
+        )
+
+        # Day before joining date (Jan 1)
+        day1 = result[result['dia'] == date(2025, 1, 1)].iloc[0]
+        assert day1['tipo_retardo'] == 'No Contratado'
+        assert day1['horas_esperadas'] == '00:00:00'
+        assert day1['es_falta'] == 0
+
+        # Day of joining (Jan 2), 5 mins late is within tolerance
+        day2 = result[result['dia'] == date(2025, 1, 2)].iloc[0]
+        assert day2['tipo_retardo'] == 'A Tiempo'
+        assert day2['horas_esperadas'] != '00:00:00'
+        assert day2['es_falta'] == 0
+
+        # Day after joining (Jan 3), absent
+        day3 = result[result['dia'] == date(2025, 1, 3)].iloc[0]
+        assert day3['tipo_retardo'] == 'Falta'
+        assert day3['horas_esperadas'] != '00:00:00'
+        assert day3['es_falta'] == 1
+
 
 class TestAttendanceProcessorIntegration:
     """Integration tests for AttendanceProcessor methods working together."""

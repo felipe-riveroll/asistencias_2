@@ -776,7 +776,7 @@ class AttendanceProcessor:
         return df_proc
 
     def analizar_asistencia_con_horarios_cache(
-        self, df: pd.DataFrame, cache_horarios: Dict
+        self, df: pd.DataFrame, cache_horarios: Dict, joining_dates_dict: Dict = {}
     ) -> pd.DataFrame:
         """
         Enriches the DataFrame with schedule and tardiness analysis using the schedule cache.
@@ -793,6 +793,12 @@ class AttendanceProcessor:
         df["horas_esperadas"] = None
 
         def obtener_horario_fila(row):
+            employee_id = str(row["employee"])
+            joining_date = joining_dates_dict.get(employee_id)
+
+            if joining_date and row["dia"] < joining_date:
+                return pd.Series([None, None, False, "00:00:00"])
+
             horario = obtener_horario_empleado(
                 row["employee"],
                 row["dia_iso"],
@@ -822,6 +828,12 @@ class AttendanceProcessor:
         print("   - Calculando retardos y puntualidad...")
 
         def analizar_retardo(row):
+            employee_id = str(row["employee"])
+            joining_date = joining_dates_dict.get(employee_id)
+
+            if joining_date and row["dia"] < joining_date:
+                return pd.Series(["No Contratado", 0])
+
             if pd.isna(row.get("hora_entrada_programada")):
                 return pd.Series(["Día no Laborable", 0])
             if pd.isna(row.get("checado_1")):
