@@ -111,12 +111,13 @@ class AttendanceReportManager:
                 df_detalle, cache_horarios
             )
             df_detalle = self.processor.analizar_asistencia_con_horarios_cache(
-                df_detalle, cache_horarios, joining_dates_dict
+                df_detalle, cache_horarios
             )
             df_detalle = self.processor.aplicar_calculo_horas_descanso(df_detalle)
             df_detalle = self.processor.ajustar_horas_esperadas_con_permisos(
                 df_detalle, permisos_dict, cache_horarios
             )
+            df_detalle = self.processor.marcar_dias_no_contratado(df_detalle, joining_dates_dict)
             df_detalle = self.processor.aplicar_regla_perdon_retardos(df_detalle)
             df_detalle = self.processor.clasificar_faltas_con_permisos(df_detalle)
 

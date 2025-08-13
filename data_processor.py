@@ -776,7 +776,7 @@ class AttendanceProcessor:
         return df_proc
 
     def analizar_asistencia_con_horarios_cache(
-        self, df: pd.DataFrame, cache_horarios: Dict, joining_dates_dict: Dict = {}
+        self, df: pd.DataFrame, cache_horarios: Dict
     ) -> pd.DataFrame:
         """
         Enriches the DataFrame with schedule and tardiness analysis using the schedule cache.
@@ -793,12 +793,6 @@ class AttendanceProcessor:
         df["horas_esperadas"] = None
 
         def obtener_horario_fila(row):
-            employee_id = str(row["employee"])
-            joining_date = joining_dates_dict.get(employee_id)
-
-            if joining_date and row["dia"] < joining_date:
-                return pd.Series([None, None, False, "00:00:00"])
-
             horario = obtener_horario_empleado(
                 row["employee"],
                 row["dia_iso"],
@@ -828,12 +822,6 @@ class AttendanceProcessor:
         print("   - Calculando retardos y puntualidad...")
 
         def analizar_retardo(row):
-            employee_id = str(row["employee"])
-            joining_date = joining_dates_dict.get(employee_id)
-
-            if joining_date and row["dia"] < joining_date:
-                return pd.Series(["No Contratado", 0])
-
             if pd.isna(row.get("hora_entrada_programada")):
                 return pd.Series(["Día no Laborable", 0])
             if pd.isna(row.get("checado_1")):
@@ -1197,5 +1185,39 @@ class AttendanceProcessor:
         df["es_falta_ajustada"] = (
             df["tipo_falta_ajustada"].isin(["Falta", "Falta Injustificada"])
         ).astype(int)
+
+        return df
+
+    def marcar_dias_no_contratado(self, df: pd.DataFrame, joining_dates_dict: Dict) -> pd.DataFrame:
+        """
+        Marks days before an employee's joining date as 'No Contratado'.
+        This prevents these days from being counted as absences.
+        """
+        if df.empty or not joining_dates_dict:
+            return df
+
+        print("📝 Marcando días previos a la contratación como 'No Contratado'...")
+
+        # Ensure columns exist before modifying
+        if "tiene_permiso" not in df.columns:
+            df["tiene_permiso"] = False
+        if "tipo_permiso" not in df.columns:
+            df["tipo_permiso"] = None
+
+        for index, row in df.iterrows():
+            employee_id = str(row["employee"])
+            joining_date = joining_dates_dict.get(employee_id)
+
+            if joining_date and row["dia"] < joining_date:
+                df.loc[index, "tiene_permiso"] = True
+                df.loc[index, "tipo_permiso"] = "No Contratado"
+                df.loc[index, "horas_esperadas"] = "00:00:00"
+                df.loc[index, "tipo_retardo"] = "No Contratado"
+                df.loc[index, "es_falta"] = 0
+
+                if "es_falta_ajustada" in df.columns:
+                    df.loc[index, "es_falta_ajustada"] = 0
+                if "falta_justificada" in df.columns:
+                    df.loc[index, "falta_justificada"] = False
 
         return df
