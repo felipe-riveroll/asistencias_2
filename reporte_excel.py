@@ -723,8 +723,10 @@ class AsistenciaAnalyzer:
                 horas_esperadas_netas = horas_esperadas - horas_descontadas
                 
                 # 1. Bradford Factor = S² × D
-                episodios_ausencia = int(row['faltas_del_periodo']) + int(row['faltas_justificadas'])
-                total_dias_ausentes = int(row['total_faltas'])
+                # 'S' son los episodios de ausencia (ya calculados)
+                # 'D' es el total de días de ausencia injustificada
+                episodios_ausencia = int(row.get('episodios_ausencia', 0))
+                total_dias_ausentes = int(row['faltas_del_periodo'])
                 bradford_factor = (episodios_ausencia ** 2) * total_dias_ausentes
                 
                 # 2. Tasa de Ausentismo (%)

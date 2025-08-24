@@ -32,6 +32,36 @@ class ReportGenerator:
         """Wrapper for utils.format_positive_timedelta"""  
         return format_positive_timedelta(td)
     
+    def _calculate_absence_episodes(self, df: pd.DataFrame) -> pd.Series:
+        """
+        Calcula el número de episodios de ausencia no planificada por empleado.
+        Un episodio es un bloque de uno o más días consecutivos de ausencia.
+        """
+        if 'es_falta_ajustada' not in df.columns or df['es_falta_ajustada'].sum() == 0:
+            # Si no hay faltas, devolver una serie vacía con el tipo correcto
+            return pd.Series(dtype='int64')
+
+        # Solo nos interesan las faltas injustificadas
+        df_absences = df[df['es_falta_ajustada'] == 1].copy()
+
+        if df_absences.empty:
+            return pd.Series(dtype='int64')
+
+        df_absences['dia'] = pd.to_datetime(df_absences['dia'])
+        df_absences = df_absences.sort_values(['employee', 'dia'])
+
+        # Calcula la diferencia en días con la ausencia anterior del mismo empleado
+        df_absences['dias_desde_anterior'] = df_absences.groupby('employee')['dia'].diff().dt.days
+
+        # Un nuevo episodio comienza si es la primera falta o si han pasado más de 1 día
+        # desde la falta anterior (es decir, no es consecutiva).
+        df_absences['nuevo_episodio'] = (df_absences['dias_desde_anterior'].isna()) | (df_absences['dias_desde_anterior'] > 1)
+
+        # Sumar los inicios de nuevos episodios por empleado
+        episode_counts = df_absences.groupby('employee')['nuevo_episodio'].sum().astype(int)
+
+        return episode_counts
+
     def generar_resumen_periodo(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Crea un DataFrame de resumen con totales por empleado.
@@ -40,6 +70,14 @@ class ReportGenerator:
         if df.empty:
             print("   - No hay datos para generar el resumen.")
             return pd.DataFrame()
+
+        # --- Cálculo de Episodios de Ausencia ---
+        print("   - Calculando episodios de ausencia para Factor Bradford...")
+        episode_counts = self._calculate_absence_episodes(df)
+
+        # Mapear los resultados de vuelta al DataFrame principal.
+        # Llenar con 0 para empleados sin episodios.
+        df['episodios_ausencia'] = df['employee'].map(episode_counts).fillna(0).astype(int)
 
         # Always recalculate from the adjusted text column (more robust Plan B)
         df["horas_trabajadas_td"] = pd.to_timedelta(
@@ -119,6 +157,10 @@ class ReportGenerator:
             df['_temp_salidas'] = 0
             agg_dict['total_salidas_anticipadas'] = ("_temp_salidas", "sum")
 
+        # Incluir episodios de ausencia en la agregación
+        if 'episodios_ausencia' in df.columns:
+            agg_dict['episodios_ausencia'] = ('episodios_ausencia', 'first')
+
         resumen_final = (
             df.groupby(["employee", "Nombre"])
             .agg(**agg_dict)
@@ -163,9 +205,14 @@ class ReportGenerator:
             "faltas_del_periodo",
             "faltas_justificadas",
             "total_faltas",
+            "episodios_ausencia",
             "total_salidas_anticipadas",
             "diferencia_HHMMSS",
         ]
+        # Asegurarse de que la columna existe antes de añadirla a la lista final
+        if 'episodios_ausencia' not in resumen_final.columns:
+            resumen_final['episodios_ausencia'] = 0
+
         resumen_final = resumen_final[base_columns]
 
         # Save summary to CSV
