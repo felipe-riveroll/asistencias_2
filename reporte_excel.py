@@ -482,6 +482,10 @@ class GeneradorReporteExcel:
 
     def _generar_observaciones(self, row_data):
         """Generar observaciones basadas en los datos de la fila"""
+        # Caso especial para días no contratados, para evitar duplicados en observaciones
+        if row_data.get("tipo_permiso") == "No Contratado":
+            return "No Contratado"
+
         observaciones = []
 
         # Verificar observaciones existentes en el DataFrame
