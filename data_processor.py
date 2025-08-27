@@ -1219,6 +1219,7 @@ class AttendanceProcessor:
                 "tiene_permiso": True,
                 "tipo_permiso": "No Contratado",
                 "horas_esperadas": "00:00:00",
+                "horas_esperadas_originales": "00:00:00",
                 "tipo_retardo": "No Contratado",
                 "tipo_falta_ajustada": "No Contratado",
                 "minutos_tarde": 0,
