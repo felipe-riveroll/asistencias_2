@@ -273,8 +273,12 @@ class TestMedioDia:
         assert fila["es_permiso_medio_dia"] == True
         assert fila["tipo_permiso"] == "Permiso Médico"
         assert fila["horas_esperadas"] == "04:00:00"  # Medio día
-        assert fila["horas_descontadas_permiso"] == "04:00:00"  # Solo medio día descontado
-        assert fila["horas_esperadas_originales"] == "08:00:00"  # Horas originales preservadas
+        assert (
+            fila["horas_descontadas_permiso"] == "04:00:00"
+        )  # Solo medio día descontado
+        assert (
+            fila["horas_esperadas_originales"] == "08:00:00"
+        )  # Horas originales preservadas
 
     def test_permiso_medio_dia_con_datos_reales_api(self):
         """Test que simula datos reales de la API con campo half_day."""
@@ -296,13 +300,13 @@ class TestMedioDia:
                 "from_date": "2025-07-16",
                 "to_date": "2025-07-16",
                 "status": "Approved",
-                "half_day": 1  # Campo de la API
+                "half_day": 1,  # Campo de la API
             }
         ]
 
         # Procesar permisos usando la función actualizada
         permisos_dict = procesar_permisos_empleados(leave_data)
-        
+
         # Aplicar ajuste de horas
         resultado = ajustar_horas_esperadas_con_permisos(df, permisos_dict, {})
         fila = resultado.iloc[0]
@@ -312,7 +316,9 @@ class TestMedioDia:
         assert fila["es_permiso_medio_dia"] == True
         assert fila["tipo_permiso"] == "Compensación de tiempo por tiempo"
         assert fila["horas_esperadas"] == "04:00:00"  # Medio día
-        assert fila["horas_descontadas_permiso"] == "04:00:00"  # Solo medio día descontado
+        assert (
+            fila["horas_descontadas_permiso"] == "04:00:00"
+        )  # Solo medio día descontado
 
     def test_permiso_dia_completo_vs_medio_dia(self):
         """Test para comparar permisos de día completo vs medio día."""
@@ -349,22 +355,26 @@ class TestMedioDia:
                     "is_half_day": True,
                     "dias_permiso": 0.5,
                 }
-            }
+            },
         }
 
         resultado = ajustar_horas_esperadas_con_permisos(df, permisos_dict, {})
-        
+
         # Verificar permiso de día completo
         fila_dia_completo = resultado[resultado["employee"] == "EMP003"].iloc[0]
         assert fila_dia_completo["es_permiso_medio_dia"] == False
         assert fila_dia_completo["horas_esperadas"] == "00:00:00"  # Día completo
-        assert fila_dia_completo["horas_descontadas_permiso"] == "08:00:00"  # Todo el día
+        assert (
+            fila_dia_completo["horas_descontadas_permiso"] == "08:00:00"
+        )  # Todo el día
 
         # Verificar permiso de medio día
         fila_medio_dia = resultado[resultado["employee"] == "EMP004"].iloc[0]
         assert fila_medio_dia["es_permiso_medio_dia"] == True
         assert fila_medio_dia["horas_esperadas"] == "04:00:00"  # Medio día
-        assert fila_medio_dia["horas_descontadas_permiso"] == "04:00:00"  # Solo medio día
+        assert (
+            fila_medio_dia["horas_descontadas_permiso"] == "04:00:00"
+        )  # Solo medio día
 
 
 if __name__ == "__main__":

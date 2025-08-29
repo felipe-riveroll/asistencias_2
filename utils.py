@@ -117,10 +117,10 @@ def td_to_str(td: pd.Timedelta) -> str:
 def safe_timedelta(time_str: Union[str, None]) -> pd.Timedelta:
     """
     Safely converts a time string to Timedelta.
-    
+
     Args:
         time_str: Time string in HH:MM:SS format or None
-        
+
     Returns:
         pd.Timedelta object, defaults to 0 if conversion fails
     """
@@ -135,10 +135,10 @@ def safe_timedelta(time_str: Union[str, None]) -> pd.Timedelta:
 def time_to_decimal(time_str: str) -> float:
     """
     Converts time string to decimal hours for calculations.
-    
+
     Args:
         time_str: Time string in HH:MM:SS format
-        
+
     Returns:
         Decimal hours as float
     """
@@ -157,10 +157,10 @@ def time_to_decimal(time_str: str) -> float:
 def format_timedelta_with_sign(td: pd.Timedelta) -> str:
     """
     Formats a timedelta with sign prefix for display.
-    
+
     Args:
         td: Timedelta to format
-        
+
     Returns:
         Formatted string with sign (+/-) and HH:MM:SS format
     """
@@ -174,13 +174,37 @@ def format_timedelta_with_sign(td: pd.Timedelta) -> str:
     return f"{sign}{hours:02}:{minutes:02}:{seconds:02}"
 
 
+def format_timedelta_without_plus_sign(td: pd.Timedelta) -> str:
+    """
+    Formats a timedelta with sign prefix for display, but without '+' for positive values.
+
+    Args:
+        td: Timedelta to format
+
+    Returns:
+        Formatted string with sign (-) for negative and HH:MM:SS format (no + for positive)
+    """
+    if td.total_seconds() == 0:
+        return "00:00:00"
+    if td.total_seconds() < 0:
+        sign = "-"
+        td_abs = abs(td)
+    else:
+        sign = ""  # No + sign for positive values
+        td_abs = td
+    total_seconds = int(td_abs.total_seconds())
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{sign}{hours:02}:{minutes:02}:{seconds:02}"
+
+
 def format_positive_timedelta(td: pd.Timedelta) -> str:
     """
     Formats a timedelta as positive HH:MM:SS string.
-    
+
     Args:
         td: Timedelta to format
-        
+
     Returns:
         Formatted string in HH:MM:SS format
     """
@@ -193,11 +217,11 @@ def format_positive_timedelta(td: pd.Timedelta) -> str:
 def truncate_name(name: str, max_length: int = 20) -> str:
     """
     Truncates a name to specified length with ellipsis.
-    
+
     Args:
         name: Name to truncate
         max_length: Maximum length before truncation
-        
+
     Returns:
         Truncated name with ellipsis if needed
     """
@@ -207,10 +231,10 @@ def truncate_name(name: str, max_length: int = 20) -> str:
 def obtener_codigos_empleados_api(checkin_data: list) -> list:
     """
     Extracts employee codes from API check-in data.
-    
+
     Args:
         checkin_data: List of check-in records from API
-        
+
     Returns:
         List of unique employee codes
     """
@@ -224,11 +248,11 @@ def obtener_codigos_empleados_api(checkin_data: list) -> list:
 def determine_period_type(start_date: str, end_date: str) -> tuple:
     """
     Determines if the period includes first or second half of month.
-    
+
     Args:
         start_date: Start date in YYYY-MM-DD format
         end_date: End date in YYYY-MM-DD format
-        
+
     Returns:
         Tuple of (incluye_primera, incluye_segunda) booleans
     """
@@ -241,23 +265,21 @@ def determine_period_type(start_date: str, end_date: str) -> tuple:
     incluye_segunda = any(
         d.day > 15 for d in pd.date_range(start=fecha_inicio_dt, end=fecha_fin_dt)
     )
-    
+
     return incluye_primera, incluye_segunda
 
 
 def calculate_working_days(start_date: str, end_date: str) -> int:
     """
     Calculates the number of working days (Monday-Friday) in a period.
-    
+
     Args:
         start_date: Start date in YYYY-MM-DD format
         end_date: End date in YYYY-MM-DD format
-        
+
     Returns:
         Number of working days
     """
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-    return sum(
-        1 for d in pd.date_range(start=start_dt, end=end_dt) if d.weekday() < 5
-    )
+    return sum(1 for d in pd.date_range(start=start_dt, end=end_dt) if d.weekday() < 5)

@@ -15,7 +15,7 @@ from utils import normalize_leave_type
 
 class APIClient:
     """Client for handling API requests to Frappe/ERPNext."""
-    
+
     def __init__(self):
         """Initialize API client with default configuration."""
         self.checkin_url = API_URL
@@ -23,31 +23,35 @@ class APIClient:
         self.employee_url = EMPLOYEE_API_URL
         self.page_length = 100
         self.timeout = 30
-    
-    def fetch_checkins(self, start_date: str, end_date: str, device_filter: str) -> List[Dict[str, Any]]:
+
+    def fetch_checkins(
+        self, start_date: str, end_date: str, device_filter: str
+    ) -> List[Dict[str, Any]]:
         """
         Fetches all check-in records from the API for a date range.
-        
+
         Args:
             start_date: Start date in YYYY-MM-DD format
-            end_date: End date in YYYY-MM-DD format  
+            end_date: End date in YYYY-MM-DD format
             device_filter: Device filter pattern (e.g., "%villas%")
-            
+
         Returns:
             List of check-in records with normalized timezone
         """
         print(f"📡 Obtaining check-ins from API for device '{device_filter}'...")
-        
+
         try:
             headers = get_api_headers()
         except ValueError as e:
             print(f"❌ Error validating API credentials: {e}")
             return []
-        
-        filters = json.dumps([
-            ["Employee Checkin", "time", "Between", [start_date, end_date]],
-            ["Employee Checkin", "device_id", "like", device_filter],
-        ])
+
+        filters = json.dumps(
+            [
+                ["Employee Checkin", "time", "Between", [start_date, end_date]],
+                ["Employee Checkin", "device_id", "like", device_filter],
+            ]
+        )
         params = {
             "fields": json.dumps(["employee", "employee_name", "time"]),
             "filters": filters,
@@ -59,34 +63,36 @@ class APIClient:
         while True:
             params["limit_start"] = limit_start
             params["limit_page_length"] = self.page_length
-            
+
             try:
                 response = requests.get(
-                    self.checkin_url, 
-                    headers=headers, 
+                    self.checkin_url,
+                    headers=headers,
                     params=params,
-                    timeout=self.timeout
+                    timeout=self.timeout,
                 )
                 response.raise_for_status()
                 data = response.json().get("data", [])
-                
+
                 if not data:
                     break
 
                 # Normalize timezone from UTC to America/Mexico_City
                 for record in data:
-                    time_utc = datetime.fromisoformat(record["time"].replace("Z", "+00:00"))
+                    time_utc = datetime.fromisoformat(
+                        record["time"].replace("Z", "+00:00")
+                    )
                     mexico_tz = pytz.timezone("America/Mexico_City")
                     time_mexico = time_utc.astimezone(mexico_tz)
                     record["time"] = time_mexico.isoformat()
 
                 all_records.extend(data)
-                
+
                 if len(data) < self.page_length:
                     break
-                    
+
                 limit_start += self.page_length
-                
+
             except requests.exceptions.RequestException as e:
                 print(f"❌ Error calling API: {e}")
                 return []
@@ -94,19 +100,23 @@ class APIClient:
         print(f"✅ Retrieved {len(all_records)} records from API.")
         return all_records
 
-    def fetch_leave_applications(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+    def fetch_leave_applications(
+        self, start_date: str, end_date: str
+    ) -> List[Dict[str, Any]]:
         """
         Fetches all approved leave applications from the API for a date range.
-        
+
         Args:
             start_date: Start date in YYYY-MM-DD format
             end_date: End date in YYYY-MM-DD format
-            
+
         Returns:
             List of approved leave application records
         """
-        print(f"📄 Obtaining approved leave applications from API for period {start_date} - {end_date}...")
-        
+        print(
+            f"📄 Obtaining approved leave applications from API for period {start_date} - {end_date}..."
+        )
+
         try:
             headers = get_api_headers()
         except ValueError as e:
@@ -125,10 +135,7 @@ class APIClient:
 
             try:
                 response = requests.get(
-                    url, 
-                    headers=headers, 
-                    params=params, 
-                    timeout=self.timeout
+                    url, headers=headers, params=params, timeout=self.timeout
                 )
                 response.raise_for_status()
                 data = response.json().get("data", [])
@@ -150,13 +157,17 @@ class APIClient:
                 print(f"❌ Error obtaining leave applications from API: {e}")
                 return []
 
-        print(f"✅ Retrieved {len(all_leave_records)} approved leave applications from API.")
+        print(
+            f"✅ Retrieved {len(all_leave_records)} approved leave applications from API."
+        )
 
         if all_leave_records:
             print("📋 Example of retrieved leave applications:")
             for i, leave in enumerate(all_leave_records[:3]):
                 half_day_info = f" (half day)" if leave.get("half_day") == 1 else ""
-                print(f"   - {leave['employee_name']}: {leave['leave_type']}{half_day_info} ({leave['from_date']} - {leave['to_date']})")
+                print(
+                    f"   - {leave['employee_name']}: {leave['leave_type']}{half_day_info} ({leave['from_date']} - {leave['to_date']})"
+                )
 
         return all_leave_records
 
@@ -191,7 +202,7 @@ class APIClient:
                     self.employee_url,
                     headers=headers,
                     params=params,
-                    timeout=self.timeout
+                    timeout=self.timeout,
                 )
                 response.raise_for_status()
                 data = response.json().get("data", [])
@@ -218,10 +229,10 @@ def procesar_permisos_empleados(leave_data: List[Dict[str, Any]]) -> Dict[str, D
     """
     Processes leave data and creates a dictionary organized by employee and date.
     Properly handles half-day leaves.
-    
+
     Args:
         leave_data: List of leave application records from API
-        
+
     Returns:
         Dictionary organized by employee code and date with leave information
     """
@@ -278,7 +289,9 @@ def procesar_permisos_empleados(leave_data: List[Dict[str, Any]]) -> Dict[str, D
                 current_date += timedelta(days=1)
                 total_dias_permiso += 1.0
 
-    print(f"✅ Processed leave applications for {len(permisos_por_empleado)} employees, "
-          f"{total_dias_permiso:.1f} total leave days ({permisos_medio_dia} half-day leaves).")
+    print(
+        f"✅ Processed leave applications for {len(permisos_por_empleado)} employees, "
+        f"{total_dias_permiso:.1f} total leave days ({permisos_medio_dia} half-day leaves)."
+    )
 
     return permisos_por_empleado

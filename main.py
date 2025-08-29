@@ -21,50 +21,53 @@ from db_postgres_connection import (
 
 class AttendanceReportManager:
     """Main class that orchestrates the entire attendance reporting process."""
-    
+
     def __init__(self):
         """Initialize the report manager with all required components."""
         self.api_client = APIClient()
         self.processor = AttendanceProcessor()
         self.report_generator = ReportGenerator()
-    
+
     def generate_attendance_report(
-        self, 
-        start_date: str, 
-        end_date: str, 
-        sucursal: str, 
-        device_filter: str
+        self, start_date: str, end_date: str, sucursal: str, device_filter: str
     ) -> dict:
         """
         Main method to generate a complete attendance report.
-        
+
         Args:
             start_date: Start date in YYYY-MM-DD format
             end_date: End date in YYYY-MM-DD format
             sucursal: Branch name
             device_filter: Device filter pattern (e.g., "%villas%")
-            
+
         Returns:
             Dictionary with report status and generated filenames
         """
         print(f"\n🚀 Iniciando reporte para {sucursal}...")
-        
+
         try:
             # Validate API credentials
             validate_api_credentials()
-            
+
             # Step 1: Fetch check-ins
             print("\n📡 Paso 1: Obteniendo registros de entrada/salida...")
-            checkin_records = self.api_client.fetch_checkins(start_date, end_date, device_filter)
+            checkin_records = self.api_client.fetch_checkins(
+                start_date, end_date, device_filter
+            )
             if not checkin_records:
                 print("❌ No se obtuvieron registros de entrada/salida. Saliendo.")
-                return {"success": False, "error": "No se encontraron registros de entrada/salida"}
+                return {
+                    "success": False,
+                    "error": "No se encontraron registros de entrada/salida",
+                }
 
             codigos_empleados_api = obtener_codigos_empleados_api(checkin_records)
 
             # Step 2: Fetch leave applications
             print("\n📄 Paso 2: Obteniendo solicitudes de permisos...")
-            leave_records = self.api_client.fetch_leave_applications(start_date, end_date)
+            leave_records = self.api_client.fetch_leave_applications(
+                start_date, end_date
+            )
             permisos_dict = procesar_permisos_empleados(leave_records)
 
             # Step 2a: Fetch all employee joining dates
@@ -76,16 +79,23 @@ class AttendanceReportManager:
                 ).date()
                 for rec in all_joining_dates
             }
-            print(f"   - Se encontraron {len(joining_dates_dict)} fechas de contratación en total.")
+            print(
+                f"   - Se encontraron {len(joining_dates_dict)} fechas de contratación en total."
+            )
 
             # Step 3: Fetch schedules
             print("\n📋 Paso 3: Obteniendo horarios...")
             conn_pg = connect_db()
             if conn_pg is None:
-                return {"success": False, "error": "Falló la conexión a la base de datos"}
+                return {
+                    "success": False,
+                    "error": "Falló la conexión a la base de datos",
+                }
 
-            incluye_primera, incluye_segunda = determine_period_type(start_date, end_date)
-            
+            incluye_primera, incluye_segunda = determine_period_type(
+                start_date, end_date
+            )
+
             cache_horarios = {}
             horarios_por_quincena = obtener_horarios_multi_quincena(
                 sucursal,
@@ -94,11 +104,14 @@ class AttendanceReportManager:
                 incluye_primera=incluye_primera,
                 incluye_segunda=incluye_segunda,
             )
-            
+
             if not any(horarios_por_quincena.values()):
                 print(f"❌ No se encontraron horarios para la sucursal {sucursal}.")
                 conn_pg.close()
-                return {"success": False, "error": f"No hay horarios para la sucursal {sucursal}"}
+                return {
+                    "success": False,
+                    "error": f"No hay horarios para la sucursal {sucursal}",
+                }
 
             cache_horarios = mapear_horarios_por_empleado_multi(horarios_por_quincena)
             conn_pg.close()
@@ -121,17 +134,19 @@ class AttendanceReportManager:
             df_detalle = self.processor.aplicar_regla_perdon_retardos(df_detalle)
             df_detalle = self.processor.clasificar_faltas_con_permisos(df_detalle)
             # Apply joining date logic as the final processing step
-            df_detalle = self.processor.marcar_dias_no_contratado(df_detalle, joining_dates_dict)
+            df_detalle = self.processor.marcar_dias_no_contratado(
+                df_detalle, joining_dates_dict
+            )
 
             # Step 5: Generate reports
             print("\n💾 Paso 5: Generando reportes...")
-            
+
             # Generate detailed CSV report
             detailed_filename = self.report_generator.save_detailed_report(df_detalle)
-            
+
             # Generate summary CSV report
             df_resumen = self.report_generator.generar_resumen_periodo(df_detalle)
-            
+
             # Generate HTML dashboard
             html_filename = ""
             if not df_resumen.empty:
@@ -153,7 +168,7 @@ class AttendanceReportManager:
                 print("⚠️ Resumen no generado, omitiendo creación del reporte Excel.")
 
             print("\n🎉 ¡Proceso completado!")
-            
+
             return {
                 "success": True,
                 "detailed_report": detailed_filename,
@@ -161,9 +176,11 @@ class AttendanceReportManager:
                 "html_dashboard": html_filename,
                 "excel_report": excel_filename,
                 "employees_processed": len(codigos_empleados_api),
-                "days_processed": len(df_detalle["dia"].unique()) if not df_detalle.empty else 0
+                "days_processed": len(df_detalle["dia"].unique())
+                if not df_detalle.empty
+                else 0,
             }
-            
+
         except Exception as e:
             print(f"❌ Error durante la generación del reporte: {str(e)}")
             return {"success": False, "error": str(e)}
@@ -177,33 +194,33 @@ def main():
     # ==========================================================================
     # CONFIGURATION SECTION - MODIFY THESE PARAMETERS AS NEEDED
     # ==========================================================================
-    
+
     # Date range for the report
     start_date = "2025-07-01"
     end_date = "2025-07-31"
-    
+
     # Branch and device filter
     sucursal = "31pte"
     device_filter = "%31%"
-    
+
     # ==========================================================================
     # END CONFIGURATION SECTION
     # ==========================================================================
-    
+
     # Create and run the report manager
     manager = AttendanceReportManager()
     result = manager.generate_attendance_report(
         start_date=start_date,
         end_date=end_date,
         sucursal=sucursal,
-        device_filter=device_filter
+        device_filter=device_filter,
     )
-    
+
     # Print final results
     if result["success"]:
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("📊 GENERACIÓN DE REPORTE COMPLETADA EXITOSAMENTE")
-        print("="*60)
+        print("=" * 60)
         print(f"📅 Período: {start_date} al {end_date}")
         print(f"🏢 Sucursal: {sucursal}")
         print(f"👥 Empleados procesados: {result.get('employees_processed', 'N/A')}")
@@ -219,9 +236,9 @@ def main():
             print(f"   • Reporte Excel: {result['excel_report']}")
         print("\n✅ ¡Todos los reportes han sido generados exitosamente!")
     else:
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("❌ FALLÓ LA GENERACIÓN DEL REPORTE")
-        print("="*60)
+        print("=" * 60)
         print(f"Error: {result.get('error', 'Error desconocido')}")
         print("\nPor favor verifica tu configuración e intenta de nuevo.")
         sys.exit(1)

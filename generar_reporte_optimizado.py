@@ -323,7 +323,7 @@ def calcular_horas_descanso(df_dia):
 
     # Ordenar checados cronológicamente
     checados_ordenados = sorted(checados, key=lambda x: str(x))
-    
+
     # Obtener primera y última hora de checado (entrada y salida)
     hora_entrada = checados_ordenados[0]
     hora_salida = checados_ordenados[-1]
@@ -338,10 +338,14 @@ def calcular_horas_descanso(df_dia):
                 # Tomar segundo y tercer checado del par
                 segundo_checado = checados_ordenados[i]
                 tercer_checado = checados_ordenados[i + 1]
-                
+
                 # Omitir si los tiempos de descanso son iguales a entrada o salida
-                if (segundo_checado == hora_entrada or segundo_checado == hora_salida or
-                    tercer_checado == hora_entrada or tercer_checado == hora_salida):
+                if (
+                    segundo_checado == hora_entrada
+                    or segundo_checado == hora_salida
+                    or tercer_checado == hora_entrada
+                    or tercer_checado == hora_salida
+                ):
                     continue
 
                 # Convertir a datetime para calcular la diferencia
@@ -516,7 +520,6 @@ def ajustar_horas_esperadas_con_permisos(df, permisos_dict, cache_horarios):
         fecha = row["dia"]
 
         if employee_code in permisos_dict and fecha in permisos_dict[employee_code]:
-
             permiso_info = permisos_dict[employee_code][fecha]
             leave_type_normalized = permiso_info.get("leave_type_normalized", "")
             is_half_day = permiso_info.get("is_half_day", False)

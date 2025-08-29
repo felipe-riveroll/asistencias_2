@@ -25,10 +25,10 @@ class TestPerdonRetardos:
             "horas_esperadas": ["08:00:00"],
         }
         df = pd.DataFrame(data)
-        
+
         # Aplicar regla de perdón
         df_resultado = aplicar_regla_perdon_retardos(df)
-        
+
         # Verificar que el retardo fue perdonado
         assert df_resultado.iloc[0]["retardo_perdonado"] == True
         assert df_resultado.iloc[0]["tipo_retardo"] == "A Tiempo (Cumplió Horas)"
@@ -49,10 +49,10 @@ class TestPerdonRetardos:
             "horas_esperadas": ["08:00:00"],
         }
         df = pd.DataFrame(data)
-        
+
         # Aplicar regla de perdón
         df_resultado = aplicar_regla_perdon_retardos(df)
-        
+
         # Verificar que el retardo NO fue perdonado
         assert df_resultado.iloc[0]["retardo_perdonado"] == False
         assert df_resultado.iloc[0]["tipo_retardo"] == "Retardo"
@@ -71,10 +71,10 @@ class TestPerdonRetardos:
             "horas_esperadas": ["00:00:00"],  # Ajustado por permiso
         }
         df = pd.DataFrame(data)
-        
+
         # Aplicar regla de perdón
         df_resultado = aplicar_regla_perdon_retardos(df)
-        
+
         # Verificar que el retardo fue perdonado (cualquier trabajo > 0 horas)
         assert df_resultado.iloc[0]["retardo_perdonado"] == True
         assert df_resultado.iloc[0]["tipo_retardo"] == "A Tiempo (Cumplió Horas)"
@@ -92,10 +92,10 @@ class TestPerdonRetardos:
             "horas_esperadas": ["08:00:00"],
         }
         df = pd.DataFrame(data)
-        
+
         # Aplicar regla de perdón
         df_resultado = aplicar_regla_perdon_retardos(df)
-        
+
         # Verificar que el retardo fue perdonado
         assert df_resultado.iloc[0]["retardo_perdonado"] == True
         assert df_resultado.iloc[0]["tipo_retardo"] == "A Tiempo (Cumplió Horas)"
@@ -113,10 +113,10 @@ class TestPerdonRetardos:
             "horas_esperadas": ["08:00:00"],
         }
         df = pd.DataFrame(data)
-        
+
         # Aplicar regla de perdón (con flag desactivado por defecto)
         df_resultado = aplicar_regla_perdon_retardos(df)
-        
+
         # Verificar que la falta injustificada NO fue perdonada
         assert df_resultado.iloc[0]["retardo_perdonado"] == False
         assert df_resultado.iloc[0]["tipo_retardo"] == "Falta Injustificada"
@@ -134,19 +134,23 @@ class TestPerdonRetardos:
             ],
             "tipo_retardo": ["Retardo", "Retardo", "A Tiempo"],
             "minutos_tarde": [20, 30, 0],
-            "horas_trabajadas": ["08:30:00", "07:30:00", "08:00:00"],  # Solo el primero cumple
+            "horas_trabajadas": [
+                "08:30:00",
+                "07:30:00",
+                "08:00:00",
+            ],  # Solo el primero cumple
             "horas_esperadas": ["08:00:00", "08:00:00", "08:00:00"],
         }
         df = pd.DataFrame(data)
-        
+
         # Aplicar regla de perdón
         df_resultado = aplicar_regla_perdon_retardos(df)
-        
+
         # Verificar que solo el segundo retardo se cuenta (el primero fue perdonado)
         assert df_resultado.iloc[0]["es_retardo_acumulable"] == 0  # Perdonado
         assert df_resultado.iloc[1]["es_retardo_acumulable"] == 1  # No perdonado
         assert df_resultado.iloc[2]["es_retardo_acumulable"] == 0  # A tiempo
-        
+
         # Verificar retardos acumulados
         assert df_resultado.iloc[0]["retardos_acumulados"] == 0
         assert df_resultado.iloc[1]["retardos_acumulados"] == 1
@@ -165,20 +169,25 @@ class TestPerdonRetardos:
             ],
             "tipo_retardo": ["Retardo", "Retardo", "Retardo", "Retardo"],
             "minutos_tarde": [20, 30, 25, 35],
-            "horas_trabajadas": ["08:30:00", "07:30:00", "07:30:00", "07:30:00"],  # Solo el primero cumple
+            "horas_trabajadas": [
+                "08:30:00",
+                "07:30:00",
+                "07:30:00",
+                "07:30:00",
+            ],  # Solo el primero cumple
             "horas_esperadas": ["08:00:00", "08:00:00", "08:00:00", "08:00:00"],
         }
         df = pd.DataFrame(data)
-        
+
         # Aplicar regla de perdón
         df_resultado = aplicar_regla_perdon_retardos(df)
-        
+
         # Verificar retardos acumulados después del perdón
         assert df_resultado.iloc[0]["retardos_acumulados"] == 0  # Perdonado
         assert df_resultado.iloc[1]["retardos_acumulados"] == 1
         assert df_resultado.iloc[2]["retardos_acumulados"] == 2
         assert df_resultado.iloc[3]["retardos_acumulados"] == 3
-        
+
         # Verificar descuento por 3er retardo
         assert df_resultado.iloc[0]["descuento_por_3_retardos"] == "No"
         assert df_resultado.iloc[1]["descuento_por_3_retardos"] == "No"
@@ -201,10 +210,10 @@ class TestPerdonRetardos:
             "horas_esperadas": ["08:00:00", "08:00:00", "08:00:00"],
         }
         df = pd.DataFrame(data)
-        
+
         # Aplicar regla de perdón
         df_resultado = aplicar_regla_perdon_retardos(df)
-        
+
         # Verificar que no se aplicó perdón a valores problemáticos
         assert df_resultado.iloc[0]["retardo_perdonado"] == False
         assert df_resultado.iloc[1]["retardo_perdonado"] == False
@@ -214,7 +223,7 @@ class TestPerdonRetardos:
         """Test: Verificar manejo correcto de DataFrame vacío."""
         df_vacio = pd.DataFrame()
         df_resultado = aplicar_regla_perdon_retardos(df_vacio)
-        
+
         assert df_resultado.empty
 
     def test_preservacion_otras_columnas(self):
@@ -230,10 +239,10 @@ class TestPerdonRetardos:
             "columna_adicional": ["valor_test"],
         }
         df = pd.DataFrame(data)
-        
+
         # Aplicar regla de perdón
         df_resultado = aplicar_regla_perdon_retardos(df)
-        
+
         # Verificar que la columna adicional se preserva
         assert "columna_adicional" in df_resultado.columns
-        assert df_resultado.iloc[0]["columna_adicional"] == "valor_test" 
+        assert df_resultado.iloc[0]["columna_adicional"] == "valor_test"

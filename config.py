@@ -27,7 +27,7 @@ EMPLOYEE_API_URL = "https://erp.asiatech.com.mx/api/resource/Employee"
 # Leave policy by type - defines how expected hours are handled
 POLITICA_PERMISOS = {
     "permiso sin goce de sueldo": "no_ajustar",
-    "permiso sin goce": "no_ajustar", 
+    "permiso sin goce": "no_ajustar",
     "sin goce de sueldo": "no_ajustar",
     "sin goce": "no_ajustar",
     # Space for future policies:
@@ -61,7 +61,7 @@ GRACE_MINUTES = 59
 
 # Output file names
 OUTPUT_DETAILED_REPORT = "reporte_asistencia_analizado.csv"
-OUTPUT_SUMMARY_REPORT = "resumen_periodo.csv" 
+OUTPUT_SUMMARY_REPORT = "resumen_periodo.csv"
 OUTPUT_HTML_DASHBOARD = "dashboard_asistencia.html"
 
 # ==============================================================================
@@ -70,7 +70,7 @@ OUTPUT_HTML_DASHBOARD = "dashboard_asistencia.html"
 
 DIAS_ESPANOL = {
     "Monday": "Lunes",
-    "Tuesday": "Martes", 
+    "Tuesday": "Martes",
     "Wednesday": "Miércoles",
     "Thursday": "Jueves",
     "Friday": "Viernes",
@@ -82,6 +82,7 @@ DIAS_ESPANOL = {
 # VALIDATION FUNCTIONS
 # ==============================================================================
 
+
 def validate_api_credentials():
     """Validate that required API credentials are present."""
     if not all([API_KEY, API_SECRET]):
@@ -89,6 +90,7 @@ def validate_api_credentials():
             "Missing API credentials (ASIATECH_API_KEY, ASIATECH_API_SECRET) in .env file"
         )
     return True
+
 
 def get_api_headers():
     """Get API headers with authentication."""

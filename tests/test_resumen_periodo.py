@@ -10,11 +10,15 @@ Este módulo contiene tests que verifican:
 
 import pandas as pd
 from datetime import date
-from generar_reporte_optimizado import generar_resumen_periodo
+from report_generator import ReportGenerator
 
 
 class TestResumenPeriodo:
     """Tests para el resumen del periodo."""
+
+    def setup_method(self):
+        """Configurar el generador de reportes para cada test."""
+        self.generator = ReportGenerator()
 
     def test_resumen_periodo_basico(self):
         """Prueba el resumen básico del periodo."""
@@ -35,7 +39,7 @@ class TestResumenPeriodo:
             }
         )
 
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
 
         assert len(resultado) == 2
         assert "EMP001" in resultado["employee"].values
@@ -87,7 +91,7 @@ class TestResumenPeriodo:
             }
         )
 
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
 
         # Verificar EMP001 con permiso
         emp1 = resultado[resultado["employee"] == "EMP001"].iloc[0]
@@ -156,11 +160,11 @@ class TestResumenPeriodo:
             }
         )
 
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
 
         # EMP001: trabajó más de lo esperado (+1 hora)
         emp1 = resultado[resultado["employee"] == "EMP001"].iloc[0]
-        assert emp1["diferencia_HHMMSS"] == "+01:00:00"
+        assert emp1["diferencia_HHMMSS"] == "01:00:00"
 
         # EMP002: trabajó menos de lo esperado (-1 hora)
         emp2 = resultado[resultado["employee"] == "EMP002"].iloc[0]
@@ -173,7 +177,7 @@ class TestResumenPeriodo:
     def test_resumen_periodo_datos_vacios(self):
         """Prueba el resumen con DataFrame vacío."""
         df = pd.DataFrame()
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
         assert resultado.empty
 
     def test_resumen_periodo_columnas_opcionales(self):
@@ -191,7 +195,7 @@ class TestResumenPeriodo:
             }
         )
 
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
 
         assert len(resultado) == 1
         emp1 = resultado.iloc[0]
@@ -248,7 +252,7 @@ class TestResumenPeriodo:
             }
         )
 
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
 
         # Verificar EMP001
         emp1 = resultado[resultado["employee"] == "EMP001"].iloc[0]
@@ -279,7 +283,7 @@ class TestResumenPeriodo:
             }
         )
 
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
 
         emp1 = resultado.iloc[0]
         assert (
@@ -303,11 +307,11 @@ class TestResumenPeriodo:
             }
         )
 
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
 
         emp1 = resultado.iloc[0]
         assert (
-            emp1["diferencia_HHMMSS"] == "+03:00:00"
+            emp1["diferencia_HHMMSS"] == "03:00:00"
         )  # 19 horas trabajadas vs 16 esperadas
 
     def test_resumen_periodo_estructura_columnas(self):
@@ -327,7 +331,7 @@ class TestResumenPeriodo:
             }
         )
 
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
 
         columnas_esperadas = [
             "employee",
@@ -389,7 +393,7 @@ class TestResumenPeriodo:
             }
         )
 
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
 
         # Verificar EMP001: 7 horas + 8 horas = 15 horas netas
         emp1 = resultado[resultado["employee"] == "EMP001"].iloc[0]
@@ -461,7 +465,7 @@ class TestResumenPeriodo:
             }
         )
 
-        resultado = generar_resumen_periodo(df)
+        resultado = self.generator.generar_resumen_periodo(df)
 
         # Verificar que la suma de horas trabajadas en detalle coincida con el resumen
         # EMP001: 6:30 + 7:00 + 8:00 = 21:30

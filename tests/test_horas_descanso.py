@@ -8,13 +8,22 @@ def datos_asistencia():
     data = {
         "employee": [1, 1, 1, 1, 2, 2, 3, 3, 3],
         "checado": [
-            "08:00:00", "13:00:00", "14:00:00", "18:00:00",
+            "08:00:00",
+            "13:00:00",
+            "14:00:00",
+            "18:00:00",
             # empleado 1: descanso 1 h
-            "09:00:00", "19:00:00", None, None,
+            "09:00:00",
+            "19:00:00",
+            None,
+            None,
             # empleado 2: sin descanso
-            "08:00:00", "12:00:00", "18:00:00", None
+            "08:00:00",
+            "12:00:00",
+            "18:00:00",
+            None,
             # empleado 3: 3 checados
-        ]
+        ],
     }
     df = pd.DataFrame(data)
     df["checado"] = pd.to_datetime(
@@ -33,7 +42,7 @@ def test_calculo_descanso_estandar():
         "checado_1": "08:00:00",
         "checado_2": "13:00:00",
         "checado_3": "14:00:00",
-        "checado_4": "18:00:00"
+        "checado_4": "18:00:00",
     }
     df_dia = pd.Series(data)
 
@@ -50,10 +59,7 @@ def test_sin_horas_descanso():
     import pandas as pd
 
     # Crear datos de prueba con solo 2 checados
-    data = {
-        "checado_1": "08:00:00",
-        "checado_2": "18:00:00"
-    }
+    data = {"checado_1": "08:00:00", "checado_2": "18:00:00"}
     df_dia = pd.Series(data)
 
     # Calcular descanso
@@ -69,11 +75,7 @@ def test_checados_insuficientes_para_descanso():
     import pandas as pd
 
     # Crear datos de prueba con 3 checados
-    data = {
-        "checado_1": "08:00:00",
-        "checado_2": "12:00:00",
-        "checado_3": "18:00:00"
-    }
+    data = {"checado_1": "08:00:00", "checado_2": "12:00:00", "checado_3": "18:00:00"}
     df_dia = pd.Series(data)
 
     # Calcular descanso
@@ -98,7 +100,7 @@ def test_ajuste_horas_trabajadas_y_esperadas():
         "checado_4": ["18:00:00", None],
         "duration": ["10:00:00", "10:00:00"],
         "horas_trabajadas": ["10:00:00", "10:00:00"],
-        "horas_esperadas": ["08:00:00", "08:00:00"]
+        "horas_esperadas": ["08:00:00", "08:00:00"],
     }
     df = pd.DataFrame(data)
 
@@ -119,7 +121,7 @@ def test_ajuste_horas_trabajadas_y_esperadas():
     emp2 = df_resultado[df_resultado["employee"] == 2].iloc[0]
     assert emp2["horas_descanso"] == "00:00:00"
     assert emp2["horas_trabajadas"] == "10:00:00"  # Sin cambios
-    assert emp2["horas_esperadas"] == "08:00:00"   # Sin cambios
+    assert emp2["horas_esperadas"] == "08:00:00"  # Sin cambios
 
 
 def test_rango_mayor_24_horas():
@@ -129,10 +131,10 @@ def test_rango_mayor_24_horas():
 
     # Crear un Timedelta de 25 horas
     td_25_horas = pd.Timedelta(hours=25, minutes=30, seconds=45)
-    
+
     # Convertir a string
     resultado = td_to_str(td_25_horas)
-    
+
     # Verificar que se mantienen las 25 horas (no se pierden días)
     assert resultado == "25:30:45"
 
@@ -148,7 +150,7 @@ def test_turno_con_medianoche():
         "checado_1": "22:00:00",  # Entrada noche
         "checado_2": "23:30:00",  # Salida para descanso
         "checado_3": "00:30:00",  # Entrada después de medianoche
-        "checado_4": "06:00:00"   # Salida mañana
+        "checado_4": "06:00:00",  # Salida mañana
     }
     df_dia = pd.Series(data)
 
@@ -175,7 +177,7 @@ def test_dia_con_dos_descansos():
         "checado_3": "13:00:00",  # Entrada descanso 1
         "checado_4": "17:00:00",  # Salida descanso 2
         "checado_5": "18:00:00",  # Entrada descanso 2
-        "checado_6": "22:00:00"   # Salida final
+        "checado_6": "22:00:00",  # Salida final
     }
     df_dia = pd.Series(data)
 
@@ -196,7 +198,7 @@ def test_checadas_fuera_de_orden():
         "checado_1": "14:00:00",  # Tercer checado
         "checado_2": "08:00:00",  # Primer checado
         "checado_3": "13:00:00",  # Segundo checado
-        "checado_4": "18:00:00"   # Cuarto checado
+        "checado_4": "18:00:00",  # Cuarto checado
     }
     df_dia = pd.Series(data)
 
@@ -204,4 +206,4 @@ def test_checadas_fuera_de_orden():
     horas_descanso = calcular_horas_descanso(df_dia)
 
     # Verificar que el descanso es 1 hora (14:00 - 13:00 después de ordenar)
-    assert horas_descanso == timedelta(hours=1) 
+    assert horas_descanso == timedelta(hours=1)

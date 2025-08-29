@@ -438,7 +438,6 @@ class TestGenerarReporteOptimizado:
             with patch("generar_reporte_optimizado.API_KEY", "test_key"), patch(
                 "generar_reporte_optimizado.API_SECRET", "test_secret"
             ):
-
                 result = fetch_checkins("2025-01-15", "2025-01-15", "%31%")
 
                 assert len(result) == 2
@@ -459,7 +458,6 @@ class TestGenerarReporteOptimizado:
             with patch("generar_reporte_optimizado.API_KEY", "test_key"), patch(
                 "generar_reporte_optimizado.API_SECRET", "test_secret"
             ):
-
                 result = fetch_checkins("2025-01-15", "2025-01-15", "%31%")
                 assert result == []
 
@@ -469,7 +467,6 @@ class TestGenerarReporteOptimizado:
         with patch("generar_reporte_optimizado.API_KEY", None), patch(
             "generar_reporte_optimizado.API_SECRET", None
         ):
-
             result = fetch_checkins("2025-01-15", "2025-01-15", "%31%")
             assert result == []
 
@@ -1039,19 +1036,19 @@ class TestFormatoDiferenciaHoras:
             emp003 = df_resumen[df_resumen["employee"] == "EMP003"].iloc[0]
 
             # Diferencia positiva debe tener signo +
-            assert (
-                emp001["diferencia_HHMMSS"] == "+02:00:00"
-            ), f"Expected +02:00:00, got {emp001['diferencia_HHMMSS']}"
+            assert emp001["diferencia_HHMMSS"] == "+02:00:00", (
+                f"Expected +02:00:00, got {emp001['diferencia_HHMMSS']}"
+            )
 
             # Diferencia negativa debe tener signo -
-            assert (
-                emp002["diferencia_HHMMSS"] == "-02:00:00"
-            ), f"Expected -02:00:00, got {emp002['diferencia_HHMMSS']}"
+            assert emp002["diferencia_HHMMSS"] == "-02:00:00", (
+                f"Expected -02:00:00, got {emp002['diferencia_HHMMSS']}"
+            )
 
             # Diferencia cero no debe tener signo
-            assert (
-                emp003["diferencia_HHMMSS"] == "00:00:00"
-            ), f"Expected 00:00:00, got {emp003['diferencia_HHMMSS']}"
+            assert emp003["diferencia_HHMMSS"] == "00:00:00", (
+                f"Expected 00:00:00, got {emp003['diferencia_HHMMSS']}"
+            )
         finally:
             os.chdir(original_cwd)
 

@@ -34,7 +34,12 @@ class TestUmbralFaltaInjustificada:
             ("08:30:00", "08:00", "Retardo", "Llegada 30 min tarde"),
             ("08:45:00", "08:00", "Retardo", "Llegada 45 min tarde"),
             ("09:00:00", "08:00", "Retardo", "Llegada 60 min tarde (límite)"),
-            ("09:01:00", "08:00", "Falta Injustificada", "Llegada 61 min tarde (nuevo umbral)"),
+            (
+                "09:01:00",
+                "08:00",
+                "Falta Injustificada",
+                "Llegada 61 min tarde (nuevo umbral)",
+            ),
             ("09:30:00", "08:00", "Falta Injustificada", "Llegada 90 min tarde"),
             ("10:00:00", "08:00", "Falta Injustificada", "Llegada 2 horas tarde"),
         ],
@@ -62,7 +67,9 @@ class TestUmbralFaltaInjustificada:
 
         # Verificar el tipo de retardo
         tipo_retardo = df_analizado["tipo_retardo"].iloc[0]
-        assert tipo_retardo == esperado, f"Error en {descripcion}: esperado {esperado}, obtenido {tipo_retardo}"
+        assert tipo_retardo == esperado, (
+            f"Error en {descripcion}: esperado {esperado}, obtenido {tipo_retardo}"
+        )
 
     def test_umbral_con_turno_nocturno(self):
         """Prueba el umbral en turnos nocturnos que cruzan medianoche."""
@@ -83,7 +90,12 @@ class TestUmbralFaltaInjustificada:
             ("22:15:00", "22:00", "A Tiempo", "Entrada dentro de tolerancia"),
             ("22:16:00", "22:00", "Retardo", "Entrada 16 min tarde"),
             ("23:00:00", "22:00", "Retardo", "Entrada 60 min tarde (límite)"),
-            ("23:01:00", "22:00", "Falta Injustificada", "Entrada 61 min tarde (nuevo umbral)"),
+            (
+                "23:01:00",
+                "22:00",
+                "Falta Injustificada",
+                "Entrada 61 min tarde (nuevo umbral)",
+            ),
             ("00:00:00", "22:00", "Falta Injustificada", "Entrada 2 horas tarde"),
         ]
 
@@ -104,7 +116,9 @@ class TestUmbralFaltaInjustificada:
             )
 
             tipo_retardo = df_analizado["tipo_retardo"].iloc[0]
-            assert tipo_retardo == esperado, f"Error en turno nocturno - {descripcion}: esperado {esperado}, obtenido {tipo_retardo}"
+            assert tipo_retardo == esperado, (
+                f"Error en turno nocturno - {descripcion}: esperado {esperado}, obtenido {tipo_retardo}"
+            )
 
     def test_umbral_con_llegadas_tempranas(self, cache_horarios_umbral):
         """Prueba que las llegadas tempranas se clasifiquen correctamente."""
@@ -131,7 +145,9 @@ class TestUmbralFaltaInjustificada:
             )
 
             tipo_retardo = df_analizado["tipo_retardo"].iloc[0]
-            assert tipo_retardo == esperado, f"Error en llegada temprana - {descripcion}: esperado {esperado}, obtenido {tipo_retardo}"
+            assert tipo_retardo == esperado, (
+                f"Error en llegada temprana - {descripcion}: esperado {esperado}, obtenido {tipo_retardo}"
+            )
 
     def test_umbral_con_diferentes_horarios(self):
         """Prueba el umbral con diferentes horarios de entrada."""
@@ -151,7 +167,7 @@ class TestUmbralFaltaInjustificada:
                     "cruza_medianoche": False,
                     "horas_totales": 8.0,
                 }
-            }
+            },
         }
 
         # Casos para horario matutino (06:00)
@@ -224,4 +240,4 @@ class TestUmbralFaltaInjustificada:
             df_no_laborable, cache_horarios_umbral
         )
 
-        assert df_analizado["tipo_retardo"].iloc[0] == "Día no Laborable" 
+        assert df_analizado["tipo_retardo"].iloc[0] == "Día no Laborable"

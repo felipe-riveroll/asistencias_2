@@ -22,23 +22,20 @@ class TestNormalizacionPermisos:
             ("sin goce de sueldo", "permiso sin goce de sueldo"),
             ("sin goce", "permiso sin goce de sueldo"),
             ("permiso sgs", "permiso sin goce de sueldo"),
-            
             # Con acentos
             ("permiso sin goce de sueldo", "permiso sin goce de sueldo"),
             ("Permiso Sin Goce De Sueldo", "permiso sin goce de sueldo"),
             ("PERMISO SIN GOCE DE SUELDO", "permiso sin goce de sueldo"),
-            
             # Con espacios extra
             ("  permiso sin goce  ", "permiso sin goce de sueldo"),
             ("  sin goce de sueldo  ", "permiso sin goce de sueldo"),
             ("\tpermiso sin goce\n", "permiso sin goce de sueldo"),
-            
             # Otros tipos de permisos (no se normalizan)
             ("permiso médico", "permiso medico"),
             ("vacaciones", "vacaciones"),
             ("incapacidad", "incapacidad"),
             ("permiso con goce", "permiso con goce"),
-        ]
+        ],
     )
     def test_normalize_leave_type_variantes(self, input_type, expected):
         """Prueba la normalización de variantes de permisos."""
@@ -55,11 +52,14 @@ class TestNormalizacionPermisos:
         """Prueba el manejo de caracteres especiales."""
         # Con acentos
         assert normalize_leave_type("permiso médico") == "permiso medico"
-        assert normalize_leave_type("incapacidad por enfermedad") == "incapacidad por enfermedad"
-        
+        assert (
+            normalize_leave_type("incapacidad por enfermedad")
+            == "incapacidad por enfermedad"
+        )
+
         # Con números
         assert normalize_leave_type("permiso día 1") == "permiso dia 1"
-        
+
         # Con símbolos
         assert normalize_leave_type("permiso (especial)") == "permiso (especial)"
 
@@ -72,7 +72,7 @@ class TestNormalizacionPermisos:
             "sin goce de sueldo",
             "sin goce",
         ]
-        
+
         for tipo in tipos_sin_goce:
             tipo_normalizado = normalize_leave_type(tipo)
             assert tipo_normalizado in POLITICA_PERMISOS
@@ -86,7 +86,7 @@ class TestNormalizacionPermisos:
             "permiso sin goce",
             "PERMISO sin GOCE",
         ]
-        
+
         for variant in variants:
             result = normalize_leave_type(variant)
             assert result == "permiso sin goce de sueldo"
@@ -99,7 +99,7 @@ class TestNormalizacionPermisos:
             "\tpermiso\tsin\tgoce\t",
             "permiso\nsin\ngoce",
         ]
-        
+
         for variant in variants:
             result = normalize_leave_type(variant)
             assert result == "permiso sin goce de sueldo"
@@ -113,10 +113,10 @@ class TestNormalizacionPermisos:
             "permiso personal",
             "día festivo",
         ]
-        
+
         for permiso_type in other_types:
             result = normalize_leave_type(permiso_type)
             # No debe convertirse en "permiso sin goce de sueldo"
             assert result != "permiso sin goce de sueldo"
             # Debe mantener su identidad (sin acentos)
-            assert "sin goce" not in result.lower() 
+            assert "sin goce" not in result.lower()

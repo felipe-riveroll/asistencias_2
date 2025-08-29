@@ -142,7 +142,7 @@ def main():
             "tests/test_generar_reporte_optimizado.py",
             "tests/test_casos_edge.py",
             "tests/test_main.py",
-            "tests/test_api_client.py", 
+            "tests/test_api_client.py",
             "tests/test_data_processor.py",
             "tests/test_report_generator.py",
             "tests/test_config.py",

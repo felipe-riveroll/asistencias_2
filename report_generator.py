@@ -9,56 +9,68 @@ from datetime import datetime
 from typing import Dict, Any, List
 
 from config import OUTPUT_DETAILED_REPORT, OUTPUT_SUMMARY_REPORT, OUTPUT_HTML_DASHBOARD
-from utils import format_timedelta_with_sign, format_positive_timedelta, time_to_decimal, calculate_working_days
+from utils import (
+    format_timedelta_with_sign,
+    format_timedelta_without_plus_sign,
+    format_positive_timedelta,
+    time_to_decimal,
+    calculate_working_days,
+)
 from reporte_excel import generar_reporte_excel
 
 
 class ReportGenerator:
     """Class for generating attendance reports in various formats."""
-    
+
     def __init__(self):
         """Initialize the report generator."""
         pass
-    
+
     def _time_to_decimal(self, time_str):
         """Wrapper for utils.time_to_decimal"""
         return time_to_decimal(time_str)
-    
+
     def _format_timedelta_with_sign(self, td):
         """Wrapper for utils.format_timedelta_with_sign"""
         return format_timedelta_with_sign(td)
-    
+
     def _format_positive_timedelta(self, td):
-        """Wrapper for utils.format_positive_timedelta"""  
+        """Wrapper for utils.format_positive_timedelta"""
         return format_positive_timedelta(td)
-    
+
     def _calculate_absence_episodes(self, df: pd.DataFrame) -> pd.Series:
         """
         Calcula el número de episodios de ausencia no planificada por empleado.
         Un episodio es un bloque de uno o más días consecutivos de ausencia.
         """
-        if 'es_falta_ajustada' not in df.columns or df['es_falta_ajustada'].sum() == 0:
+        if "es_falta_ajustada" not in df.columns or df["es_falta_ajustada"].sum() == 0:
             # Si no hay faltas, devolver una serie vacía con el tipo correcto
-            return pd.Series(dtype='int64')
+            return pd.Series(dtype="int64")
 
         # Solo nos interesan las faltas injustificadas
-        df_absences = df[df['es_falta_ajustada'] == 1].copy()
+        df_absences = df[df["es_falta_ajustada"] == 1].copy()
 
         if df_absences.empty:
-            return pd.Series(dtype='int64')
+            return pd.Series(dtype="int64")
 
-        df_absences['dia'] = pd.to_datetime(df_absences['dia'])
-        df_absences = df_absences.sort_values(['employee', 'dia'])
+        df_absences["dia"] = pd.to_datetime(df_absences["dia"])
+        df_absences = df_absences.sort_values(["employee", "dia"])
 
         # Calcula la diferencia en días con la ausencia anterior del mismo empleado
-        df_absences['dias_desde_anterior'] = df_absences.groupby('employee')['dia'].diff().dt.days
+        df_absences["dias_desde_anterior"] = (
+            df_absences.groupby("employee")["dia"].diff().dt.days
+        )
 
         # Un nuevo episodio comienza si es la primera falta o si han pasado más de 1 día
         # desde la falta anterior (es decir, no es consecutiva).
-        df_absences['nuevo_episodio'] = (df_absences['dias_desde_anterior'].isna()) | (df_absences['dias_desde_anterior'] > 1)
+        df_absences["nuevo_episodio"] = (df_absences["dias_desde_anterior"].isna()) | (
+            df_absences["dias_desde_anterior"] > 1
+        )
 
         # Sumar los inicios de nuevos episodios por empleado
-        episode_counts = df_absences.groupby('employee')['nuevo_episodio'].sum().astype(int)
+        episode_counts = (
+            df_absences.groupby("employee")["nuevo_episodio"].sum().astype(int)
+        )
 
         return episode_counts
 
@@ -77,7 +89,9 @@ class ReportGenerator:
 
         # Mapear los resultados de vuelta al DataFrame principal.
         # Llenar con 0 para empleados sin episodios.
-        df['episodios_ausencia'] = df['employee'].map(episode_counts).fillna(0).astype(int)
+        df["episodios_ausencia"] = (
+            df["employee"].map(episode_counts).fillna(0).astype(int)
+        )
 
         # Always recalculate from the adjusted text column (more robust Plan B)
         df["horas_trabajadas_td"] = pd.to_timedelta(
@@ -108,64 +122,60 @@ class ReportGenerator:
             df["horas_descanso_td"] = pd.to_timedelta("00:00:00")
 
         total_faltas_col = (
-            "es_falta_ajustada" if "es_falta_ajustada" in df.columns 
-            else "es_falta" if "es_falta" in df.columns
+            "es_falta_ajustada"
+            if "es_falta_ajustada" in df.columns
+            else "es_falta"
+            if "es_falta" in df.columns
             else None
         )
-        
+
         retardos_col = (
-            "es_retardo_acumulable" if "es_retardo_acumulable" in df.columns
-            else None
+            "es_retardo_acumulable" if "es_retardo_acumulable" in df.columns else None
         )
-        
+
         salidas_anticipadas_col = (
-            "salida_anticipada" if "salida_anticipada" in df.columns
-            else None
+            "salida_anticipada" if "salida_anticipada" in df.columns else None
         )
 
         # Build aggregation dict dynamically
         agg_dict = {
-            'total_horas_trabajadas': ("horas_trabajadas_td", "sum"),
-            'total_horas_esperadas': ("horas_esperadas_originales_td", "sum"),
-            'total_horas_descontadas_permiso': ("horas_descontadas_permiso_td", "sum"),
-            'total_horas_descanso': ("horas_descanso_td", "sum"),
+            "total_horas_trabajadas": ("horas_trabajadas_td", "sum"),
+            "total_horas_esperadas": ("horas_esperadas_originales_td", "sum"),
+            "total_horas_descontadas_permiso": ("horas_descontadas_permiso_td", "sum"),
+            "total_horas_descanso": ("horas_descanso_td", "sum"),
         }
-        
+
         if retardos_col:
-            agg_dict['total_retardos'] = (retardos_col, "sum")
+            agg_dict["total_retardos"] = (retardos_col, "sum")
         else:
             # Create a default column with zeros
-            df['_temp_retardos'] = 0
-            agg_dict['total_retardos'] = ("_temp_retardos", "sum")
-            
+            df["_temp_retardos"] = 0
+            agg_dict["total_retardos"] = ("_temp_retardos", "sum")
+
         if total_faltas_col:
-            agg_dict['faltas_del_periodo'] = (total_faltas_col, "sum")
+            agg_dict["faltas_del_periodo"] = (total_faltas_col, "sum")
         else:
             # Create a default column with zeros
-            df['_temp_faltas'] = 0
-            agg_dict['faltas_del_periodo'] = ("_temp_faltas", "sum")
-            
+            df["_temp_faltas"] = 0
+            agg_dict["faltas_del_periodo"] = ("_temp_faltas", "sum")
+
         if "falta_justificada" in df.columns:
-            agg_dict['faltas_justificadas'] = ("falta_justificada", "sum")
+            agg_dict["faltas_justificadas"] = ("falta_justificada", "sum")
         else:
-            df['_temp_faltas_just'] = 0
-            agg_dict['faltas_justificadas'] = ("_temp_faltas_just", "sum")
-            
+            df["_temp_faltas_just"] = 0
+            agg_dict["faltas_justificadas"] = ("_temp_faltas_just", "sum")
+
         if salidas_anticipadas_col:
-            agg_dict['total_salidas_anticipadas'] = (salidas_anticipadas_col, "sum")
+            agg_dict["total_salidas_anticipadas"] = (salidas_anticipadas_col, "sum")
         else:
-            df['_temp_salidas'] = 0
-            agg_dict['total_salidas_anticipadas'] = ("_temp_salidas", "sum")
+            df["_temp_salidas"] = 0
+            agg_dict["total_salidas_anticipadas"] = ("_temp_salidas", "sum")
 
         # Incluir episodios de ausencia en la agregación
-        if 'episodios_ausencia' in df.columns:
-            agg_dict['episodios_ausencia'] = ('episodios_ausencia', 'first')
+        if "episodios_ausencia" in df.columns:
+            agg_dict["episodios_ausencia"] = ("episodios_ausencia", "first")
 
-        resumen_final = (
-            df.groupby(["employee", "Nombre"])
-            .agg(**agg_dict)
-            .reset_index()
-        )
+        resumen_final = df.groupby(["employee", "Nombre"]).agg(**agg_dict).reset_index()
 
         resumen_final["total_horas"] = (
             resumen_final["total_horas_esperadas"]
@@ -176,7 +186,9 @@ class ReportGenerator:
             resumen_final["total_horas_trabajadas"] - resumen_final["total_horas"]
         )
 
-        resumen_final["diferencia_HHMMSS"] = diferencia_td.apply(format_timedelta_with_sign)
+        resumen_final["diferencia_HHMMSS"] = diferencia_td.apply(
+            format_timedelta_without_plus_sign
+        )
         resumen_final["total_horas_trabajadas"] = resumen_final[
             "total_horas_trabajadas"
         ].apply(format_positive_timedelta)
@@ -186,9 +198,9 @@ class ReportGenerator:
         resumen_final["total_horas_descontadas_permiso"] = resumen_final[
             "total_horas_descontadas_permiso"
         ].apply(format_positive_timedelta)
-        resumen_final["total_horas_descanso"] = resumen_final["total_horas_descanso"].apply(
-            format_positive_timedelta
-        )
+        resumen_final["total_horas_descanso"] = resumen_final[
+            "total_horas_descanso"
+        ].apply(format_positive_timedelta)
         resumen_final["total_horas"] = resumen_final["total_horas"].apply(
             format_positive_timedelta
         )
@@ -210,13 +222,15 @@ class ReportGenerator:
             "diferencia_HHMMSS",
         ]
         # Asegurarse de que la columna existe antes de añadirla a la lista final
-        if 'episodios_ausencia' not in resumen_final.columns:
-            resumen_final['episodios_ausencia'] = 0
+        if "episodios_ausencia" not in resumen_final.columns:
+            resumen_final["episodios_ausencia"] = 0
 
         resumen_final = resumen_final[base_columns]
 
         # Save summary to CSV
-        self._save_csv_with_fallback(resumen_final, OUTPUT_SUMMARY_REPORT, "period summary")
+        self._save_csv_with_fallback(
+            resumen_final, OUTPUT_SUMMARY_REPORT, "period summary"
+        )
 
         print("\n**Visualización del Resumen del Período:**\n")
         print(resumen_final.to_string())
@@ -225,10 +239,10 @@ class ReportGenerator:
     def save_detailed_report(self, df: pd.DataFrame) -> str:
         """
         Guarda el reporte detallado de asistencia en CSV.
-        
+
         Args:
             df: DataFrame detallado con todos los datos de asistencia
-            
+
         Returns:
             Nombre del archivo del reporte guardado
         """
@@ -237,33 +251,49 @@ class ReportGenerator:
             return ""
 
         # Define column order for the detailed report
-        checado_cols = sorted([c for c in df.columns if "checado_" in c and c != "checado_1"])
+        checado_cols = sorted(
+            [c for c in df.columns if "checado_" in c and c != "checado_1"]
+        )
         column_order = [
-            "employee", "Nombre", "dia", "dia_semana", "hora_entrada_programada",
-            "checado_1", "minutos_tarde", "tipo_retardo", "retardo_perdonado",
-            "tipo_retardo_original", "minutos_tarde_original", "tipo_falta_ajustada",
-            "tiene_permiso", "tipo_permiso", "es_permiso_medio_dia", "falta_justificada",
-            "hora_salida_programada", "salida_anticipada", "horas_esperadas",
-            "duration", "horas_trabajadas", "horas_descanso",
+            "employee",
+            "Nombre",
+            "dia",
+            "dia_semana",
+            "hora_entrada_programada",
+            "checado_1",
+            "minutos_tarde",
+            "tipo_retardo",
+            "retardo_perdonado",
+            "tipo_retardo_original",
+            "minutos_tarde_original",
+            "tipo_falta_ajustada",
+            "tiene_permiso",
+            "tipo_permiso",
+            "es_permiso_medio_dia",
+            "falta_justificada",
+            "hora_salida_programada",
+            "salida_anticipada",
+            "horas_esperadas",
+            "duration",
+            "horas_trabajadas",
+            "horas_descanso",
         ] + checado_cols
 
         final_columns = [col for col in column_order if col in df.columns]
         df_final_detallado = df[final_columns].fillna("---")
 
         filename = self._save_csv_with_fallback(
-            df_final_detallado, 
-            OUTPUT_DETAILED_REPORT, 
-            "detailed report"
+            df_final_detallado, OUTPUT_DETAILED_REPORT, "detailed report"
         )
         return filename
 
     def save_summary_report(self, df: pd.DataFrame) -> str:
         """
         Guarda el reporte resumen de período en CSV.
-        
+
         Args:
             df: DataFrame resumen con totales por empleado
-            
+
         Returns:
             Nombre del archivo del reporte guardado
         """
@@ -272,9 +302,7 @@ class ReportGenerator:
             return ""
 
         filename = self._save_csv_with_fallback(
-            df, 
-            OUTPUT_SUMMARY_REPORT, 
-            "summary report"
+            df, OUTPUT_SUMMARY_REPORT, "summary report"
         )
         return filename
 
@@ -302,56 +330,62 @@ class ReportGenerator:
         # Prepare employee data for JavaScript
         employee_data_js = []
         for _, row in df_resumen.iterrows():
-            employee_data_js.append({
-                "employee": str(row["employee"]),
-                "name": str(row["Nombre"]),
-                "workedHours": str(row["total_horas_trabajadas"]),
-                "expectedHours": str(row["total_horas_esperadas"]),
-                "permitHours": str(row.get("total_horas_descontadas_permiso", "00:00:00")),
-                "netHours": str(row["total_horas"]),
-                "delays": int(row.get("total_retardos", 0)),
-                "absences": int(row.get("faltas_del_periodo", 0)),
-                "justifiedAbsences": int(row.get("faltas_justificadas", 0)),
-                "totalAbsences": int(row.get("total_faltas", 0)),
-                "difference": str(row.get("diferencia_HHMMSS", "00:00:00")),
-                "workedDecimal": time_to_decimal(row["total_horas_trabajadas"]),
-                "expectedDecimal": time_to_decimal(row["total_horas_esperadas"]),
-                "expectedDecimalAdjusted": time_to_decimal(row["total_horas"]),
-                "permitDecimal": time_to_decimal(row.get("total_horas_descontadas_permiso", "00:00:00")),
-            })
+            employee_data_js.append(
+                {
+                    "employee": str(row["employee"]),
+                    "name": str(row["Nombre"]),
+                    "workedHours": str(row["total_horas_trabajadas"]),
+                    "expectedHours": str(row["total_horas_esperadas"]),
+                    "permitHours": str(
+                        row.get("total_horas_descontadas_permiso", "00:00:00")
+                    ),
+                    "netHours": str(row["total_horas"]),
+                    "delays": int(row.get("total_retardos", 0)),
+                    "absences": int(row.get("faltas_del_periodo", 0)),
+                    "justifiedAbsences": int(row.get("faltas_justificadas", 0)),
+                    "totalAbsences": int(row.get("total_faltas", 0)),
+                    "difference": str(row.get("diferencia_HHMMSS", "00:00:00")),
+                    "workedDecimal": time_to_decimal(row["total_horas_trabajadas"]),
+                    "expectedDecimal": time_to_decimal(row["total_horas_esperadas"]),
+                    "expectedDecimalAdjusted": time_to_decimal(row["total_horas"]),
+                    "permitDecimal": time_to_decimal(
+                        row.get("total_horas_descontadas_permiso", "00:00:00")
+                    ),
+                }
+            )
 
         # Prepare daily data for charts
         daily_data_js = []
         if not df_detallado.empty and "dia" in df_detallado.columns:
             # Check if hora_entrada_programada exists, if not, use all rows
             if "hora_entrada_programada" in df_detallado.columns:
-                df_laborables = df_detallado[df_detallado["hora_entrada_programada"].notna()].copy()
+                df_laborables = df_detallado[
+                    df_detallado["hora_entrada_programada"].notna()
+                ].copy()
             else:
                 df_laborables = df_detallado.copy()
             if not df_laborables.empty:
                 # Build aggregation safely checking for column existence
-                agg_dict = {
-                    'total_empleados': ("employee", "nunique")
-                }
-                
+                agg_dict = {"total_empleados": ("employee", "nunique")}
+
                 if "tipo_falta_ajustada" in df_laborables.columns:
-                    agg_dict['faltas_injustificadas'] = (
+                    agg_dict["faltas_injustificadas"] = (
                         "tipo_falta_ajustada",
                         lambda x: x.isin(["Falta", "Falta Injustificada"]).sum(),
                     )
                 elif "es_falta" in df_laborables.columns:
-                    agg_dict['faltas_injustificadas'] = ("es_falta", "sum")
+                    agg_dict["faltas_injustificadas"] = ("es_falta", "sum")
                 else:
                     # Create temp column for missing data
-                    df_laborables['_temp_faltas'] = 0
-                    agg_dict['faltas_injustificadas'] = ("_temp_faltas", "sum")
-                
+                    df_laborables["_temp_faltas"] = 0
+                    agg_dict["faltas_injustificadas"] = ("_temp_faltas", "sum")
+
                 if "falta_justificada" in df_laborables.columns:
-                    agg_dict['permisos'] = ("falta_justificada", lambda x: x.sum())
+                    agg_dict["permisos"] = ("falta_justificada", lambda x: x.sum())
                 else:
-                    df_laborables['_temp_permisos'] = 0
-                    agg_dict['permisos'] = ("_temp_permisos", "sum")
-                
+                    df_laborables["_temp_permisos"] = 0
+                    agg_dict["permisos"] = ("_temp_permisos", "sum")
+
                 daily_summary = (
                     df_laborables.groupby(["dia", "dia_semana"])
                     .agg(**agg_dict)
@@ -359,16 +393,20 @@ class ReportGenerator:
                 )
                 for _, row in daily_summary.iterrows():
                     asistencias = (
-                        row["total_empleados"] - row["faltas_injustificadas"] - row["permisos"]
+                        row["total_empleados"]
+                        - row["faltas_injustificadas"]
+                        - row["permisos"]
                     )
-                    daily_data_js.append({
-                        "date": row["dia"].strftime("%d %b"),
-                        "day": str(row["dia_semana"]),
-                        "attendance": max(0, asistencias),
-                        "absences": int(row["faltas_injustificadas"]),
-                        "permits": int(row["permisos"]),
-                        "total": int(row["total_empleados"]),
-                    })
+                    daily_data_js.append(
+                        {
+                            "date": row["dia"].strftime("%d %b"),
+                            "day": str(row["dia_semana"]),
+                            "attendance": max(0, asistencias),
+                            "absences": int(row["faltas_injustificadas"]),
+                            "permits": int(row["permisos"]),
+                            "total": int(row["total_empleados"]),
+                        }
+                    )
 
         # Calculate KPIs
         dias_laborales = calculate_working_days(periodo_inicio, periodo_fin)
@@ -376,7 +414,9 @@ class ReportGenerator:
         total_absences = sum(e.get("totalAbsences", 0) for e in employee_data_js)
         total_possible_days = total_employees * dias_laborales
         lost_days_percent = (
-            (total_absences / total_possible_days * 100) if total_possible_days > 0 else 0
+            (total_absences / total_possible_days * 100)
+            if total_possible_days > 0
+            else 0
         )
 
         # KPIs calculated in Python to ensure consistency
@@ -401,8 +441,15 @@ class ReportGenerator:
 
         # Generate complete HTML content
         html_content = self._generate_html_template(
-            sucursal, periodo_inicio, periodo_fin, attendance_rate, punctuality_rate,
-            lost_days, lost_days_percent, employee_json, daily_json
+            sucursal,
+            periodo_inicio,
+            periodo_fin,
+            attendance_rate,
+            punctuality_rate,
+            lost_days,
+            lost_days_percent,
+            employee_json,
+            daily_json,
         )
 
         filename = self._save_html_with_fallback(html_content, OUTPUT_HTML_DASHBOARD)
@@ -418,14 +465,14 @@ class ReportGenerator:
     ) -> str:
         """
         Genera un reporte Excel usando el módulo de reporte_excel.
-        
+
         Args:
             df_detallado: DataFrame con datos detallados de asistencia
             df_resumen: DataFrame con resumen del período
             sucursal: Nombre de la sucursal
             periodo_inicio: Fecha de inicio del período
             periodo_fin: Fecha de fin del período
-            
+
         Returns:
             Nombre del archivo Excel generado
         """
@@ -438,7 +485,9 @@ class ReportGenerator:
             print(f"⚠️ Error al generar reporte Excel: {e}")
             return ""
 
-    def _save_csv_with_fallback(self, df: pd.DataFrame, filename: str, description: str) -> str:
+    def _save_csv_with_fallback(
+        self, df: pd.DataFrame, filename: str, description: str
+    ) -> str:
         """
         Guarda un DataFrame a CSV con nombre de archivo alternativo si el original está en uso.
         """
@@ -450,7 +499,9 @@ class ReportGenerator:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             fallback_name = f"{filename.rsplit('.', 1)[0]}_{timestamp}.csv"
             df.to_csv(fallback_name, index=False, encoding="utf-8-sig")
-            print(f"⚠️ El archivo original estaba en uso. {description.title()} guardado en '{fallback_name}'")
+            print(
+                f"⚠️ El archivo original estaba en uso. {description.title()} guardado en '{fallback_name}'"
+            )
             return fallback_name
 
     def _save_html_with_fallback(self, content: str, filename: str) -> str:
@@ -467,13 +518,22 @@ class ReportGenerator:
             fallback_name = f"{filename.rsplit('.', 1)[0]}_{timestamp}.html"
             with open(fallback_name, "w", encoding="utf-8") as f:
                 f.write(content)
-            print(f"⚠️ El archivo original estaba en uso. Dashboard guardado en '{fallback_name}'")
+            print(
+                f"⚠️ El archivo original estaba en uso. Dashboard guardado en '{fallback_name}'"
+            )
             return fallback_name
 
     def _generate_html_template(
-        self, sucursal: str, periodo_inicio: str, periodo_fin: str,
-        attendance_rate: float, punctuality_rate: float, lost_days: int,
-        lost_days_percent: float, employee_json: str, daily_json: str
+        self,
+        sucursal: str,
+        periodo_inicio: str,
+        periodo_fin: str,
+        attendance_rate: float,
+        punctuality_rate: float,
+        lost_days: int,
+        lost_days_percent: float,
+        employee_json: str,
+        daily_json: str,
     ) -> str:
         """
         Generates the complete HTML template for the dashboard.
