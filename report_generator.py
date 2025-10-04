@@ -5,12 +5,15 @@ Handles CSV and HTML report creation with summary statistics.
 
 import json
 import pandas as pd
+import logging
 from datetime import datetime
 from typing import Dict, Any, List
 
 from config import OUTPUT_DETAILED_REPORT, OUTPUT_SUMMARY_REPORT, OUTPUT_HTML_DASHBOARD
 from utils import format_timedelta_with_sign, format_positive_timedelta, time_to_decimal, calculate_working_days
 from reporte_excel import generar_reporte_excel
+
+logger = logging.getLogger(__name__)
 
 
 class ReportGenerator:
@@ -66,13 +69,13 @@ class ReportGenerator:
         """
         Crea un DataFrame de resumen con totales por empleado.
         """
-        print("\n📊 Generando resumen del período...")
+        logger.debug("Generando resumen del período...")
         if df.empty:
-            print("   - No hay datos para generar el resumen.")
+            logger.debug("No hay datos para generar el resumen.")
             return pd.DataFrame()
 
         # --- Cálculo de Episodios de Ausencia ---
-        print("   - Calculando episodios de ausencia para Factor Bradford...")
+        logger.debug("Calculando episodios de ausencia para Factor Bradford...")
         episode_counts = self._calculate_absence_episodes(df)
 
         # Mapear los resultados de vuelta al DataFrame principal.
@@ -216,10 +219,10 @@ class ReportGenerator:
         resumen_final = resumen_final[base_columns]
 
         # Save summary to CSV
-        self._save_csv_with_fallback(resumen_final, OUTPUT_SUMMARY_REPORT, "period summary")
+        self._save_csv_with_fallback(resumen_final, OUTPUT_SUMMARY_REPORT, "resumen del período")
 
-        print("\n**Visualización del Resumen del Período:**\n")
-        print(resumen_final.to_string())
+        logger.debug("Visualización del Resumen del Período:")
+        logger.debug(resumen_final.to_string())
         return resumen_final
 
     def save_detailed_report(self, df: pd.DataFrame) -> str:
@@ -233,7 +236,7 @@ class ReportGenerator:
             Nombre del archivo del reporte guardado
         """
         if df.empty:
-            print("⚠️ No hay datos para guardar el reporte detallado.")
+            logger.warning("No hay datos para guardar el reporte detallado.")
             return ""
 
         # Define column order for the detailed report
@@ -268,7 +271,7 @@ class ReportGenerator:
             Nombre del archivo del reporte guardado
         """
         if df.empty:
-            print("⚠️ No hay datos para guardar el reporte resumen.")
+            logger.warning("No hay datos para guardar el reporte resumen.")
             return ""
 
         filename = self._save_csv_with_fallback(
@@ -289,7 +292,7 @@ class ReportGenerator:
         """
         Genera un reporte HTML interactivo del período analizado con lógica de JS corregida.
         """
-        print("\n📊 Generando reporte HTML interactivo...")
+        logger.debug("Generando reporte HTML interactivo...")
 
         if df_resumen.empty:
             html_content = """<!DOCTYPE html>
@@ -435,7 +438,7 @@ class ReportGenerator:
             )
             return archivo_excel
         except Exception as e:
-            print(f"⚠️ Error al generar reporte Excel: {e}")
+            logger.error(f"Error al generar reporte Excel: {e}")
             return ""
 
     def _save_csv_with_fallback(self, df: pd.DataFrame, filename: str, description: str) -> str:
@@ -444,13 +447,13 @@ class ReportGenerator:
         """
         try:
             df.to_csv(filename, index=False, encoding="utf-8-sig")
-            print(f"✅ {description.title()} guardado en '{filename}'")
+            logger.info(f"{description.title()} guardado en '{filename}'")
             return filename
         except PermissionError:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             fallback_name = f"{filename.rsplit('.', 1)[0]}_{timestamp}.csv"
             df.to_csv(fallback_name, index=False, encoding="utf-8-sig")
-            print(f"⚠️ El archivo original estaba en uso. {description.title()} guardado en '{fallback_name}'")
+            logger.warning(f"El archivo original estaba en uso. {description.title()} guardado en '{fallback_name}'")
             return fallback_name
 
     def _save_html_with_fallback(self, content: str, filename: str) -> str:
@@ -460,14 +463,14 @@ class ReportGenerator:
         try:
             with open(filename, "w", encoding="utf-8") as f:
                 f.write(content)
-            print(f"✅ Dashboard HTML generado exitosamente: '{filename}'")
+            logger.info(f"Dashboard HTML generado exitosamente: '{filename}'")
             return filename
         except PermissionError:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             fallback_name = f"{filename.rsplit('.', 1)[0]}_{timestamp}.html"
             with open(fallback_name, "w", encoding="utf-8") as f:
                 f.write(content)
-            print(f"⚠️ El archivo original estaba en uso. Dashboard guardado en '{fallback_name}'")
+            logger.warning(f"El archivo original estaba en uso. Dashboard guardado en '{fallback_name}'")
             return fallback_name
 
     def _generate_html_template(

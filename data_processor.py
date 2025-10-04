@@ -4,6 +4,7 @@ Contains all core business logic for processing check-ins, schedules, and genera
 """
 
 import pandas as pd
+import logging
 from datetime import datetime, timedelta, time
 from itertools import product
 from typing import Dict, List
@@ -19,6 +20,8 @@ from config import (
 )
 from utils import td_to_str, safe_timedelta
 from db_postgres_connection import obtener_horario_empleado
+
+logger = logging.getLogger(__name__)
 
 
 class AttendanceProcessor:
@@ -180,7 +183,7 @@ class AttendanceProcessor:
         if df.empty:
             return df
 
-        print("🔄 Calculando horas de descanso...")
+        logger.debug("Calculando horas de descanso...")
 
         # Create columns for break hours as Timedelta
         df["horas_descanso_td"] = pd.Timedelta(0)
@@ -207,7 +210,7 @@ class AttendanceProcessor:
                 df.at[index, "horas_descanso"] = td_to_str(horas_descanso_td)
                 total_dias_con_descanso += 1
 
-        print(f"✅ Se calcularon horas de descanso para {total_dias_con_descanso} días")
+        logger.debug(f"Se calcularon horas de descanso para {total_dias_con_descanso} días")
         return df
 
     def procesar_horarios_con_medianoche(
@@ -226,7 +229,7 @@ class AttendanceProcessor:
         cruza_medianoche=True. Para turnos normales, las marcas se asignan al día 
         calendario correspondiente.
         """
-        print("\n🔄 Procesando turnos que cruzan medianoche...")
+        logger.debug("Procesando turnos que cruzan medianoche...")
         
         if df.empty:
             return df
@@ -535,7 +538,7 @@ class AttendanceProcessor:
                         turnos_procesados.add((empleado, dia_actual))
         
         if not marcas_list:
-            print("⚠️ No se encontraron turnos nocturnos para procesar")
+            logger.debug("No se encontraron turnos nocturnos para procesar")
             return df_proc
             
         # Crear DataFrame de marcas
@@ -662,11 +665,11 @@ class AttendanceProcessor:
                 resultados.append(resultado)
                 
             except (ValueError, TypeError) as e:
-                print(f"Error calculando horas para empleado {empleado}: {e}")
+                logger.error(f"Error calculando horas para empleado {empleado}: {e}")
                 continue
         
         if not resultados:
-            print("⚠️ No se pudieron procesar turnos nocturnos")
+            logger.debug("No se pudieron procesar turnos nocturnos")
             return df_proc
             
         # Crear DataFrame de resultados
@@ -772,7 +775,7 @@ class AttendanceProcessor:
                         df_proc.loc[idx_original, 'duration'] = None
                         df_proc.loc[idx_original, 'horas_trabajadas'] = None
         
-        print(f"✅ Procesamiento completado: {len(resultados)} turnos nocturnos procesados")
+        logger.debug(f"Procesamiento completado: {len(resultados)} turnos nocturnos procesados")
         return df_proc
 
     def analizar_asistencia_con_horarios_cache(
@@ -783,7 +786,7 @@ class AttendanceProcessor:
         """
         if df.empty:
             return df
-        print("\n🔄 Iniciando análisis de horarios y retardos...")
+        logger.debug("Iniciando análisis de horarios y retardos...")
 
         df["es_primera_quincena"] = df["dia"].apply(lambda x: x.day <= 15)
 
@@ -819,7 +822,7 @@ class AttendanceProcessor:
             ]
         ] = df.apply(obtener_horario_fila, axis=1, result_type="expand")
 
-        print("   - Calculando retardos y puntualidad...")
+        logger.debug("Calculando retardos y puntualidad...")
 
         def analizar_retardo(row):
             if pd.isna(row.get("hora_entrada_programada")):
@@ -885,7 +888,7 @@ class AttendanceProcessor:
             axis=1,
         )
 
-        print("   - Detectando salidas anticipadas...")
+        logger.debug("Detectando salidas anticipadas...")
 
         # Function to detect early departures
         def detectar_salida_anticipada(row):
@@ -964,7 +967,7 @@ class AttendanceProcessor:
         # Apply early departure detection
         df["salida_anticipada"] = df.apply(detectar_salida_anticipada, axis=1)
 
-        print("✅ Análisis completado.")
+        logger.debug("Análisis completado.")
         return df
 
     def ajustar_horas_esperadas_con_permisos(
@@ -977,7 +980,7 @@ class AttendanceProcessor:
         if df.empty:
             return df
 
-        print("📊 Ajustando horas esperadas considerando permisos aprobados...")
+        logger.debug("Ajustando horas esperadas considerando permisos aprobados...")
 
         df["tiene_permiso"] = False
         df["tipo_permiso"] = None
@@ -1054,14 +1057,14 @@ class AttendanceProcessor:
         empleados_con_permisos = df[df["tiene_permiso"]]["employee"].nunique()
         dias_con_permisos = df["tiene_permiso"].sum()
 
-        print("✅ Ajuste completado:")
-        print(f"   - {empleados_con_permisos} empleados con permisos")
-        print(f"   - {dias_con_permisos} días con permisos")
-        print(
+        logger.debug("Ajuste completado:")
+        logger.debug(f"   - {empleados_con_permisos} empleados con permisos")
+        logger.debug(f"   - {dias_con_permisos} días con permisos")
+        logger.debug(
             f"   - {permisos_con_descuento} permisos con horas descontadas (día completo)"
         )
-        print(f"   - {permisos_medio_dia} permisos de medio día")
-        print(f"   - {permisos_sin_goce} permisos sin goce (sin descuento)")
+        logger.debug(f"   - {permisos_medio_dia} permisos de medio día")
+        logger.debug(f"   - {permisos_sin_goce} permisos sin goce (sin descuento)")
 
         return df
 
@@ -1075,7 +1078,7 @@ class AttendanceProcessor:
         if df.empty:
             return df
 
-        print("🔄 Applying tardiness forgiveness rule for hour fulfillment...")
+        logger.debug("Aplicando regla de perdón de retardos por cumplimiento de horas...")
 
         # Use Timedelta columns if they exist, otherwise convert from strings
         if "duration_td" in df.columns:
@@ -1105,7 +1108,7 @@ class AttendanceProcessor:
             df.loc[mask_retardo_perdonable, "tipo_retardo"] = "A Tiempo (Cumplió Horas)"
             df.loc[mask_retardo_perdonable, "minutos_tarde"] = 0
             retardos_perdonados = mask_retardo_perdonable.sum()
-            print(f"   - {retardos_perdonados} tardiness forgiven for fulfilling hours")
+            logger.debug(f"   - {retardos_perdonados} retardos perdonados por cumplir horas")
 
         # Apply forgiveness to unjustified absences (optional)
         if PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA:
@@ -1120,8 +1123,8 @@ class AttendanceProcessor:
                 )
                 df.loc[mask_falta_perdonable, "minutos_tarde"] = 0
                 faltas_perdonadas = mask_falta_perdonable.sum()
-                print(
-                    f"   - {faltas_perdonadas} unjustified absences forgiven for fulfilling hours"
+                logger.debug(
+                    f"   - {faltas_perdonadas} faltas injustificadas perdonadas por cumplir horas"
                 )
 
         # Recalculate derived columns
@@ -1149,11 +1152,11 @@ class AttendanceProcessor:
 
         total_perdonados = df["retardo_perdonado"].sum()
         if total_perdonados > 0:
-            print(
-                f"✅ Forgiveness applied to {total_perdonados} days for hour fulfillment"
+            logger.debug(
+                f"Perdón aplicado a {total_perdonados} días por cumplimiento de horas"
             )
         else:
-            print("✅ No days found eligible for forgiveness")
+            logger.debug("No se encontraron días elegibles para perdón")
 
         return df
 
@@ -1164,7 +1167,7 @@ class AttendanceProcessor:
         if df.empty:
             return df
 
-        print("📋 Reclassifying absences considering approved leaves...")
+        logger.debug("Reclasificando faltas considerando permisos aprobados...")
 
         df["tipo_falta_ajustada"] = df["tipo_retardo"].copy()
         df["falta_justificada"] = False
@@ -1196,7 +1199,7 @@ class AttendanceProcessor:
         if df.empty or not joining_dates_dict:
             return df
 
-        print("📝 Marcando días previos a la contratación como 'No Contratado'...")
+        logger.debug("Marcando días previos a la contratación como 'No Contratado'...")
 
         # Map joining dates to a temporary column
         df['fecha_contratacion'] = df['employee'].astype(str).map(joining_dates_dict)
@@ -1210,9 +1213,9 @@ class AttendanceProcessor:
         affected_days = mask.sum()
         
         if affected_days > 0:
-            print(f"   - Se marcarán {affected_days} días de {affected_employees} empleados como 'No Contratado'")
+            logger.debug(f"   - Se marcarán {affected_days} días de {affected_employees} empleados como 'No Contratado'")
         else:
-            print("   - No se encontraron días previos a contratación para marcar")
+            logger.debug("   - No se encontraron días previos a contratación para marcar")
 
         if mask.any():
             update_values = {

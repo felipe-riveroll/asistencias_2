@@ -4,10 +4,50 @@ Contains all constants, settings, and configuration variables.
 """
 
 import os
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+# ==============================================================================
+# LOGGING CONFIGURATION
+# ==============================================================================
+
+# Log file configuration
+LOG_FILE = "attendance_report.log"
+LOG_LEVEL_CONSOLE = logging.INFO
+LOG_LEVEL_FILE = logging.DEBUG
+
+# Configure logging
+def setup_logging():
+    """Configure the logging system for the attendance reporting application."""
+    # Create logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    # Clear any existing handlers
+    logger.handlers.clear()
+
+    # Create formatters
+    console_formatter = logging.Formatter('%(levelname)s - %(message)s')
+    file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(LOG_LEVEL_CONSOLE)
+    console_handler.setFormatter(console_formatter)
+
+    # File handler
+    file_handler = logging.FileHandler(LOG_FILE, encoding='utf-8')
+    file_handler.setLevel(LOG_LEVEL_FILE)
+    file_handler.setFormatter(file_formatter)
+
+    # Add handlers to logger
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+    return logger
 
 # ==============================================================================
 # API CONFIGURATION

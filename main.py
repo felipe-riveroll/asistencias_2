@@ -5,9 +5,10 @@ This script coordinates all modules to generate comprehensive attendance reports
 
 from datetime import datetime
 import sys
+import logging
 
 # Import our modular components
-from config import validate_api_credentials
+from config import validate_api_credentials, setup_logging
 from utils import obtener_codigos_empleados_api, determine_period_type
 from api_client import APIClient, procesar_permisos_empleados
 from data_processor import AttendanceProcessor
@@ -17,6 +18,9 @@ from db_postgres_connection import (
     obtener_horarios_multi_quincena,
     mapear_horarios_por_empleado_multi,
 )
+
+# Setup logging
+logger = setup_logging()
 
 
 class AttendanceReportManager:
@@ -47,28 +51,28 @@ class AttendanceReportManager:
         Returns:
             Dictionary with report status and generated filenames
         """
-        print(f"\n🚀 Iniciando reporte para {sucursal}...")
+        logger.info(f"Iniciando reporte para {sucursal}...")
         
         try:
             # Validate API credentials
             validate_api_credentials()
             
             # Step 1: Fetch check-ins
-            print("\n📡 Paso 1: Obteniendo registros de entrada/salida...")
+            logger.info("Paso 1: Obteniendo registros de entrada/salida...")
             checkin_records = self.api_client.fetch_checkins(start_date, end_date, device_filter)
             if not checkin_records:
-                print("❌ No se obtuvieron registros de entrada/salida. Saliendo.")
+                logger.error("No se obtuvieron registros de entrada/salida. Saliendo.")
                 return {"success": False, "error": "No se encontraron registros de entrada/salida"}
 
             codigos_empleados_api = obtener_codigos_empleados_api(checkin_records)
 
             # Step 2: Fetch leave applications
-            print("\n📄 Paso 2: Obteniendo solicitudes de permisos...")
+            logger.info("Paso 2: Obteniendo solicitudes de permisos...")
             leave_records = self.api_client.fetch_leave_applications(start_date, end_date)
             permisos_dict = procesar_permisos_empleados(leave_records)
 
             # Step 2a: Fetch all employee joining dates
-            print("\n📅 Paso 2a: Obteniendo todas las fechas de contratación...")
+            logger.info("Paso 2a: Obteniendo todas las fechas de contratación...")
             all_joining_dates = self.api_client.fetch_employee_joining_dates()
             joining_dates_dict = {
                 str(rec["employee"]): datetime.strptime(
@@ -76,10 +80,10 @@ class AttendanceReportManager:
                 ).date()
                 for rec in all_joining_dates
             }
-            print(f"   - Se encontraron {len(joining_dates_dict)} fechas de contratación en total.")
+            logger.debug(f"Se encontraron {len(joining_dates_dict)} fechas de contratación en total.")
 
             # Step 3: Fetch schedules
-            print("\n📋 Paso 3: Obteniendo horarios...")
+            logger.info("Paso 3: Obteniendo horarios...")
             conn_pg = connect_db()
             if conn_pg is None:
                 return {"success": False, "error": "Falló la conexión a la base de datos"}
@@ -96,7 +100,7 @@ class AttendanceReportManager:
             )
             
             if not any(horarios_por_quincena.values()):
-                print(f"❌ No se encontraron horarios para la sucursal {sucursal}.")
+                logger.error(f"No se encontraron horarios para la sucursal {sucursal}.")
                 conn_pg.close()
                 return {"success": False, "error": f"No hay horarios para la sucursal {sucursal}"}
 
@@ -104,7 +108,7 @@ class AttendanceReportManager:
             conn_pg.close()
 
             # Step 4: Process data
-            print("\n📊 Paso 4: Procesando datos...")
+            logger.info("Paso 4: Procesando datos...")
             df_detalle = self.processor.process_checkins_to_dataframe(
                 checkin_records, start_date, end_date
             )
@@ -124,7 +128,7 @@ class AttendanceReportManager:
             df_detalle = self.processor.marcar_dias_no_contratado(df_detalle, joining_dates_dict)
 
             # Step 5: Generate reports
-            print("\n💾 Paso 5: Generando reportes...")
+            logger.info("Paso 5: Generando reportes...")
             
             # Generate detailed CSV report
             detailed_filename = self.report_generator.save_detailed_report(df_detalle)
@@ -135,24 +139,24 @@ class AttendanceReportManager:
             # Generate HTML dashboard
             html_filename = ""
             if not df_resumen.empty:
-                print("\n🌐 Paso 6: Generando dashboard HTML...")
+                logger.info("Paso 6: Generando dashboard HTML...")
                 html_filename = self.report_generator.generar_reporte_html(
                     df_detalle, df_resumen, start_date, end_date, sucursal
                 )
             else:
-                print("⚠️ Resumen no generado, omitiendo creación del dashboard HTML.")
+                logger.warning("Resumen no generado, omitiendo creación del dashboard HTML.")
 
             # Generate Excel report
             excel_filename = ""
             if not df_resumen.empty:
-                print("\n📊 Paso 7: Generando reporte Excel...")
+                logger.info("Paso 7: Generando reporte Excel...")
                 excel_filename = self.report_generator.generar_reporte_excel(
                     df_detalle, df_resumen, sucursal, start_date, end_date
                 )
             else:
-                print("⚠️ Resumen no generado, omitiendo creación del reporte Excel.")
+                logger.warning("Resumen no generado, omitiendo creación del reporte Excel.")
 
-            print("\n🎉 ¡Proceso completado!")
+            logger.info("¡Proceso completado!")
             
             return {
                 "success": True,
@@ -165,7 +169,7 @@ class AttendanceReportManager:
             }
             
         except Exception as e:
-            print(f"❌ Error durante la generación del reporte: {str(e)}")
+            logger.error(f"Error durante la generación del reporte: {str(e)}")
             return {"success": False, "error": str(e)}
 
 
@@ -201,29 +205,29 @@ def main():
     
     # Print final results
     if result["success"]:
-        print("\n" + "="*60)
-        print("📊 GENERACIÓN DE REPORTE COMPLETADA EXITOSAMENTE")
-        print("="*60)
-        print(f"📅 Período: {start_date} al {end_date}")
-        print(f"🏢 Sucursal: {sucursal}")
-        print(f"👥 Empleados procesados: {result.get('employees_processed', 'N/A')}")
-        print(f"📆 Días procesados: {result.get('days_processed', 'N/A')}")
-        print("\n📁 Archivos generados:")
+        logger.info("="*60)
+        logger.info("GENERACIÓN DE REPORTE COMPLETADA EXITOSAMENTE")
+        logger.info("="*60)
+        logger.info(f"Período: {start_date} al {end_date}")
+        logger.info(f"Sucursal: {sucursal}")
+        logger.info(f"Empleados procesados: {result.get('employees_processed', 'N/A')}")
+        logger.info(f"Días procesados: {result.get('days_processed', 'N/A')}")
+        logger.info("Archivos generados:")
         if result.get("detailed_report"):
-            print(f"   • Reporte detallado: {result['detailed_report']}")
+            logger.info(f"   • Reporte detallado: {result['detailed_report']}")
         if result.get("summary_report"):
-            print(f"   • Reporte resumen: {result['summary_report']}")
+            logger.info(f"   • Reporte resumen: {result['summary_report']}")
         if result.get("html_dashboard"):
-            print(f"   • Dashboard HTML: {result['html_dashboard']}")
+            logger.info(f"   • Dashboard HTML: {result['html_dashboard']}")
         if result.get("excel_report"):
-            print(f"   • Reporte Excel: {result['excel_report']}")
-        print("\n✅ ¡Todos los reportes han sido generados exitosamente!")
+            logger.info(f"   • Reporte Excel: {result['excel_report']}")
+        logger.info("¡Todos los reportes han sido generados exitosamente!")
     else:
-        print("\n" + "="*60)
-        print("❌ FALLÓ LA GENERACIÓN DEL REPORTE")
-        print("="*60)
-        print(f"Error: {result.get('error', 'Error desconocido')}")
-        print("\nPor favor verifica tu configuración e intenta de nuevo.")
+        logger.error("="*60)
+        logger.error("FALLÓ LA GENERACIÓN DEL REPORTE")
+        logger.error("="*60)
+        logger.error(f"Error: {result.get('error', 'Error desconocido')}")
+        logger.error("Por favor verifica tu configuración e intenta de nuevo.")
         sys.exit(1)
 
 

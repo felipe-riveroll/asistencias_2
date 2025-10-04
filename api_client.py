@@ -6,11 +6,14 @@ Handles communication with Frappe API for check-ins and leave applications.
 import json
 import requests
 import pytz
+import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
 from config import API_URL, LEAVE_API_URL, EMPLOYEE_API_URL, get_api_headers
 from utils import normalize_leave_type
+
+logger = logging.getLogger(__name__)
 
 
 class APIClient:
@@ -36,12 +39,12 @@ class APIClient:
         Returns:
             List of check-in records with normalized timezone
         """
-        print(f"📡 Obtaining check-ins from API for device '{device_filter}'...")
+        logger.debug(f"Obteniendo check-ins desde API para dispositivo '{device_filter}'...")
         
         try:
             headers = get_api_headers()
         except ValueError as e:
-            print(f"❌ Error validating API credentials: {e}")
+            logger.error(f"Error validando credenciales API: {e}")
             return []
         
         filters = json.dumps([
@@ -88,10 +91,10 @@ class APIClient:
                 limit_start += self.page_length
                 
             except requests.exceptions.RequestException as e:
-                print(f"❌ Error calling API: {e}")
+                logger.error(f"Error llamando API: {e}")
                 return []
 
-        print(f"✅ Retrieved {len(all_records)} records from API.")
+        logger.info(f"Se obtuvieron {len(all_records)} registros de la API.")
         return all_records
 
     def fetch_leave_applications(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
@@ -105,12 +108,12 @@ class APIClient:
         Returns:
             List of approved leave application records
         """
-        print(f"📄 Obtaining approved leave applications from API for period {start_date} - {end_date}...")
+        logger.debug(f"Obteniendo solicitudes de permisos aprobadas de API para período {start_date} - {end_date}...")
         
         try:
             headers = get_api_headers()
         except ValueError as e:
-            print(f"❌ Error validating API credentials: {e}")
+            logger.error(f"Error validando credenciales API: {e}")
             return []
         url = f'https://erp.asiatech.com.mx/api/resource/Leave Application?fields=["employee","employee_name","leave_type","from_date","to_date","status","half_day"]&filters=[["status","=","Approved"],["from_date",">=","{start_date}"],["to_date","<=","{end_date}"]]'
 
@@ -144,19 +147,19 @@ class APIClient:
                 limit_start += self.page_length
 
             except requests.exceptions.Timeout:
-                print("⚠️ Timeout while obtaining leave applications. Retrying...")
+                logger.warning("Timeout obteniendo solicitudes de permisos. Reintentando...")
                 continue
             except requests.exceptions.RequestException as e:
-                print(f"❌ Error obtaining leave applications from API: {e}")
+                logger.error(f"Error obteniendo solicitudes de permisos de API: {e}")
                 return []
 
-        print(f"✅ Retrieved {len(all_leave_records)} approved leave applications from API.")
+        logger.info(f"Se obtuvieron {len(all_leave_records)} solicitudes de permiso aprobadas de API.")
 
         if all_leave_records:
-            print("📋 Example of retrieved leave applications:")
+            logger.debug("Ejemplo de solicitudes de permiso recuperadas:")
             for i, leave in enumerate(all_leave_records[:3]):
-                half_day_info = f" (half day)" if leave.get("half_day") == 1 else ""
-                print(f"   - {leave['employee_name']}: {leave['leave_type']}{half_day_info} ({leave['from_date']} - {leave['to_date']})")
+                half_day_info = f" (medio día)" if leave.get("half_day") == 1 else ""
+                logger.debug(f"   - {leave['employee_name']}: {leave['leave_type']}{half_day_info} ({leave['from_date']} - {leave['to_date']})")
 
         return all_leave_records
 
@@ -167,12 +170,12 @@ class APIClient:
         Returns:
             List of employee records with 'employee' and 'date_of_joining'.
         """
-        print("👥 Obtaining all employee joining dates from API...")
+        logger.debug("Obteniendo todas las fechas de contratación de empleados de API...")
 
         try:
             headers = get_api_headers()
         except ValueError as e:
-            print(f"❌ Error validating API credentials: {e}")
+            logger.error(f"Error validando credenciales API: {e}")
             return []
 
         params = {
@@ -207,10 +210,10 @@ class APIClient:
                 limit_start += self.page_length
 
             except requests.exceptions.RequestException as e:
-                print(f"❌ Error calling Employee API: {e}")
+                logger.error(f"Error llamando API de Empleados: {e}")
                 return []
 
-        print(f"✅ Retrieved {len(all_records)} employee records from API.")
+        logger.info(f"Se obtuvieron {len(all_records)} registros de empleados de API.")
         return all_records
 
 
@@ -228,7 +231,7 @@ def procesar_permisos_empleados(leave_data: List[Dict[str, Any]]) -> Dict[str, D
     if not leave_data:
         return {}
 
-    print("🔄 Processing leave applications by employee and date...")
+    logger.debug("Procesando solicitudes de permiso por empleado y fecha...")
 
     permisos_por_empleado = {}
     total_dias_permiso = 0
@@ -278,7 +281,7 @@ def procesar_permisos_empleados(leave_data: List[Dict[str, Any]]) -> Dict[str, D
                 current_date += timedelta(days=1)
                 total_dias_permiso += 1.0
 
-    print(f"✅ Processed leave applications for {len(permisos_por_empleado)} employees, "
-          f"{total_dias_permiso:.1f} total leave days ({permisos_medio_dia} half-day leaves).")
+    logger.info(f"Se procesaron solicitudes de permiso para {len(permisos_por_empleado)} empleados, "
+          f"{total_dias_permiso:.1f} días totales de permiso ({permisos_medio_dia} de medio día).")
 
     return permisos_por_empleado
