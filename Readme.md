@@ -138,18 +138,19 @@ nuevo_asistencias/
 │   ├── PRUEBAS_SALIDAS_ANTICIPADAS.md          # Documentación salidas anticipadas
 │   ├── TAREAS_CORRECCION_TESTS.md              # Tareas de corrección de tests
 │   └── ROADMAP_FULLSTACK.md                    # Roadmap desarrollo fullstack
-├── 📄 main.py                                   # **NUEVO** - Script principal modular (punto de entrada)
-├── 📄 config.py                                 # **NUEVO** - Configuración centralizada y constantes
+├── 📄 main.py                                   # **NUEVO** - Script principal modular con sistema de logging integrado (punto de entrada)
+├── 📄 config.py                                 # **NUEVO** - Configuración centralizada, constantes y sistema de logging unificado
 ├── 📄 utils.py                                  # **NUEVO** - Funciones de utilidad compartidas
-├── 📄 api_client.py                             # **NUEVO** - Cliente para APIs externas (checadas y permisos)
-├── 📄 data_processor.py                         # **NUEVO** - Lógica de procesamiento de datos de asistencia
-├── 📄 report_generator.py                       # **NUEVO** - Generación de reportes CSV y HTML
+├── 📄 api_client.py                             # **NUEVO** - Cliente para APIs externas con logging estructurado (checadas y permisos)
+├── 📄 data_processor.py                         # **NUEVO** - Lógica de procesamiento de datos con logging estructurado y seguimiento detallado
+├── 📄 report_generator.py                       # **NUEVO** - Generación de reportes con centralización de lógica de guardado y logging estructurado
 ├── 📄 generar_reporte_optimizado.py            # Script original (monolítico, mantenido para referencia)
 ├── 📄 db_postgres_connection.py                # Conexión BD
 ├── 📄 db_postgres.sql                          # Estructura BD
 ├── 📄 pyproject.toml                           # Configuración proyecto
 ├── 📄 pytest.ini                               # Configuración pytest
-└── 📄 run_tests.py                             # Ejecutor pruebas
+├── 📄 run_tests.py                             # Ejecutor pruebas
+└── 📄 attendance_report.log                    # **NUEVO** - Archivo de log con información detallada de depuración del sistema
 ```
 
 ## 🔧 **Componentes de la Arquitectura Modular**
@@ -196,6 +197,27 @@ device_filter = "%31%"         # Filtro de dispositivos para BD
 - `TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS`: 15 minutos de tolerancia para salidas anticipadas
 - `OUTPUT_*`: Rutas de archivos de salida
 - `validate_api_credentials()`: Validación de credenciales de API
+
+#### **Sistema de Logging Centralizado**
+**Configuración unificada de logging para toda la aplicación:**
+
+**Función Principal:**
+- `setup_logging()`: Configura el sistema de logging centralizado con múltiples salidas
+
+**Niveles de Logging Configurados:**
+- **Consola**: Nivel INFO para mensajes importantes y progreso del sistema
+- **Archivo**: Nivel DEBUG para información detallada de depuración en `attendance_report.log`
+
+**Formato de Salida:**
+- **Consola**: `%(levelname)s - %(message)s` - Formato simplificado para fácil lectura
+- **Archivo**: `%(asctime)s - %(name)s - %(levelname)s - %(message)s` - Formato completo con timestamp y módulo
+
+**Beneficios del Sistema Centralizado:**
+- **🎯 Consistencia**: Todos los módulos utilizan el mismo formato de logging
+- **📊 Visibilidad**: Información detallada de depuración disponible en archivo log
+- **🔧 Mantenimiento**: Cambios en el formato de logging se aplican globalmente
+- **🚀 Rendimiento**: Configuración optimizada con niveles diferenciados
+- **🛠️ Debugging**: Información detallada para identificar y resolver problemas rápidamente
 
 ### **`utils.py` - Funciones de Utilidad**
 **Funciones auxiliares compartidas:**
@@ -247,8 +269,260 @@ device_filter = "%31%"         # Filtro de dispositivos para BD
 - `generar_reporte_html()`: **CORREGIDO** - Genera dashboard interactivo con DataTables.net
 - `_generate_html_template()`: Template HTML completo con JavaScript corregido
 
+#### **Centralización de Lógica de Guardado**
+**Funciones centralizadas para el manejo consistente de archivos de salida:**
+
+**Funciones Principales:**
+- **`_save_csv_with_fallback()`**: Función unificada para guardar archivos CSV con manejo de errores de permisos
+- **`_save_html_with_fallback()`**: Función unificada para guardar archivos HTML con manejo de errores de permisos
+
+**Lógica Unificada:**
+- **Manejo consistente de errores**: Captura automática de errores de permisos (PermissionError)
+- **Generación de nombres alternativos**: Si el archivo original está en uso, genera automáticamente un nombre con timestamp
+- **Formato estándar**: `nombre_archivo_YYYYMMDD_HHMMSS.extensión` para archivos alternativos
+- **Logging integrado**: Registra automáticamente el éxito o advertencia cuando se usa archivo alternativo
+- **Codificación consistente**: Usa UTF-8 con BOM (utf-8-sig) para todos los archivos CSV
+
+**Ejemplo de Implementación:**
+```python
+def _save_csv_with_fallback(self, df: pd.DataFrame, filename: str, description: str) -> str:
+    try:
+        df.to_csv(filename, index=False, encoding="utf-8-sig")
+        logger.info(f"{description.title()} guardado en '{filename}'")
+        return filename
+    except PermissionError:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        fallback_name = f"{filename.rsplit('.', 1)[0]}_{timestamp}.csv"
+        df.to_csv(fallback_name, index=False, encoding="utf-8-sig")
+        logger.warning(f"El archivo original estaba en uso. {description.title()} guardado en '{fallback_name}'")
+        return fallback_name
+```
+
+**Beneficios de la Centralización:**
+- **🎯 Consistencia**: Todos los archivos se guardan con la misma lógica de manejo de errores
+- **📊 Mantenibilidad**: Cambios en la lógica de guardado se aplican globalmente
+- **🔧 Resiliencia**: El sistema nunca falla por archivos en uso, genera alternativas automáticamente
+- **📝 Trazabilidad**: Registro completo de operaciones de guardado para auditoría
+- **🚀 Experiencia de Usuario**: El sistema continúa funcionando incluso si los archivos de salida están bloqueados
+
+**Uso en el Sistema:**
+- **Reporte Detallado**: `save_detailed_report()` utiliza `_save_csv_with_fallback()`
+- **Reporte Resumen**: `generar_resumen_periodo()` utiliza `_save_csv_with_fallback()`
+- **Dashboard HTML**: `generar_reporte_html()` utiliza `_save_html_with_fallback()`
+
 ### **`generar_reporte_optimizado.py` - Script Original**
 **Script monolítico original** mantenido para referencia y compatibilidad. Contiene toda la funcionalidad en un solo archivo de 1800+ líneas.
+
+### **📝 Ejemplos de Uso del Sistema de Logging**
+
+El sistema de logging centralizado proporciona visibilidad completa del funcionamiento interno y facilita el diagnóstico de problemas. A continuación se muestran ejemplos prácticos de uso:
+
+#### **🔧 Inicialización del Sistema de Logging**
+
+Para inicializar el sistema de logging en cualquier módulo:
+
+```python
+# Importar la función de configuración
+from config import setup_logging
+
+# Inicializar el logger (generalmente al inicio del módulo)
+logger = setup_logging()
+logger.info("Sistema de logging inicializado correctamente")
+```
+
+#### **📊 Niveles de Logging y Uso Apropiado**
+
+El sistema utiliza cuatro niveles principales de logging, cada uno con un propósito específico:
+
+##### **1. logger.info() - Mensajes Informativos**
+Para mensajes de progreso y estado del sistema que el usuario debe ver:
+
+```python
+# Mensajes de progreso
+logger.info("Iniciando procesamiento de checadas...")
+logger.info(f"Procesando {len(checadas)} registros de asistencia")
+
+# Mensajes de estado
+logger.info("Conexión a base de datos establecida correctamente")
+logger.info("Reporte generado exitosamente")
+
+# Mensajes de resumen
+logger.info(f"Análisis completado. Total empleados: {total_empleados}")
+logger.info(f"Reporte guardado en: {output_file}")
+```
+
+##### **2. logger.debug() - Detalles Técnicos**
+Para información detallada de depuración que ayuda a entender el flujo interno:
+
+```python
+# Detalles de procesamiento
+logger.debug(f"Analizando empleado {employee_id} para fecha {date}")
+logger.debug(f"Checadas encontradas: {len(checkins)}")
+logger.debug(f"Horario programado: entrada={schedule_entry}, salida={schedule_exit}")
+
+# Cálculos internos
+logger.debug(f"Horas trabajadas: {worked_hours}, Horas esperadas: {expected_hours}")
+logger.debug(f"Aplicando regla de perdón de retardos para empleado {employee_id}")
+
+# Estado de variables
+logger.debug(f"Cache de horarios contiene {len(schedule_cache)} entradas")
+logger.debug(f"Permiso encontrado: {leave_type} (medio día: {half_day})")
+```
+
+##### **3. logger.warning() - Alertas y Situaciones Inesperadas**
+Para situaciones que no son errores críticos pero requieren atención:
+
+```python
+# Casos límite
+logger.warning(f"Empleado {employee_id} sin checadas para el día {date}")
+logger.warning(f"Horario no encontrado para empleado {employee_id} en fecha {date}")
+
+# Datos inusuales
+logger.warning(f"Empleado con múltiples checadas de entrada: {checkin_count}")
+logger.warning(f"Intervalo de descanso negativo detectado: {break_interval}")
+
+# Problemas recuperables
+logger.warning(f"Usando nombre alternativo para archivo: {fallback_filename}")
+logger.warning(f"Permiso sin tipo reconocido: {unknown_leave_type}")
+```
+
+##### **4. logger.error() - Errores y Excepciones**
+Para errores críticos que requieren intervención:
+
+```python
+# Errores de conexión
+logger.error(f"Error al conectar a la API: {api_error}")
+logger.error(f"Error de base de datos: {db_error}")
+
+# Errores de procesamiento
+logger.error(f"Error al procesar empleado {employee_id}: {processing_error}")
+logger.error(f"Error al generar reporte: {report_error}")
+
+# Excepciones capturadas
+try:
+    # Operación que puede fallar
+    result = risky_operation()
+except Exception as e:
+    logger.error(f"Error en operación crítica: {e}")
+    # Manejo del error
+```
+
+#### **🖥️ Diferenciación de Salidas: Consola vs Archivo**
+
+El sistema configura dos destinos con diferentes niveles:
+
+##### **Salida por Consola (Nivel INFO)**
+```
+INFO - Iniciando procesamiento de checadas...
+INFO - Conexión a base de datos establecida correctamente
+INFO - Reporte generado exitosamente
+WARNING - Empleado 1234 sin checadas para el día 2025-07-15
+ERROR - Error al conectar a la API: Connection timeout
+```
+
+##### **Salida en Archivo (Nivel DEBUG)**
+```
+2025-07-15 10:30:15,123 - main - INFO - Iniciando procesamiento de checadas...
+2025-07-15 10:30:15,125 - main - DEBUG - Analizando empleado 1234 para fecha 2025-07-15
+2025-07-15 10:30:15,126 - main - DEBUG - Checadas encontradas: 2
+2025-07-15 10:30:15,127 - main - DEBUG - Horario programado: entrada=08:00, salida=17:00
+2025-07-15 10:30:15,128 - main - INFO - Conexión a base de datos establecida correctamente
+2025-07-15 10:30:15,129 - main - WARNING - Empleado 1234 sin checadas para el día 2025-07-15
+2025-07-15 10:30:15,130 - api_client - ERROR - Error al conectar a la API: Connection timeout
+2025-07-15 10:30:15,131 - main - INFO - Reporte generado exitosamente
+```
+
+#### **🎯 Ejemplos Prácticos por Situación**
+
+##### **Procesamiento de Asistencia**
+```python
+def procesar_asistencia(empleado_id, fecha, checadas):
+    logger.info(f"Procesando asistencia para empleado {empleado_id} en fecha {fecha}")
+    
+    if not checadas:
+        logger.warning(f"No hay checadas para empleado {empleado_id} en {fecha}")
+        return None
+    
+    logger.debug(f"Analizando {len(checadas)} checadas")
+    
+    try:
+        # Lógica de procesamiento
+        resultado = analizar_checadas(checadas)
+        logger.info(f"Asistencia procesada correctamente para empleado {empleado_id}")
+        return resultado
+    except Exception as e:
+        logger.error(f"Error procesando asistencia del empleado {empleado_id}: {e}")
+        raise
+```
+
+##### **Integración con APIs Externas**
+```python
+def obtener_permisos_api(empleado_id, fecha_inicio, fecha_fin):
+    logger.info(f"Obteniendo permisos para empleado {empleado_id}")
+    logger.debug(f"Período solicitado: {fecha_inicio} a {fecha_fin}")
+    
+    try:
+        response = api_client.get(f"/leave-applications?employee={empleado_id}")
+        logger.debug(f"Respuesta API recibida: {len(response.data)} permisos")
+        
+        if response.status_code != 200:
+            logger.warning(f"API respondió con código {response.status_code}")
+            
+        return response.data
+    except ConnectionError as e:
+        logger.error(f"Error de conexión al obtener permisos: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Error inesperado al obtener permisos: {e}")
+        raise
+```
+
+##### **Generación de Reportes**
+```python
+def generar_reporte(datos, nombre_archivo):
+    logger.info(f"Generando reporte: {nombre_archivo}")
+    logger.debug(f"Registros a procesar: {len(datos)}")
+    
+    try:
+        # Procesamiento de datos
+        datos_procesados = procesar_datos_reporte(datos)
+        logger.debug(f"Datos procesados: {len(datos_procesados)} registros")
+        
+        # Guardado de archivo
+        archivo_guardado = guardar_csv(datos_procesados, nombre_archivo)
+        logger.info(f"Reporte guardado exitosamente en: {archivo_guardado}")
+        
+        return archivo_guardado
+    except PermissionError:
+        logger.warning(f"Error de permisos al guardar {nombre_archivo}, usando alternativa")
+        # Lógica de archivo alternativo
+    except Exception as e:
+        logger.error(f"Error crítico al generar reporte: {e}")
+        raise
+```
+
+#### **🔍 Configuración de Logger por Módulo**
+
+Cada módulo debe configurar su logger específico:
+
+```python
+# Al inicio de cada módulo
+import logging
+logger = logging.getLogger(__name__)
+
+# Uso en el módulo
+logger.debug("Mensaje específico del módulo")
+logger.info("Progreso del módulo")
+```
+
+#### **📈 Beneficios del Sistema de Logging**
+
+- **🎯 Visibilidad Completa**: Información detallada del funcionamiento interno
+- **🔧 Diagnóstico Rápido**: Los mensajes DEBUG facilitan identificar problemas
+- **📊 Trazabilidad**: Registro completo de operaciones para auditoría
+- **🚀 Monitoreo**: Los mensajes INFO permiten seguir el progreso
+- **🛡️ Detección Temprana**: Los mensajes WARNING alertan sobre problemas potenciales
+- **🚨 Respuesta a Errores**: Los mensajes ERROR facilitan la identificación y corrección de fallos
 
 ### **`db_postgres_connection.py` - Gestión de Base de Datos**
 
@@ -549,7 +823,88 @@ Para información detallada sobre las pruebas, tipos de tests, configuración y 
 - **KPIs en tiempo real**: Tasa de asistencia, puntualidad, desviación
 - **JavaScript Corregido**: **NUEVO** - Error de sintaxis JavaScript reparado que causaba dashboard en blanco
 
-### **8. Arquitectura Modular y Mejoras**
+### **8. Sistema de Logging Centralizado**
+- **📊 Configuración Unificada**: **NUEVO** - Sistema de logging centralizado en `config.py` con `setup_logging()`
+- **🎯 Niveles Diferenciados**: **NUEVO** - Nivel INFO para consola (mensajes importantes) y DEBUG para archivo (depuración detallada)
+- **📝 Formatos Optimizados**: **NUEVO** - Formato simplificado para consola y formato completo con timestamp para archivo
+- **🔧 Mantenimiento Simplificado**: **NUEVO** - Cambios globales en formato de logging desde un único punto
+- **🛠️ Depuración Mejorada**: **NUEVO** - Archivo `attendance_report.log` con información detallada para diagnóstico
+- **🚀 Reemplazo de print()**: **NUEVO** - Todas las sentencias `print()` reemplazadas por llamadas al logger apropiadas
+- **📈 Visibilidad del Sistema**: **NUEVO** - Mayor visibilidad del funcionamiento interno con niveles de logging apropiados
+
+### **8.1. Logging Estructurado vs Sentencias print()**
+- **🔄 Reemplazo Completo**: **NUEVO** - Eliminación total de sentencias `print()` en todo el código base y reemplazo por logging estructurado
+- **📊 Niveles de Logging Implementados**: **NUEVO** - Uso diferenciado de niveles según tipo y criticidad del mensaje:
+  - **`logger.info()`**: Para mensajes informativos de progreso y estado del sistema
+  - **`logger.debug()`**: Para detalles de depuración y seguimiento de flujo interno
+  - **`logger.warning()`**: Para situaciones inesperadas pero no críticas
+  - **`logger.error()`**: Para errores y excepciones del sistema
+- **🎯 Diferenciación de Salidas**: **NUEVO** - Mensajes dirigidos a consola vs archivo según nivel:
+  - **Consola**: Muestra mensajes INFO y superiores para seguimiento del usuario
+  - **Archivo**: Registra mensajes DEBUG y superiores para diagnóstico detallado
+- **🚀 Beneficios del Cambio**: **NUEVO** - Ventajas significativas sobre el uso de `print()`:
+  - **Control Granular**: Posibilidad de filtrar mensajes por nivel y destino
+  - **Contexto Adicional**: Información automática de timestamp, módulo y nivel
+  - **Persistencia**: Registro permanente en archivo para análisis post-mortem
+  - **Consistencia**: Formato unificado para todos los mensajes del sistema
+  - **Mantenibilidad**: Configuración centralizada sin necesidad modificar código
+- **📝 Ejemplos de Reemplazo**: **NUEVO** - Transformaciones aplicadas en el código:
+  ```python
+  # Antes (con print())
+  print("Procesando checadas...")
+  print(f"Error al conectar: {error}")
+  
+  # Después (con logger estructurado)
+  logger.info("Procesando checadas...")
+  logger.error(f"Error al conectar: {error}")
+  ```
+- **🔧 Configuración por Archivo**: **NUEVO** - Cada módulo utiliza el logger configurado centralmente:
+  ```python
+  # En cada módulo
+  import logging
+  logger = logging.getLogger(__name__)
+  
+  # Uso diferenciado según contexto
+  logger.debug("Detalle interno para depuración")
+  logger.info("Mensaje de progreso para usuario")
+  logger.warning("Situación inesperada pero maneable")
+  logger.error("Error crítico que requiere atención")
+  ```
+
+### **8.2. Centralización de Lógica de Guardado de Archivos**
+- **🎯 Punto Único de Guardado**: **NUEVO** - Centralización de toda la lógica de guardado en `report_generator.py` con funciones `_save_csv_with_fallback()` y `_save_html_with_fallback()`
+- **🔄 Manejo Consistente de Errores**: **NUEVO** - Captura automática de errores de permisos (PermissionError) para todos los tipos de archivo
+- **📝 Nombres Alternativos Automáticos**: **NUEVO** - Generación automática de nombres de archivo con timestamp cuando el original está en uso
+- **🛡️ Resiliencia del Sistema**: **NUEVO** - El sistema nunca falla por archivos bloqueados, siempre genera una alternativa funcional
+- **📊 Reducción de Código Duplicado**: **NUEVO** - Eliminación de lógica repetida de guardado en múltiples módulos
+- **🔧 Mantenibilidad Simplificada**: **NUEVO** - Cambios en la lógica de guardado se aplican globalmente desde un único punto
+- **📈 Trazabilidad Completa**: **NUEVO** - Logging integrado para todas las operaciones de guardado con información detallada
+
+**Formato de Nombres Alternativos:**
+- **CSV**: `nombre_archivo_YYYYMMDD_HHMMSS.csv`
+- **HTML**: `nombre_archivo_YYYYMMDD_HHMMSS.html`
+
+**Ejemplo de Uso:**
+```python
+# Antes (lógica dispersa)
+try:
+    df.to_csv(filename, index=False)
+except PermissionError:
+    # Manejo de error específico en cada módulo
+    pass
+
+# Después (lógica centralizada)
+filename = self._save_csv_with_fallback(df, filename, "reporte")
+# Manejo automático de errores y nombres alternativos
+```
+
+**Beneficios de la Centralización:**
+- **Consistencia**: Todos los archivos se guardan con la misma lógica y formato
+- **Mantenibilidad**: Un solo punto de modificación para toda la lógica de guardado
+- **Fiabilidad**: El sistema continúa funcionando incluso con archivos bloqueados
+- **Auditoría**: Registro completo de todas las operaciones de guardado
+
+### **9. Arquitectura Modular y Mejoras**
 - **Separación de Módulos**: **NUEVO** - 6 módulos especializados para mejor organización
 - **Configuración Centralizada**: **NUEVO** - Todas las constantes en `config.py`
 - **Utilidades Compartidas**: **NUEVO** - Funciones reutilizables en `utils.py`
@@ -738,6 +1093,17 @@ Este proyecto está bajo la Licencia MIT. Ver archivo LICENSE para más detalles
 
 ## 🔄 **Historial de Versiones**
 
+### **Versión 6.3 - Sistema de Logging Centralizado (Octubre 2025)**
+- **📊 Sistema de Logging Centralizado**: Implementación de `setup_logging()` en `config.py` para configuración unificada
+- **🔄 Reemplazo de print()**: Eliminación total de sentencias `print()` y reemplazo por logging estructurado
+- **🎯 Niveles Diferenciados**: Configuración de niveles INFO para consola y DEBUG para archivo de log detallado
+- **📝 Formatos Optimizados**: Formato simplificado para consola y formato completo con timestamp para archivo
+- **🔧 Centralización de Guardado**: Lógica de guardado de archivos centralizada en `report_generator.py` con manejo de errores
+- **🛡️ Resiliencia Mejorada**: Sistema nunca falla por archivos bloqueados, genera alternativas automáticamente
+- **📈 Trazabilidad Completa**: Registro detallado de todas las operaciones del sistema para auditoría
+- **🚀 Mantenibilidad Simplificada**: Configuración centralizada que permite cambios globales sin modificar código
+- **🧹 Limpieza de Código**: Eliminación de código duplicado y mejora de la estructura general
+
 ### **Versión 6.2 - Fechas de Contratación de Empleados (Agosto 2025)**
 - **👥 Fechas de Contratación**: Nueva funcionalidad que obtiene automáticamente fechas de contratación desde ERPNext
 - **🔧 Lógica "No Contratado"**: Marca días anteriores a la fecha de contratación como "No Contratado" para evitar falsas faltas
@@ -766,7 +1132,7 @@ Este proyecto está bajo la Licencia MIT. Ver archivo LICENSE para más detalles
 - PostgreSQL + Pytest + Permisos ERPNext + Perdón de Retardos
 - Salidas Anticipadas + DataTables.net + Cálculo Corregido de Resumen
 
-**Versión Actual:** 6.2 (Fechas de Contratación de Empleados)  
-**Última actualización:** Agosto 2025  
-**Estado:** Completamente funcional con 211+ pruebas pasando ✅  
+**Versión Actual:** 6.3 (Sistema de Logging Centralizado)
+**Última actualización:** Octubre 2025
+**Estado:** Completamente funcional con 211+ pruebas pasando ✅
 **Compatibilidad:** 100% compatible con versión original, con mejoras y correcciones de bugs críticos
