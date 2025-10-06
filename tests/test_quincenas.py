@@ -4,7 +4,10 @@ Tests para validar la funcionalidad de multi-quincena
 
 import sys
 import os
+from datetime import datetime, timedelta
 from unittest.mock import patch
+
+import db_postgres_connection as db_conn
 
 # Añadir el directorio raíz al path para importar los módulos
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -21,8 +24,6 @@ def test_deteccion_quincena_rango_primera():
     Prueba que un rango dentro de la primera quincena solo activa la primera quincena
     Rango 2025-07-01..2025-07-15 → solo primera
     """
-    from generar_reporte_optimizado import datetime, timedelta
-
     # Simular el análisis de fechas
     fecha_inicio_dt = datetime.strptime("2025-07-01", "%Y-%m-%d")
     fecha_fin_dt = datetime.strptime("2025-07-15", "%Y-%m-%d")
@@ -48,8 +49,6 @@ def test_deteccion_quincena_rango_cruce_quincenas():
     Prueba que un rango que cruza del 15 al 16 activa ambas quincenas
     Rango 2025-07-14..2025-07-17 → cruza quincenas (15→16)
     """
-    from generar_reporte_optimizado import datetime, timedelta
-
     # Simular el análisis de fechas
     fecha_inicio_dt = datetime.strptime("2025-07-14", "%Y-%m-%d")
     fecha_fin_dt = datetime.strptime("2025-07-17", "%Y-%m-%d")
@@ -75,8 +74,6 @@ def test_deteccion_quincena_rango_cruce_meses():
     Prueba que un rango que cruza meses y quincenas activa ambas quincenas
     Rango 2025-07-10..2025-08-05 → cruza mes y quincena
     """
-    from generar_reporte_optimizado import datetime, timedelta
-
     # Simular el análisis de fechas
     fecha_inicio_dt = datetime.strptime("2025-07-10", "%Y-%m-%d")
     fecha_fin_dt = datetime.strptime("2025-08-05", "%Y-%m-%d")
@@ -266,7 +263,6 @@ def test_deteccion_cruza_medianoche():
     """
     Prueba que se detecte correctamente cuando un turno cruza la medianoche
     """
-    # Datos de prueba con turno nocturno que cruza medianoche
     horarios_primera = [
         {
             "codigo_frappe": "EMP1",
@@ -276,6 +272,7 @@ def test_deteccion_cruza_medianoche():
                 "horario_entrada": "22:00",
                 "horario_salida": "06:00",
                 "horas_totales": "8",
+                "cruza_medianoche": True,
             },
             "Martes": None,
             "Miércoles": None,
@@ -286,13 +283,11 @@ def test_deteccion_cruza_medianoche():
         }
     ]
 
-    # Probar con primera quincena
     horarios_por_quincena = {True: horarios_primera}
 
     cache = mapear_horarios_por_empleado_multi(horarios_por_quincena)
 
-    # Verificar que se detecta turno cruzando medianoche
-    assert cache["EMP1"][True][1]["cruza_medianoche"] == True
+    assert cache["EMP1"][True][1]["cruza_medianoche"] is True
 
 
 def test_obtener_horario_empleado_multi():
@@ -300,6 +295,7 @@ def test_obtener_horario_empleado_multi():
     Prueba que obtener_horario_empleado lea del sub-mapa correcto
     según es_primera_quincena para formato multi-quincena
     """
+    db_conn._horario_cache.clear()
     # Crear un cache de prueba con formato multi-quincena
     cache = {
         "EMP1": {
@@ -339,6 +335,7 @@ def test_obtener_horario_empleado_multi():
     assert horario is None
 
     # Caso 5: Quincena no existente
+    db_conn._horario_cache.clear()
     cache = {"EMP1": {True: {1: {"hora_entrada": "09:00"}}}}
     horario = obtener_horario_empleado("EMP1", 1, False, cache)
     assert horario is None

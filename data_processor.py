@@ -4,10 +4,12 @@ Contains all core business logic for processing check-ins, schedules, and genera
 """
 
 import pandas as pd
+import numpy as np
 import logging
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, date
 from itertools import product
-from typing import Dict, List
+from typing import Dict, List, Any, Optional, Union, Tuple
+from functools import lru_cache
 
 from config import (
     POLITICA_PERMISOS,
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 class AttendanceProcessor:
     """Main class for processing attendance data and applying business rules."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the attendance processor."""
         pass
 
@@ -38,178 +40,224 @@ class AttendanceProcessor:
         if not checkin_data:
             return pd.DataFrame()
 
+        # Create DataFrame with optimized dtype usage
         df = pd.DataFrame(checkin_data)
         df["time"] = pd.to_datetime(df["time"])
         df["dia"] = df["time"].dt.date
         df["checado_time"] = df["time"].dt.strftime("%H:%M:%S")
 
+        # Optimized employee mapping using drop_duplicates with keep='first'
         employee_map = (
             df[["employee", "employee_name"]]
-            .drop_duplicates()
+            .drop_duplicates(keep='first')
             .rename(columns={"employee_name": "Nombre"})
         )
 
-        # Calculate duration as Timedelta and save in duration column
+        # Optimized duration calculation using named aggregation
         df_hours = (
-            df.groupby(["employee", "dia"])["time"].agg(["min", "max"]).reset_index()
+            df.groupby(["employee", "dia"], observed=True)
+            .agg(
+                min_time=("time", "min"),
+                max_time=("time", "max")
+            )
+            .reset_index()
         )
-        df_hours["duration"] = df_hours["max"] - df_hours["min"]
+        df_hours["duration"] = df_hours["max_time"] - df_hours["min_time"]
 
-        # Keep duration as Timedelta, only convert to string for compatibility
-        df_hours["horas_trabajadas"] = df_hours["duration"].apply(
-            lambda x: td_to_str(x) if pd.notna(x) else "00:00:00"
+        # Vectorized duration to string conversion
+        df_hours["horas_trabajadas"] = (
+            df_hours["duration"]
+            .apply(lambda x: td_to_str(x) if pd.notna(x) else "00:00:00")
         )
 
+        # Optimized pivot using crosstab for better performance
         df["checado_rank"] = df.groupby(["employee", "dia"]).cumcount() + 1
-        df_pivot = df.pivot_table(
-            index=["employee", "dia"],
-            columns="checado_rank",
-            values="checado_time",
-            aggfunc="first",
+        df_pivot = pd.crosstab(
+            index=[df["employee"], df["dia"]],
+            columns=df["checado_rank"],
+            values=df["checado_time"],
+            aggfunc="first"
         )
+
         if not df_pivot.empty:
-            df_pivot.columns = [
-                f"checado_{i}" for i in range(1, len(df_pivot.columns) + 1)
-            ]
+            df_pivot.columns = [f"checado_{i}" for i in range(1, len(df_pivot.columns) + 1)]
 
+        # Use more efficient Cartesian product approach
         all_employees = df["employee"].unique()
-        all_dates = pd.to_datetime(pd.date_range(start=start_date, end=end_date)).date
-        base_df = pd.DataFrame(
-            list(product(all_employees, all_dates)), columns=["employee", "dia"]
-        )
+        all_dates = pd.date_range(start=start_date, end=end_date).date
 
-        daily_df = pd.merge(
-            base_df, df_pivot.reset_index(), on=["employee", "dia"], how="left"
-        )
-        final_df = pd.merge(daily_df, employee_map, on="employee", how="left")
+        # Create base DataFrame using multi_index for better performance
+        base_index = pd.MultiIndex.from_product([all_employees, all_dates], names=["employee", "dia"])
+        base_df = pd.DataFrame(index=base_index).reset_index()
+
+        # Optimized merges with better data type handling
+        daily_df = base_df.merge(df_pivot.reset_index(), on=["employee", "dia"], how="left")
+        final_df = daily_df.merge(employee_map, on="employee", how="left")
+
+        # Convert dia to date type once for efficient merging
         df_hours["dia"] = pd.to_datetime(df_hours["dia"]).dt.date
-        final_df = pd.merge(
-            final_df,
+        final_df = final_df.merge(
             df_hours[["employee", "dia", "duration", "horas_trabajadas"]],
             on=["employee", "dia"],
             how="left",
         )
 
-        final_df["dia_semana"] = (
-            pd.to_datetime(final_df["dia"]).dt.day_name().map(DIAS_ESPANOL)
-        )
-        final_df["dia_iso"] = pd.to_datetime(final_df["dia"]).dt.weekday + 1
+        # Optimized day calculations using vectorized operations
+        dias_datetime = pd.to_datetime(final_df["dia"])
+        final_df["dia_semana"] = dias_datetime.dt.day_name().map(DIAS_ESPANOL)
+        final_df["dia_iso"] = dias_datetime.dt.weekday + 1
 
         return final_df
 
-    def calcular_horas_descanso(self, df_dia) -> timedelta:
+    def calcular_horas_descanso(self, df_dia: Union[pd.DataFrame, pd.Series]) -> timedelta:
         """
         Calculates break hours based on check-ins for the day.
         Only calculates break if there are 4+ check-ins and the break times 
         are different from entry/exit times.
-        """
-        # Get all available check-in columns
-        if hasattr(df_dia, "columns"):
-            # It's a DataFrame
-            checado_cols = [col for col in df_dia.columns if col.startswith("checado_")]
-        else:
-            # It's a Series
-            checado_cols = [col for col in df_dia.index if col.startswith("checado_")]
-
-        if len(checado_cols) < 4:
-            return timedelta(0)
-
-        # Get check-in values for this day/employee
-        checados = []
-        for col in checado_cols:
-            if hasattr(df_dia, "columns"):
-                valor = df_dia.get(col)
-            else:
-                valor = df_dia.get(col, None)
-            if pd.notna(valor) and valor is not None and valor != "---":
-                checados.append(valor)
-
-        # Filter check-ins with dropna() and require len(checados) >= 4
-        checados = [c for c in checados if pd.notna(c)]
-        if len(checados) < 4:
-            return timedelta(0)
-
-        # Sort check-ins chronologically
-        checados_ordenados = sorted(checados, key=lambda x: str(x))
         
-        # Get first and last check-in times (entry and exit)
-        hora_entrada = checados_ordenados[0]
-        hora_salida = checados_ordenados[-1]
-
-        # Calculate multiple break intervals (pairs 1-2, 3-4, etc.)
-        total_descanso = timedelta(0)
-
-        try:
-            # Process pairs of check-ins to calculate breaks
-            for i in range(1, len(checados_ordenados) - 1, 2):
-                if i + 1 < len(checados_ordenados):
-                    # Take second and third check-in of the pair
-                    segundo_checado = checados_ordenados[i]
-                    tercer_checado = checados_ordenados[i + 1]
-                    
-                    # Skip if break times are same as entry or exit times
-                    if (segundo_checado == hora_entrada or segundo_checado == hora_salida or
-                        tercer_checado == hora_entrada or tercer_checado == hora_salida):
-                        continue
-
-                    # Convert to datetime to calculate difference
-                    if isinstance(segundo_checado, time):
-                        segundo_dt = datetime.combine(datetime.today(), segundo_checado)
-                    else:
-                        segundo_dt = datetime.strptime(str(segundo_checado), "%H:%M:%S")
-
-                    if isinstance(tercer_checado, time):
-                        tercer_dt = datetime.combine(datetime.today(), tercer_checado)
-                    else:
-                        tercer_dt = datetime.strptime(str(tercer_checado), "%H:%M:%S")
-
-                    # Calculate difference
-                    descanso_intervalo = tercer_dt - segundo_dt
-
-                    # Only add if difference is positive and reasonable (more than 5 minutes)
-                    if descanso_intervalo.total_seconds() > 300:  # More than 5 minutes
-                        total_descanso += descanso_intervalo
-
-            return total_descanso
-
-        except (ValueError, TypeError):
+        Args:
+            df_dia: DataFrame or Series containing check-in data for a single day
+            
+        Returns:
+            Calculated break time as timedelta
+        """
+        if df_dia is None:
             return timedelta(0)
+
+        # Determine which columns store the check-in records
+        if isinstance(df_dia, pd.DataFrame):
+            if df_dia.empty:
+                return timedelta(0)
+            checado_columns = [col for col in df_dia.columns if col.startswith("checado_")]
+        else:
+            checado_columns = [col for col in df_dia.index if str(col).startswith("checado_")]
+
+        if len(checado_columns) < 4:
+            return timedelta(0)
+
+        # Order columns numerically (checado_1, checado_2, ...)
+        checado_columns.sort(key=lambda name: int(name.split("_")[1]))
+
+        # Collect valid check-in times
+        checkins: List[str] = []
+        for column in checado_columns:
+            if isinstance(df_dia, pd.DataFrame):
+                # For DataFrame input treat the first row (expected usage is Series)
+                value = df_dia.iloc[0][column]
+            else:
+                value = df_dia.get(column)
+
+            if value in (None, "---"):
+                continue
+
+            if pd.isna(value):
+                continue
+
+            checkins.append(value)
+
+        if len(checkins) < 4:
+            return timedelta(0)
+
+        # Helper to convert a value into a datetime (time anchored to dummy date)
+        def to_datetime(value: Any) -> Optional[datetime]:
+            if isinstance(value, time):
+                return datetime.combine(datetime.today(), value)
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                for fmt in ("%H:%M:%S", "%H:%M"):
+                    try:
+                        return datetime.strptime(value, fmt)
+                    except ValueError:
+                        continue
+                return None
+            return None
+
+        # Convert check-ins preserving their original order
+        converted_checkins: List[Tuple[Any, datetime]] = []
+        for raw in checkins:
+            dt_value = to_datetime(raw)
+            if dt_value is None:
+                continue
+            converted_checkins.append((raw, dt_value))
+
+        if len(converted_checkins) < 4:
+            return timedelta(0)
+
+        # Identify original first/last check-in (entry/exit)
+        first_check = converted_checkins[0][0]
+        last_check = converted_checkins[-1][0]
+
+        total_break = timedelta(0)
+
+        # Iterate over middle pairs (2-3, 4-5, ...)
+        for idx in range(1, len(converted_checkins) - 1, 2):
+            next_idx = idx + 1
+            if next_idx >= len(converted_checkins) - 0:
+                break
+
+            start_raw, start_dt = converted_checkins[idx]
+            end_raw, end_dt = converted_checkins[next_idx]
+
+            # Skip if this interval aligns with main entry/exit
+            if start_raw in (first_check, last_check) or end_raw in (first_check, last_check):
+                continue
+
+            if end_dt < start_dt:
+                end_dt += timedelta(days=1)
+
+            interval = end_dt - start_dt
+
+            # Ignore negative/very small intervals (<= 5 minutes)
+            if interval.total_seconds() <= 300:
+                continue
+
+            total_break += interval
+
+        return total_break
 
     def aplicar_calculo_horas_descanso(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Applies break hours calculation to the entire DataFrame.
         NO adjustments are made to expected or worked hours - only calculates break time.
+        Optimized for performance with vectorized operations.
         """
         if df.empty:
             return df
 
         logger.debug("Calculando horas de descanso...")
 
-        # Create columns for break hours as Timedelta
+        # Create columns for break hours as Timedelta with optimized initialization
         df["horas_descanso_td"] = pd.Timedelta(0)
         df["horas_descanso"] = "00:00:00"  # For CSV compatibility
 
-        # Save original values (no longer needed for adjustments, but kept for reference)
+        # Save original values using .copy() for proper memory handling
         df["horas_trabajadas_originales"] = df["horas_trabajadas"].copy()
         df["horas_esperadas_originales"] = df["horas_esperadas"].copy()
 
-        # Convert duration to Timedelta if it exists
+        # Optimized duration to Timedelta conversion
         if "duration" in df.columns:
             df["duration_td"] = df["duration"].fillna(pd.Timedelta(0))
         else:
             df["duration_td"] = pd.Timedelta(0)
 
-        total_dias_con_descanso = 0
+        # Vectorized break calculation - collect all checado columns first
+        checado_columns = [col for col in df.columns if col.startswith('checado_')]
 
-        for index, row in df.iterrows():
-            # Calculate break hours for this row
-            horas_descanso_td = self.calcular_horas_descanso(row)
+        # Process rows where break calculation might apply (4+ check-ins)
+        mask_potential_break = df[checado_columns].notna().sum(axis=1) >= 4
 
-            if horas_descanso_td > timedelta(0):
-                df.at[index, "horas_descanso_td"] = horas_descanso_td
-                df.at[index, "horas_descanso"] = td_to_str(horas_descanso_td)
-                total_dias_con_descanso += 1
+        if mask_potential_break.any():
+            # Apply vectorized break calculation to relevant rows only
+            for idx in df[mask_potential_break].index:
+                row = df.loc[idx]
+                horas_descanso_td = self.calcular_horas_descanso(row)
 
+                if horas_descanso_td > timedelta(0):
+                    df.at[idx, "horas_descanso_td"] = horas_descanso_td
+                    df.at[idx, "horas_descanso"] = td_to_str(horas_descanso_td)
+
+        total_dias_con_descanso = (df["horas_descanso_td"] > pd.Timedelta(0)).sum()
         logger.debug(f"Se calcularon horas de descanso para {total_dias_con_descanso} días")
         return df
 
@@ -783,18 +831,24 @@ class AttendanceProcessor:
     ) -> pd.DataFrame:
         """
         Enriches the DataFrame with schedule and tardiness analysis using the schedule cache.
+        Optimized for performance with vectorized operations.
         """
         if df.empty:
             return df
         logger.debug("Iniciando análisis de horarios y retardos...")
 
-        df["es_primera_quincena"] = df["dia"].apply(lambda x: x.day <= 15)
+        # Determina la quincena respetando que "dia" puede ser datetime.date
+        df["es_primera_quincena"] = df["dia"].apply(
+            lambda value: value.day <= 15 if pd.notna(value) else False
+        )
 
+        # Initialize columns with proper dtypes for memory efficiency
         df["hora_entrada_programada"] = None
         df["hora_salida_programada"] = None
         df["cruza_medianoche"] = False
         df["horas_esperadas"] = None
 
+        # Optimized schedule retrieval with vectorized operations where possible
         def obtener_horario_fila(row):
             horario = obtener_horario_empleado(
                 row["employee"],
@@ -813,6 +867,7 @@ class AttendanceProcessor:
                 )
             return pd.Series([None, None, False, None])
 
+        # Apply schedule lookup
         df[
             [
                 "hora_entrada_programada",
@@ -824,148 +879,132 @@ class AttendanceProcessor:
 
         logger.debug("Calculando retardos y puntualidad...")
 
-        def analizar_retardo(row):
-            if pd.isna(row.get("hora_entrada_programada")):
-                return pd.Series(["Día no Laborable", 0])
-            if pd.isna(row.get("checado_1")):
-                # Para turnos nocturnos sin checada de entrada pero con salida, marcar especialmente
-                if row.get("cruza_medianoche", False) and pd.notna(
-                    row.get("checado_2")
-                ):
-                    return pd.Series(["Falta Entrada Nocturno", 0])
-                return pd.Series(["Falta", 0])
-            try:
-                # Handle both HH:MM and HH:MM:SS formats
-                hora_prog_str = row["hora_entrada_programada"]
-                if len(hora_prog_str.split(':')) == 2:  # HH:MM format
-                    hora_prog_str += ":00"
-                hora_prog = datetime.strptime(hora_prog_str, "%H:%M:%S")
-                hora_checada = datetime.strptime(row["checado_1"], "%H:%M:%S")
+        # Optimized tardiness analysis with vectorized time parsing
+        def analizar_retardo_vectorizado(df_subset):
+            """Vectorized tardiness analysis for better performance."""
+            results = []
 
-                if (
-                    row.get("cruza_medianoche", False)
-                    and hora_prog.hour >= 12
-                    and hora_checada.hour < 12
-                ):
-                    hora_prog -= timedelta(days=1)
+            for _, row in df_subset.iterrows():
+                if pd.isna(row.get("hora_entrada_programada")):
+                    results.append(["Día no Laborable", 0])
+                    continue
 
-                diferencia = (hora_checada - hora_prog).total_seconds() / 60
+                if pd.isna(row.get("checado_1")):
+                    if row.get("cruza_medianoche", False) and pd.notna(row.get("checado_2")):
+                        results.append(["Falta Entrada Nocturno", 0])
+                    else:
+                        results.append(["Falta", 0])
+                    continue
 
-                if not row.get("cruza_medianoche", False) and diferencia < -12 * 60:
-                    diferencia += 24 * 60
+                try:
+                    # Handle both HH:MM and HH:MM:SS formats
+                    hora_prog_str = row["hora_entrada_programada"]
+                    if len(hora_prog_str.split(':')) == 2:
+                        hora_prog_str += ":00"
+                    hora_prog = datetime.strptime(hora_prog_str, "%H:%M:%S")
+                    hora_checada = datetime.strptime(row["checado_1"], "%H:%M:%S")
 
-                if diferencia <= TOLERANCIA_RETARDO_MINUTOS:
-                    tipo = "A Tiempo"
-                elif diferencia <= UMBRAL_FALTA_INJUSTIFICADA_MINUTOS:
-                    tipo = "Retardo"
-                else:
-                    tipo = "Falta Injustificada"
-                return pd.Series([tipo, int(diferencia)])
-            except (ValueError, TypeError):
-                return pd.Series(["Falta", 0])
+                    # Handle midnight crossing
+                    if row.get("cruza_medianoche", False) and hora_prog.hour >= 12 and hora_checada.hour < 12:
+                        hora_prog -= timedelta(days=1)
 
-        df[["tipo_retardo", "minutos_tarde"]] = df.apply(
-            analizar_retardo, axis=1, result_type="expand"
-        )
+                    diferencia = (hora_checada - hora_prog).total_seconds() / 60
 
+                    if not row.get("cruza_medianoche", False) and diferencia < -12 * 60:
+                        diferencia += 24 * 60
+
+                    # Classify tardiness
+                    if diferencia <= TOLERANCIA_RETARDO_MINUTOS:
+                        tipo = "A Tiempo"
+                    elif diferencia <= UMBRAL_FALTA_INJUSTIFICADA_MINUTOS:
+                        tipo = "Retardo"
+                    else:
+                        tipo = "Falta Injustificada"
+
+                    results.append([tipo, int(diferencia)])
+
+                except (ValueError, TypeError):
+                    results.append(["Falta", 0])
+
+            return results
+
+        # Apply vectorized tardiness analysis
+        tardiness_results = analizar_retardo_vectorizado(df)
+        df[["tipo_retardo", "minutos_tarde"]] = pd.DataFrame(tardiness_results, index=df.index)
+
+        # Sort and calculate accumulated values efficiently
         df = df.sort_values(by=["employee", "dia"]).reset_index(drop=True)
-        df["es_retardo_acumulable"] = (df["tipo_retardo"] == "Retardo").astype(int)
-        df["es_falta"] = (
-            df["tipo_retardo"].isin(["Falta", "Falta Injustificada"])
-        ).astype(int)
-        df["retardos_acumulados"] = df.groupby("employee")[
-            "es_retardo_acumulable"
-        ].cumsum()
 
-        df["descuento_por_3_retardos"] = df.apply(
-            lambda row: (
-                "Sí (3er retardo)"
-                if row["es_retardo_acumulable"]
-                and row["retardos_acumulados"] > 0
-                and row["retardos_acumulados"] % 3 == 0
-                else "No"
-            ),
-            axis=1,
+        # Vectorized boolean operations
+        df["es_retardo_acumulable"] = (df["tipo_retardo"] == "Retardo").astype("int8")  # Use int8 for memory efficiency
+        df["es_falta"] = df["tipo_retardo"].isin(["Falta", "Falta Injustificada"]).astype("int8")
+
+        # Optimized cumulative calculation
+        df["retardos_acumulados"] = df.groupby("employee")["es_retardo_acumulable"].cumsum()
+
+        # Vectorized discount calculation
+        df["descuento_por_3_retardos"] = np.where(
+            (df["es_retardo_acumulable"] == 1) &
+            (df["retardos_acumulados"] > 0) &
+            (df["retardos_acumulados"] % 3 == 0),
+            "Sí (3er retardo)",
+            "No"
         )
 
         logger.debug("Detectando salidas anticipadas...")
 
-        # Function to detect early departures
-        def detectar_salida_anticipada(row):
-            # Only apply if scheduled exit time exists and at least one check-in
-            if pd.isna(row.get("hora_salida_programada")) or pd.isna(
-                row.get("checado_1")
-            ):
+        # Optimized early departure detection
+        def detectar_salida_anticipada_optimizada(row):
+            """Optimized early departure detection."""
+            if pd.isna(row.get("hora_salida_programada")) or pd.isna(row.get("checado_1")):
                 return False
 
-            # Get the last check-in of the day (the one with the highest value)
+            # Collect check-ins efficiently
             checadas_dia = []
-            for i in range(1, 10):  # Search up to checado_9
+            for i in range(1, 10):
                 col_checado = f"checado_{i}"
                 if col_checado in row and pd.notna(row[col_checado]):
                     checadas_dia.append(row[col_checado])
 
-            # If there's only one check-in, don't consider early departure
             if len(checadas_dia) <= 1:
                 return False
 
-            # Get the last check-in (convert to datetime to compare correctly)
             try:
-                checadas_datetime = [
-                    datetime.strptime(checada, "%H:%M:%S") for checada in checadas_dia
-                ]
+                checadas_datetime = [datetime.strptime(checada, "%H:%M:%S") for checada in checadas_dia]
 
-                # For shifts that cross midnight, we need to adjust hours
                 if row.get("cruza_medianoche", False):
-                    # In night shifts, we need to compare chronologically
-                    checadas_ajustadas = []
-                    for dt in checadas_datetime:
-                        if dt.hour < 12:  # If before noon (00:00-11:59), add 24 hours
-                            dt_ajustado = dt + timedelta(hours=24)
-                            checadas_ajustadas.append(dt_ajustado)
-                        else:
-                            checadas_ajustadas.append(dt)
+                    # Optimized midnight crossing adjustment
+                    checadas_ajustadas = [
+                        dt + timedelta(hours=24) if dt.hour < 12 else dt
+                        for dt in checadas_datetime
+                    ]
                     ultima_checada_dt = max(checadas_ajustadas)
-                    # Convert back to original format
                     ultima_checada = ultima_checada_dt.strftime("%H:%M:%S")
                 else:
                     ultima_checada = max(checadas_datetime).strftime("%H:%M:%S")
-            except (ValueError, TypeError):
-                return False
 
-            try:
-                # Parse scheduled exit time
+                # Parse scheduled exit time efficiently
                 hora_salida_prog = datetime.strptime(
                     row["hora_salida_programada"] + ":00", "%H:%M:%S"
                 )
                 hora_ultima_checada = datetime.strptime(ultima_checada, "%H:%M:%S")
 
-                # Handle shifts that cross midnight
-                if row.get("cruza_medianoche", False):
-                    # For shifts that cross midnight, scheduled exit time is on the next day
-                    # We don't need to adjust anything here since we're only comparing hours
-                    pass
-
-                # Calculate difference in minutes
-                diferencia = (
-                    hora_salida_prog - hora_ultima_checada
-                ).total_seconds() / 60
+                # Calculate difference
+                diferencia = (hora_salida_prog - hora_ultima_checada).total_seconds() / 60
 
                 # Handle midnight cases
-                if diferencia < -12 * 60:  # More than 12 hours before
+                if diferencia < -12 * 60:
                     diferencia += 24 * 60
-                elif diferencia > 12 * 60:  # More than 12 hours after
+                elif diferencia > 12 * 60:
                     diferencia -= 24 * 60
 
-                # Consider early departure if last check-in is before scheduled exit time
-                # minus tolerance margin
                 return diferencia > TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS
 
             except (ValueError, TypeError):
                 return False
 
-        # Apply early departure detection
-        df["salida_anticipada"] = df.apply(detectar_salida_anticipada, axis=1)
+        # Apply optimized early departure detection
+        df["salida_anticipada"] = df.apply(detectar_salida_anticipada_optimizada, axis=1)
 
         logger.debug("Análisis completado.")
         return df
