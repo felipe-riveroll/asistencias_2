@@ -82,6 +82,22 @@ class ReportGenerator:
         # Llenar con 0 para empleados sin episodios.
         df['episodios_ausencia'] = df['employee'].map(episode_counts).fillna(0).astype(int)
 
+        # --- Normalización de nombres ---
+        def _canonical_name(series: pd.Series) -> str:
+            non_null = series.dropna()
+            if non_null.empty:
+                return ""
+            mode_values = non_null.mode()
+            if not mode_values.empty:
+                return str(mode_values.iloc[0])
+            return str(non_null.sort_values().iloc[0])
+
+        df['Nombre'] = (
+            df.groupby('employee')['Nombre']
+            .transform(_canonical_name)
+            .fillna(df['Nombre'])
+        )
+
         # Always recalculate from the adjusted text column (more robust Plan B)
         df["horas_trabajadas_td"] = pd.to_timedelta(
             df["horas_trabajadas"].fillna("00:00:00")
@@ -127,7 +143,7 @@ class ReportGenerator:
         )
 
         # Build aggregation dict dynamically
-        agg_dict = {
+        agg_dict: Dict[str, Any] = {
             'total_horas_trabajadas': ("horas_trabajadas_td", "sum"),
             'total_horas_esperadas': ("horas_esperadas_originales_td", "sum"),
             'total_horas_descontadas_permiso': ("horas_descontadas_permiso_td", "sum"),
@@ -164,9 +180,11 @@ class ReportGenerator:
         if 'episodios_ausencia' in df.columns:
             agg_dict['episodios_ausencia'] = ('episodios_ausencia', 'first')
 
+        agg_dict_with_name = {"Nombre": ("Nombre", "first"), **agg_dict}
+
         resumen_final = (
-            df.groupby(["employee", "Nombre"])
-            .agg(**agg_dict)
+            df.groupby(["employee"])
+            .agg(**agg_dict_with_name)
             .reset_index()
         )
 
