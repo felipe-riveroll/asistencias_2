@@ -7,7 +7,7 @@ import os
 # Agregar el directorio raíz al path para importar el módulo principal
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from generar_reporte_optimizado import aplicar_regla_perdon_retardos
+from data_processor import AttendanceProcessor
 
 
 class TestPerdonRetardos:

@@ -2,7 +2,11 @@ import os
 import json
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from psycopg2 import pool
 from dotenv import load_dotenv
+from typing import Optional, Dict, Any
+import logging
+from functools import lru_cache
 
 # Carga las variables de entorno desde el archivo .env
 load_dotenv()
@@ -14,28 +18,152 @@ DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
+# Configuración del pool de conexiones
+MIN_POOL_CONNECTIONS = int(os.getenv("MIN_POOL_CONNECTIONS", "2"))
+MAX_POOL_CONNECTIONS = int(os.getenv("MAX_POOL_CONNECTIONS", "10"))
 
-def connect_db():
+# Pool de conexiones global
+_connection_pool = None
+logger = logging.getLogger(__name__)
+
+
+def get_connection_pool():
     """
-    Establece y retorna una conexión a la base de datos PostgreSQL.
+    Inicializa y retorna el pool de conexiones a la base de datos PostgreSQL.
+    Utiliza ThreadedConnectionPool para ser seguro en aplicaciones multi-thread.
     """
+    global _connection_pool
+
+    if _connection_pool is not None:
+        return _connection_pool
+
     if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD]):
-        print("❌ Error de Configuración de BD: Faltan variables en el archivo .env")
+        logger.error("❌ Error de Configuración de BD: Faltan variables en el archivo .env")
         return None
+
     try:
-        conn = psycopg2.connect(
+        _connection_pool = pool.ThreadedConnectionPool(
+            minconn=MIN_POOL_CONNECTIONS,
+            maxconn=MAX_POOL_CONNECTIONS,
             host=DB_HOST,
             port=int(DB_PORT),
             dbname=DB_NAME,
             user=DB_USER,
             password=DB_PASSWORD,
         )
+        logger.info(f"✅ Pool de conexiones inicializado: {MIN_POOL_CONNECTIONS}-{MAX_POOL_CONNECTIONS} conexiones")
+        return _connection_pool
+    except psycopg2.Error as err:
+        logger.error(f"❌ Error al crear pool de conexiones: {err}")
+        return None
+
+
+def connect_db():
+    """
+    Establece y retorna una conexión a la base de datos PostgreSQL.
+    Esta función es mantenida por compatibilidad, pero se recomienda usar get_connection_from_pool().
+    """
+    pool = get_connection_pool()
+    if pool is None:
+        return None
+
+    try:
+        return pool.getconn()
+    except psycopg2.Error as err:
+        logger.error(f"❌ Error obteniendo conexión del pool: {err}")
+        return None
+
+
+def get_connection_from_pool():
+    """
+    Obtiene una conexión del pool de conexiones de forma segura.
+
+    Returns:
+        psycopg2.extensions.connection: Conexión a la base de datos o None si hay error
+    """
+    pool = get_connection_pool()
+    if pool is None:
+        return None
+
+    try:
+        conn = pool.getconn()
+        logger.debug("Conexión obtenida del pool")
         return conn
     except psycopg2.Error as err:
-        print(
-            f"❌ Error de Conexión a BD: {err}. No se pueden obtener los horarios programados."
-        )
+        logger.error(f"❌ Error obteniendo conexión del pool: {err}")
         return None
+
+
+def return_connection_to_pool(conn):
+    """
+    Devuelve una conexión al pool de forma segura.
+
+    Args:
+        conn: Conexión a la base de datos para devolver al pool
+    """
+    if conn is None:
+        return
+
+    pool = get_connection_pool()
+    if pool is None:
+        return
+
+    try:
+        pool.putconn(conn)
+        logger.debug("Conexión devuelta al pool")
+    except psycopg2.Error as err:
+        logger.error(f"❌ Error devolviendo conexión al pool: {err}")
+
+
+def close_all_connections():
+    """
+    Cierra todas las conexiones del pool.
+    Útil para limpieza al finalizar la aplicación.
+    """
+    global _connection_pool
+
+    if _connection_pool is not None:
+        try:
+            _connection_pool.closeall()
+            _connection_pool = None
+            logger.info("✅ Todas las conexiones del pool han sido cerradas")
+        except psycopg2.Error as err:
+            logger.error(f"❌ Error cerrando conexiones del pool: {err}")
+
+
+def connection_context_manager():
+    """
+    Context manager para manejar conexiones del pool automáticamente.
+
+    Usage:
+        with connection_context_manager() as conn:
+            cursor = conn.cursor()
+            # Usar la conexión
+            # La conexión se devuelve automáticamente al pool
+    """
+    class ConnectionContext:
+        def __enter__(self):
+            self.conn = get_connection_from_pool()
+            return self.conn
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            if self.conn is not None:
+                if exc_type is None:
+                    # Si no hay excepción, hacer commit
+                    try:
+                        self.conn.commit()
+                    except psycopg2.Error:
+                        pass  # La conexión podría no estar en una transacción
+                else:
+                    # Si hay excepción, hacer rollback
+                    try:
+                        self.conn.rollback()
+                    except psycopg2.Error:
+                        pass  # La conexión podría no estar en una transacción
+
+                return_connection_to_pool(self.conn)
+
+    return ConnectionContext()
 
 
 def obtener_tabla_horarios(
@@ -49,20 +177,20 @@ def obtener_tabla_horarios(
     Args:
         sucursal: Nombre de la sucursal (ej: 'Villas')
         es_primera_quincena: True si es primera quincena, False si es segunda
-        conn: Conexión a la base de datos (opcional)
+        conn: Conexión a la base de datos (opcional, para compatibilidad)
         codigos_frappe: Lista de códigos frappe de la API para filtrar (opcional)
 
     Returns:
         Lista de diccionarios con los horarios por empleado y día
     """
-    if conn is None:
-        conn = connect_db()
-        close_conn = True
-    else:
-        close_conn = False
+    close_conn = False
 
+    # Si no se proporciona conexión, usar el pool
     if conn is None:
-        return []
+        conn = get_connection_from_pool()
+        close_conn = True
+        if conn is None:
+            return []
 
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -109,11 +237,11 @@ def obtener_tabla_horarios(
 
         return horarios_procesados
     except psycopg2.Error as err:
-        print(f"❌ Error en consulta de horarios para {sucursal}: {err}")
+        logger.error(f"❌ Error en consulta de horarios para {sucursal}: {err}")
         return []
     finally:
         if close_conn and conn:
-            conn.close()
+            return_connection_to_pool(conn)
 
 
 def mapear_horarios_por_empleado(horarios_tabla, empleados_codigos):
@@ -284,11 +412,82 @@ def mapear_horarios_por_empleado_multi(horarios_por_quincena):
     return horarios_mapeados
 
 
+# Cache para consultas de horarios individuales
+_horario_cache = {}
+
+
+@lru_cache(maxsize=10000)
+def obtener_horario_empleado_cached(
+    codigo_frappe: str, dia_semana: int, es_primera_quincena: bool, cache_horarios_id: int
+):
+    """
+    Obtiene el horario de un empleado para un día específico con cache LRU.
+    Esta función está optimizada para llamadas repetitivas con los mismos parámetros.
+
+    Args:
+        codigo_frappe: Código frappe del empleado
+        dia_semana: Día de la semana (1-7, lunes=1)
+        es_primera_quincena: True si es primera quincena, False si es segunda
+        cache_horarios_id: ID del caché de horarios (para evitar problemas con objetos mutables)
+
+    Returns:
+        Tupla con (horario_dict, encontrado) o (None, False) si no existe
+    """
+    global _horario_cache
+
+    cache_key = f"{codigo_frappe}_{dia_semana}_{es_primera_quincena}_{cache_horarios_id}"
+
+    if cache_key in _horario_cache:
+        return _horario_cache[cache_key], True
+
+    # Si no está en caché, buscar en el cache_horarios principal
+    cache_horarios = _horario_cache.get('_main_cache', {})
+    horario = obtener_horario_empleado_base(codigo_frappe, dia_semana, es_primera_quincena, cache_horarios)
+
+    if horario:
+        _horario_cache[cache_key] = horario
+        return horario, True
+
+    return None, False
+
+
 def obtener_horario_empleado(
     codigo_frappe, dia_semana, es_primera_quincena, cache_horarios
 ):
     """
-    Obtiene el horario de un empleado para un día específico desde el caché
+    Obtiene el horario de un empleado para un día específico desde el caché.
+    Versión optimizada con cache LRU para mejorar rendimiento.
+
+    Args:
+        codigo_frappe: Código frappe del empleado
+        dia_semana: Día de la semana (1-7, lunes=1)
+        es_primera_quincena: True si es primera quincena, False si es segunda
+        cache_horarios: Diccionario con la estructura {codigo_frappe: {dia_semana: horario}} o
+                        {codigo_frappe: {es_primera_quincena: {dia_semana: horario}}} para multi-quincena
+
+    Returns:
+        Diccionario con el horario o None si no existe
+    """
+    # Almacenar el cache_horarios principal para acceso posterior
+    global _horario_cache
+    if '_main_cache' not in _horario_cache:
+        _horario_cache['_main_cache'] = cache_horarios
+
+    # Usar una versión simplificada del cache_horarios_id para el cache LRU
+    cache_horarios_id = id(cache_horarios) % 1000  # Simplificar para evitar problemas de memoria
+
+    horario, _ = obtener_horario_empleado_cached(
+        str(codigo_frappe), int(dia_semana), bool(es_primera_quincena), cache_horarios_id
+    )
+
+    return horario
+
+
+def obtener_horario_empleado_base(
+    codigo_frappe, dia_semana, es_primera_quincena, cache_horarios
+):
+    """
+    Función base para obtener horarios sin caché LRU (usada internamente).
 
     Args:
         codigo_frappe: Código frappe del empleado
@@ -317,6 +516,40 @@ def obtener_horario_empleado(
     else:
         # Formato legacy: cache[codigo][dia_semana]
         return codigo_cache.get(dia_semana)
+
+
+def clear_horario_cache():
+    """
+    Limpia el caché de horarios.
+    Útil para liberar memoria o cuando los datos horarios cambian.
+    """
+    global _horario_cache
+    _horario_cache.clear()
+    obtener_horario_empleado_cached.cache_clear()
+    logger.info("✅ Caché de horarios limpiado")
+
+
+def get_cache_stats():
+    """
+    Retorna estadísticas del caché de horarios.
+
+    Returns:
+        Dict con información del estado del caché
+    """
+    global _horario_cache
+
+    cache_info = obtener_horario_empleado_cached.cache_info()
+
+    return {
+        'lru_cache': {
+            'hits': cache_info.hits,
+            'misses': cache_info.misses,
+            'current_size': cache_info.currsize,
+            'max_size': cache_info.maxsize,
+            'hit_ratio': cache_info.hits / (cache_info.hits + cache_info.misses) if (cache_info.hits + cache_info.misses) > 0 else 0
+        },
+        'local_cache_size': len(_horario_cache)
+    }
 
 
 # Función auxiliar para pruebas

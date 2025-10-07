@@ -94,6 +94,60 @@ UMBRAL_FALTA_INJUSTIFICADA_MINUTOS = 60
 # grace period after the scheduled exit time will be assigned to the previous day's shift
 # instead of the next calendar day. Default: 59 minutes (covers the entire hour)
 GRACE_MINUTES = 59
+class BusinessRules:
+    """Centralized business rules configuration for attendance processing."""
+    
+    # Tardiness forgiveness rule configuration
+    PERDONAR_TAMBIEN_FALTA_INJUSTIFICADA = False
+    
+    # Early departure detection configuration
+    TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS = 15
+    
+    # Tardiness and absence thresholds (in minutes)
+    TOLERANCIA_RETARDO_MINUTOS = 15
+    UMBRAL_FALTA_INJUSTIFICADA_MINUTOS = 60
+    
+    # Midnight crossing shift grace period (in minutes)
+    # For shifts that cross midnight (e.g., 18:00 → 02:00), any check-in within this
+    # grace period after the scheduled exit time will be assigned to the previous day's shift
+    # instead of the next calendar day. Default: 59 minutes (covers the entire hour)
+    GRACE_MINUTES = 59
+    
+    # Break time calculation rules
+    MIN_CHECKINS_FOR_BREAK = 4  # Minimum number of check-ins to detect breaks
+    DEFAULT_BREAK_DEDUCTION = 1  # Default break time deduction in hours
+    
+    # Work time validation rules
+    MIN_WORK_HOURS_FOR_FORGIVENESS = 0.1  # Minimum hours worked to qualify for tardiness forgiveness
+    MAX_WORKED_HOURS_PER_DAY = 16  # Maximum reasonable worked hours per day
+    
+    # Data quality thresholds
+    MAX_CLOCK_IN_DIFFERENCE_MINUTES = 12 * 60  # Maximum reasonable time between consecutive check-ins
+    MIN_CLOCK_IN_INTERVAL_MINUTES = 1  # Minimum time between consecutive check-ins
+    
+    @classmethod
+    def validate_tardiness_thresholds(cls) -> None:
+        """Validate that tardiness thresholds are logically consistent."""
+        if cls.TOLERANCIA_RETARDO_MINUTOS < 0:
+            raise ValueError("TOLERANCIA_RETARDO_MINUTOS must be non-negative")
+        if cls.UMBRAL_FALTA_INJUSTIFICADA_MINUTOS <= cls.TOLERANCIA_RETARDO_MINUTOS:
+            raise ValueError(
+                "UMBRAL_FALTA_INJUSTIFICADA_MINUTOS must be greater than TOLERANCIA_RETARDO_MINUTOS"
+            )
+        if cls.TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS < 0:
+            raise ValueError("TOLERANCIA_SALIDA_ANTICIPADA_MINUTOS must be non-negative")
+    
+    @classmethod
+    def validate_grace_period(cls) -> None:
+        """Validate grace period configuration."""
+        if not (0 <= cls.GRACE_MINUTES <= 120):
+            raise ValueError("GRACE_MINUTES must be between 0 and 120 minutes")
+    
+    @classmethod
+    def validate_all(cls) -> None:
+        """Validate all business rule configurations."""
+        cls.validate_tardiness_thresholds()
+        cls.validate_grace_period()
 
 # ==============================================================================
 # REPORT CONFIGURATION
