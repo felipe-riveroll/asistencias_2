@@ -195,6 +195,24 @@ INSERT INTO Empleados (empleado_id, apellido_materno, apellido_paterno, codigo_c
 (82, 'Moreno', 'Tejeda', 3024, 103, 'Ximena', TRUE)
 ON CONFLICT (empleado_id) DO NOTHING;
 
+-- INSERCIÓN DE PRACTICANTES RIO BLANCO (EMPLEADOS 83-96)
+INSERT INTO Empleados (empleado_id, apellido_materno, apellido_paterno, codigo_checador, codigo_frappe, nombre, tiene_horario_asignado) VALUES
+(83, 'Bustos', 'Hernandez', 5005, 108, 'Jose Emiliano', TRUE),
+(84, 'Garcia', 'Carrera', 5006, 109, 'Kevin Daniel', TRUE),
+(85, 'Garcia', 'Oviedo', 5007, 110, 'Miguel Arturo', TRUE),
+(86, 'Justo', 'Gonzalez', 5008, 111, 'Mario Hiram', TRUE),
+(87, 'Cortes', 'Robles', 5009, 112, 'Max Uriel', TRUE),
+(88, 'Baz', 'Regino', 5010, 113, 'Cristian Yahir', TRUE),
+(89, 'De', 'Jesus', 5011, 114, 'Juana Quirino', TRUE),
+(90, 'Narciso', 'Vazquez', 5012, 115, 'Oscar Alexis', TRUE),
+(91, 'Cruz', 'Fernandez', 5013, 116, 'Angel De Jesus', TRUE),
+(92, 'Beltran', 'Delgado', 5014, 117, 'Valeria', TRUE),
+(93, 'Lazaro', 'Toxean', 5015, 118, 'Anthony', TRUE),
+(94, 'Hernandez', 'Tello', 5016, 119, 'Pablo', TRUE),
+(95, 'Apale', 'Zepahua', 5017, 120, 'Ismael', TRUE),
+(96, 'Dominguez', 'Torres', 5018, 121, 'Humberto', TRUE)
+ON CONFLICT (empleado_id) DO NOTHING;
+
 -- Ajustar secuencia de empleados
 SELECT setval(pg_get_serial_sequence('empleados','empleado_id'),
               COALESCE((SELECT MAX(empleado_id) FROM empleados),1));
@@ -510,24 +528,39 @@ INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_
 
 -- Marisol Rivera Martínez (Rio Blanco)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, dia_especifico_id, hora_entrada_especifica, hora_salida_especifica) VALUES
-(55, 4, 1, '09:00:00', '17:00:00'),
-(55, 4, 4, '09:00:00', '17:00:00'),
-(55, 4, 6, '09:00:00', '13:00:00');
+  (55, 4, 1, '09:00:00', '17:00:00'),  -- Lunes
+  (55, 4, 2, '09:00:00', '17:00:00'),  -- Martes
+  (55, 4, 3, '09:00:00', '17:00:00'),  -- Miércoles
+  (55, 4, 4, '09:00:00', '17:00:00'),  -- Jueves
+  (55, 4, 5, '09:00:00', '17:00:00'),  -- Viernes
+  (55, 4, 6, '09:00:00', '13:00:00');  -- Sábado
 
 -- José Carlos Cortes García (Rio Blanco)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, dia_especifico_id, hora_entrada_especifica, hora_salida_especifica) VALUES
-(56, 4, 1, '09:00:00', '17:00:00'),
-(56, 4, 4, '09:00:00', '13:00:00');
+  (56, 4, 1, '09:00:00', '17:00:00'),
+  (56, 4, 2, '09:00:00', '17:00:00'),
+  (56, 4, 3, '09:00:00', '17:00:00'),
+  (56, 4, 4, '09:00:00', '17:00:00'),
+  (56, 4, 5, '09:00:00', '17:00:00'),
+  (56, 4, 6, '09:00:00', '13:00:00');
 
 -- Ian Natanael Méndez Cruz (Rio Blanco)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, dia_especifico_id, hora_entrada_especifica, hora_salida_especifica) VALUES
-(57, 4, 1, '09:00:00', '17:00:00'),
-(57, 4, 4, '09:00:00', '13:00:00');
+  (57, 4, 1, '09:00:00', '17:00:00'),
+  (57, 4, 2, '09:00:00', '17:00:00'),
+  (57, 4, 3, '09:00:00', '17:00:00'),
+  (57, 4, 4, '09:00:00', '17:00:00'),
+  (57, 4, 5, '09:00:00', '17:00:00'),
+  (57, 4, 6, '09:00:00', '13:00:00');
 
 -- Miguel Ángel Nazario García Hernández (Rio Blanco)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, dia_especifico_id, hora_entrada_especifica, hora_salida_especifica) VALUES
-(58, 4, 1, '09:00:00', '17:00:00'),
-(58, 4, 6, '09:00:00', '13:00:00');
+  (58, 4, 1, '09:00:00', '17:00:00'),
+  (58, 4, 2, '09:00:00', '17:00:00'),
+  (58, 4, 3, '09:00:00', '17:00:00'),
+  (58, 4, 4, '09:00:00', '17:00:00'),
+  (58, 4, 5, '09:00:00', '17:00:00'),
+  (58, 4, 6, '09:00:00', '13:00:00');
 
 -- Amelia Contreras Serrano (Villas)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
@@ -650,6 +683,67 @@ INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_
 -- Ximena Moreno Tejeda (Nave)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
 (82, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+
+-- =====================================================================
+-- ASIGNACIONES DE HORARIO: PRACTICANTES RIO BLANCO (EMPLEADOS 83-96)
+-- Horario: Lunes a Viernes 09:00-13:00
+-- =====================================================================
+
+-- Jose Emiliano Bustos Hernandez (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(83, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Kevin Daniel Garcia Carrera (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(84, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Miguel Arturo Garcia Oviedo (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(85, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Mario Hiram Justo Gonzalez (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(86, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Max Uriel Cortes Robles (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(87, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Cristian Yahir Baz Regino (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(88, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Juana Quirino De Jesus (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(89, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Oscar Alexis Narciso Vazquez (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(90, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Angel De Jesus Cruz Fernandez (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(91, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Valeria Beltran Delgado (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(92, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Anthony Lazaro Toxean (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(93, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Pablo Hernandez Tello (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(94, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Ismael Apale Zepahua (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(95, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
+
+-- Humberto Dominguez Torres (Rio Blanco)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(96, 4, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-13:00'));
 
 
 -- =====================================================================
