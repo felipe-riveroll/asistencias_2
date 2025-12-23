@@ -105,7 +105,8 @@ INSERT INTO Horario (hora_entrada, hora_salida, cruza_medianoche, descripcion_ho
 ('08:00:00', '16:00:00', FALSE, '08:00-16:00'), ('08:00:00', '15:00:00', FALSE, '08:00-15:00'),
 ('16:45:00', '03:00:00', TRUE, '16:45-03:00'), ('10:00:00', '17:00:00', FALSE, '10:00-17:00'),
 ('16:10:00', '08:00:00', TRUE, '16:10-08:00'), ('11:00:00', '17:00:00', FALSE, '11:00-17:00'),
-('12:00:00', '17:00:00', FALSE, '12:00-17:00'), ('12:00:00', '16:00:00', FALSE, '12:00-16:00')
+('12:00:00', '17:00:00', FALSE, '12:00-17:00'), ('12:00:00', '16:00:00', FALSE, '12:00-16:00'),
+('08:00:00', '12:00:00', FALSE, '08:00-12:00')
 ON CONFLICT (descripcion_horario) DO NOTHING;
 
 -- INSERCIÓN DE EMPLEADOS (DATOS ACTUALIZADOS)
@@ -170,7 +171,7 @@ INSERT INTO Empleados (empleado_id, apellido_materno, apellido_paterno, codigo_c
 (58, 'Hernández', 'García', 5001, 68, 'Miguel Ángel Nazario', true),
 (59, 'Serrano', 'Contreras', 2516, 77, 'Amelia', true),
 (60, 'Vazquez', 'Torres', 2517, 78, 'Lizbeth', true),
-(61, 'Muñoz', 'Mendoza', 2518, 79, 'Juan Jesus', true),
+(61, 'Muñíz', 'Mendoza', 2518, 79, 'Juan Jesús', true),
 (62, 'Hernández', 'Morales', 2522, 84, 'Stephany', TRUE),
 (63, 'Tlaxcalteca', 'Coyotl', 2523, 85, 'Brenda', TRUE),
 (64, 'García', 'Rojas', 2524, 86, 'Lorenzo', TRUE),
@@ -188,7 +189,10 @@ INSERT INTO Empleados (empleado_id, apellido_materno, apellido_paterno, codigo_c
 (76,'Gomez','Coeto',3022,98,'Jose Rodolfo', TRUE),
 (77,'Ramirez','Portugal',2528,99,'Jair', TRUE),
 (78, 'Díaz', 'Andrade', 2529, 100, 'Abigail', TRUE),
-(79, 'Martínez', 'Pérez', 2530, 101, 'Deborah', TRUE)
+(79, 'Martínez', 'Pérez', 2530, 101, 'Deborah', TRUE),
+(80, 'Cortés', 'Méndez', 2531, 102, 'Juan Diego', TRUE),
+(81, 'Méndez', 'Luna', 3019, 90, 'Erick', TRUE),
+(82, 'Moreno', 'Tejeda', 3024, 103, 'Ximena', TRUE)
 ON CONFLICT (empleado_id) DO NOTHING;
 
 -- Ajustar secuencia de empleados
@@ -623,9 +627,9 @@ INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
 (76, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
 
--- Jair Ramirez Portugal (Nave)
+-- Jair Ramirez Portugal (Temporalmente en 31pte después en Nave)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
-(77, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '12:00-17:00'));
+(77, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '12:00-17:00'));
 
 -- Abigail Diaz Andrade (31 pte)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
@@ -634,6 +638,19 @@ INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_
 -- Deborah Maretínez Pérez (31 pte)
 INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
 (79, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '12:00-16:00'));
+
+-- Juan Diego Cortés Méndez (temporalmente en 31 pte - depues en nave)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(80, 1, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '08:00-12:00'));
+
+-- Erick Méndez Luna (Nave)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(81, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+
+-- Ximena Moreno Tejeda (Nave)
+INSERT INTO AsignacionHorario (empleado_id, sucursal_id, tipo_turno_id, horario_id) VALUES
+(82, 2, (SELECT tipo_turno_id FROM TipoTurno WHERE descripcion = 'L-V'), (SELECT horario_id FROM Horario WHERE descripcion_horario = '09:00-17:00'));
+
 
 -- =====================================================================
 -- 🚀 SECCIÓN DE FUNCIONES

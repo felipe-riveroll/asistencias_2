@@ -61,8 +61,13 @@ class AttendanceReportManager:
             logger.info("Paso 1: Obteniendo registros de entrada/salida...")
             checkin_records = self.api_client.fetch_checkins(start_date, end_date, device_filter)
             if not checkin_records:
-                logger.error("No se obtuvieron registros de entrada/salida. Saliendo.")
-                return {"success": False, "error": "No se encontraron registros de entrada/salida"}
+                logger.error(f"No se obtuvieron registros de entrada/salida para el dispositivo '{device_filter}' en el período {start_date} al {end_date}.")
+                logger.error("Posibles causas:")
+                logger.error("  1. No hay registros de entrada/salida para este dispositivo en el período especificado")
+                logger.error("  2. El filtro de dispositivo no coincide con ningún dispositivo en el sistema")
+                logger.error("  3. Los dispositivos de esta sucursal tienen nombres diferentes")
+                logger.error("Sugerencia: Verifica el filtro de dispositivo o intenta con un período diferente.")
+                return {"success": False, "error": f"No se encontraron registros de entrada/salida para el dispositivo '{device_filter}' en el período {start_date} al {end_date}"}
 
             codigos_empleados_api = obtener_codigos_empleados_api(checkin_records)
 
@@ -100,9 +105,14 @@ class AttendanceReportManager:
             )
             
             if not any(horarios_por_quincena.values()):
-                logger.error(f"No se encontraron horarios para la sucursal {sucursal}.")
+                logger.error(f"No se encontraron horarios para la sucursal '{sucursal}'.")
+                logger.error("Posibles causas:")
+                logger.error("  1. No hay empleados asignados a esta sucursal en la base de datos")
+                logger.error("  2. Los empleados no tienen horarios configurados")
+                logger.error("  3. No hay empleados que coincidan con los códigos de la API")
+                logger.error("Sugerencia: Verifica que haya empleados con horarios asignados en la base de datos.")
                 conn_pg.close()
-                return {"success": False, "error": f"No hay horarios para la sucursal {sucursal}"}
+                return {"success": False, "error": f"No hay horarios para la sucursal '{sucursal}'. Verifica que los empleados tengan horarios asignados en la base de datos."}
 
             cache_horarios = mapear_horarios_por_empleado_multi(horarios_por_quincena)
             conn_pg.close()
@@ -176,23 +186,27 @@ class AttendanceReportManager:
 def main():
     """
     Main function that runs the attendance report with configurable parameters.
-    Modify these parameters as needed for your specific requirements.
+    Can be run with command line arguments or by modifying the default values.
     """
-    # ==========================================================================
-    # CONFIGURATION SECTION - MODIFY THESE PARAMETERS AS NEEDED
-    # ==========================================================================
+    import argparse
     
-    # Date range for the report
-    start_date = "2025-07-01"
-    end_date = "2025-07-31"
+    parser = argparse.ArgumentParser(description='Generar reporte de asistencia')
+    parser.add_argument('--start', type=str, default="2025-07-01",
+                       help='Fecha de inicio (YYYY-MM-DD)')
+    parser.add_argument('--end', type=str, default="2025-07-31",
+                       help='Fecha de fin (YYYY-MM-DD)')
+    parser.add_argument('--sucursal', type=str, default="Rio Blanco",
+                       help='Nombre de la sucursal')
+    parser.add_argument('--device', type=str, default="%Rio%",
+                       help='Filtro de dispositivo (ej: %Rio%, %RB%, %Blanco%)')
     
-    # Branch and device filter
-    sucursal = "31pte"
-    device_filter = "%31%"
+    args = parser.parse_args()
     
-    # ==========================================================================
-    # END CONFIGURATION SECTION
-    # ==========================================================================
+    # Usar valores de línea de comandos o valores por defecto
+    start_date = args.start
+    end_date = args.end
+    sucursal = args.sucursal
+    device_filter = args.device
     
     # Create and run the report manager
     manager = AttendanceReportManager()
@@ -210,6 +224,7 @@ def main():
         logger.info("="*60)
         logger.info(f"Período: {start_date} al {end_date}")
         logger.info(f"Sucursal: {sucursal}")
+        logger.info(f"Filtro de dispositivo: {device_filter}")
         logger.info(f"Empleados procesados: {result.get('employees_processed', 'N/A')}")
         logger.info(f"Días procesados: {result.get('days_processed', 'N/A')}")
         logger.info("Archivos generados:")
@@ -227,7 +242,11 @@ def main():
         logger.error("FALLÓ LA GENERACIÓN DEL REPORTE")
         logger.error("="*60)
         logger.error(f"Error: {result.get('error', 'Error desconocido')}")
+        logger.error(f"Sucursal: {sucursal}")
+        logger.error(f"Filtro de dispositivo: {device_filter}")
+        logger.error(f"Período: {start_date} al {end_date}")
         logger.error("Por favor verifica tu configuración e intenta de nuevo.")
+        logger.error("💡 Sugerencia: Ejecuta 'python rio_blanco_setup.py' para obtener ayuda.")
         sys.exit(1)
 
 
